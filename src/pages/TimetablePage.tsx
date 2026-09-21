@@ -129,6 +129,7 @@ export const TimetablePage: React.FC = () => {
   const [formExtraName, setFormExtraName] = useState('');
   const [formExtraNote, setFormExtraNote] = useState('');
   const [formExtraWeekdays, setFormExtraWeekdays] = useState<WeekdayNumber[]>([2]);
+  const [formExtraSession, setFormExtraSession] = useState<SessionType>('evening');
   const [formExtraStartTime, setFormExtraStartTime] = useState('17:15');
   const [formExtraEndTime, setFormExtraEndTime] = useState('19:15');
   const [formExtraColor, setFormExtraColor] = useState('#DB2777');
@@ -141,17 +142,40 @@ export const TimetablePage: React.FC = () => {
     setFormExtraWeekdays([...extra.weekdays]);
     setFormExtraStartTime(extra.start_time);
     setFormExtraEndTime(extra.end_time);
+    const sess: SessionType =
+      extra.session || (extra.start_time < '12:00' ? 'morning' : extra.start_time < '17:00' ? 'afternoon' : 'evening');
+    setFormExtraSession(sess);
     setFormExtraColor(extra.color || '#DB2777');
   };
 
-  const openCreateExtraModal = (defaultWeekday?: WeekdayNumber) => {
+  const openCreateExtraModal = (
+    defaultWeekday?: WeekdayNumber,
+    defaultCa?: 1 | 2,
+    defaultSession?: SessionType
+  ) => {
     setEditingExtra(null);
     setIsNewExtraModalOpen(true);
     setFormExtraName('');
     setFormExtraNote('');
     setFormExtraWeekdays(defaultWeekday ? [defaultWeekday] : [4, 7]);
-    setFormExtraStartTime('17:15');
-    setFormExtraEndTime('19:15');
+
+    const sess =
+      defaultSession || (defaultCa ? 'evening' : defaultWeekday === 8 ? 'morning' : 'evening');
+    setFormExtraSession(sess);
+
+    if (sess === 'morning') {
+      setFormExtraStartTime('08:00');
+      setFormExtraEndTime('10:00');
+    } else if (sess === 'afternoon') {
+      setFormExtraStartTime('14:00');
+      setFormExtraEndTime('16:00');
+    } else if (defaultCa === 2) {
+      setFormExtraStartTime('19:15');
+      setFormExtraEndTime('21:15');
+    } else {
+      setFormExtraStartTime('17:15');
+      setFormExtraEndTime('19:15');
+    }
     setFormExtraColor('#DB2777');
   };
 
@@ -159,11 +183,16 @@ export const TimetablePage: React.FC = () => {
     e.preventDefault();
     if (!formExtraName.trim() || formExtraWeekdays.length === 0) return;
 
+    const deducedSession: SessionType =
+      formExtraSession ||
+      (formExtraStartTime < '12:00' ? 'morning' : formExtraStartTime < '17:00' ? 'afternoon' : 'evening');
+
     if (editingExtra) {
       storage.updateExtraSchedule(editingExtra.id, {
         name: formExtraName.trim(),
         note: formExtraNote.trim() || undefined,
         weekdays: formExtraWeekdays,
+        session: deducedSession,
         start_time: formExtraStartTime,
         end_time: formExtraEndTime,
         color: formExtraColor,
@@ -173,7 +202,7 @@ export const TimetablePage: React.FC = () => {
         child_id: activeChild.id,
         name: formExtraName.trim(),
         category: 'other',
-        session: 'evening',
+        session: deducedSession,
         weekdays: formExtraWeekdays,
         start_time: formExtraStartTime,
         end_time: formExtraEndTime,
@@ -853,6 +882,58 @@ export const TimetablePage: React.FC = () => {
                       const slotKey = `morning-${weekday}-${period}`;
                       const isDropTarget = dropTargetKey === slotKey;
 
+                      // Check if day has school entries in morning
+                      const hasSchoolEntryInMorning = activeEntries.some(
+                        (e) => e.session === 'morning' && e.weekday === weekday
+                      );
+                      const morningExtra = extraList.find(
+                        (ex) =>
+                          ex.weekdays.includes(weekday) &&
+                          (ex.session === 'morning' || ex.start_time < '12:00')
+                      );
+
+                      if (!hasSchoolEntryInMorning && morningExtra) {
+                        if (idx === 0) {
+                          const meta = getSubjectMeta(morningExtra.name);
+                          return (
+                            <td
+                              key={weekday}
+                              rowSpan={4}
+                              onClick={() => openEditExtraModal(morningExtra)}
+                              title="Lớp học thêm buổi sáng — Nhấp để chỉnh sửa"
+                              className="p-1 border-2 border-white align-middle cursor-pointer group relative bg-amber-50/20"
+                            >
+                              <div
+                                className={`p-2 rounded-lg border ${meta.bgClass} ${meta.borderClass} text-center min-h-[140px] flex flex-col justify-center transition-all group-hover:shadow-md group-hover:scale-[1.01] relative`}
+                              >
+                                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-80 text-slate-400 hover:text-primary transition-opacity">
+                                  <Edit3 className="w-3 h-3" />
+                                </div>
+                                <div className="text-[10px] font-bold text-amber-700 uppercase tracking-wider mb-1 flex items-center justify-center gap-1">
+                                  <span>☀️</span>
+                                  <span>Học thêm sáng</span>
+                                </div>
+                                <div className={`text-xs font-bold ${meta.textClass} leading-tight`}>
+                                  {morningExtra.name}
+                                </div>
+                                <div className="text-[10px] text-slate-500 font-mono mt-1 font-semibold">
+                                  {morningExtra.start_time} – {morningExtra.end_time}
+                                </div>
+                                {morningExtra.note && (
+                                  <div
+                                    className="text-[9px] text-amber-900 bg-amber-100/90 px-1 py-0.5 rounded border border-amber-200/70 mt-1.5 truncate max-w-full font-normal leading-tight text-center"
+                                    title={`Ghi chú: ${morningExtra.note}`}
+                                  >
+                                    📝 {morningExtra.note}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          );
+                        }
+                        return null;
+                      }
+
                       if (!entry) {
                         return (
                           <td
@@ -860,8 +941,14 @@ export const TimetablePage: React.FC = () => {
                             onDragOver={isEditMode ? (e) => handleDragOver(e, slotKey) : undefined}
                             onDragLeave={isEditMode ? handleDragLeave : undefined}
                             onDrop={isEditMode ? (e) => handleDrop(e, weekday, 'morning', period) : undefined}
-                            onClick={() => openSlotEditor(weekday, 'morning', period)}
-                            title="Nhấp để thêm môn học"
+                            onClick={() => {
+                              if (weekday === 8) {
+                                openCreateExtraModal(8, undefined, 'morning');
+                              } else {
+                                openSlotEditor(weekday, 'morning', period);
+                              }
+                            }}
+                            title={weekday === 8 ? 'Nhấp để thêm lớp học thêm buổi sáng' : 'Nhấp để thêm môn học'}
                             className={`p-1.5 text-center border-2 border-white transition-colors cursor-pointer hover:bg-blue-50/60 ${
                               isEditMode
                                 ? 'border-dashed border-blue-200'
@@ -985,6 +1072,59 @@ export const TimetablePage: React.FC = () => {
                       const slotKey = `afternoon-${weekday}-${period}`;
                       const isDropTarget = dropTargetKey === slotKey;
 
+                      // Check if day has school entries in afternoon
+                      const hasSchoolEntryInAfternoon = activeEntries.some(
+                        (e) => e.session === 'afternoon' && e.weekday === weekday
+                      );
+                      const afternoonExtra = extraList.find(
+                        (ex) =>
+                          ex.weekdays.includes(weekday) &&
+                          (ex.session === 'afternoon' ||
+                            (ex.start_time >= '12:00' && ex.start_time < '17:00'))
+                      );
+
+                      if (!hasSchoolEntryInAfternoon && afternoonExtra) {
+                        if (idx === 0) {
+                          const meta = getSubjectMeta(afternoonExtra.name);
+                          return (
+                            <td
+                              key={weekday}
+                              rowSpan={3}
+                              onClick={() => openEditExtraModal(afternoonExtra)}
+                              title="Lớp học thêm buổi chiều — Nhấp để chỉnh sửa"
+                              className="p-1 border-2 border-white align-middle cursor-pointer group relative bg-sky-50/20"
+                            >
+                              <div
+                                className={`p-2 rounded-lg border ${meta.bgClass} ${meta.borderClass} text-center min-h-[110px] flex flex-col justify-center transition-all group-hover:shadow-md group-hover:scale-[1.01] relative`}
+                              >
+                                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-80 text-slate-400 hover:text-primary transition-opacity">
+                                  <Edit3 className="w-3 h-3" />
+                                </div>
+                                <div className="text-[10px] font-bold text-sky-700 uppercase tracking-wider mb-1 flex items-center justify-center gap-1">
+                                  <span>☁️</span>
+                                  <span>Học thêm chiều</span>
+                                </div>
+                                <div className={`text-xs font-bold ${meta.textClass} leading-tight`}>
+                                  {afternoonExtra.name}
+                                </div>
+                                <div className="text-[10px] text-slate-500 font-mono mt-1 font-semibold">
+                                  {afternoonExtra.start_time} – {afternoonExtra.end_time}
+                                </div>
+                                {afternoonExtra.note && (
+                                  <div
+                                    className="text-[9px] text-amber-900 bg-amber-100/90 px-1 py-0.5 rounded border border-amber-200/70 mt-1.5 truncate max-w-full font-normal leading-tight text-center"
+                                    title={`Ghi chú: ${afternoonExtra.note}`}
+                                  >
+                                    📝 {afternoonExtra.note}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          );
+                        }
+                        return null;
+                      }
+
                       if (!entry) {
                         return (
                           <td
@@ -992,8 +1132,14 @@ export const TimetablePage: React.FC = () => {
                             onDragOver={isEditMode ? (e) => handleDragOver(e, slotKey) : undefined}
                             onDragLeave={isEditMode ? handleDragLeave : undefined}
                             onDrop={isEditMode ? (e) => handleDrop(e, weekday, 'afternoon', period) : undefined}
-                            onClick={() => openSlotEditor(weekday, 'afternoon', period)}
-                            title="Nhấp để thêm môn học"
+                            onClick={() => {
+                              if (weekday === 8) {
+                                openCreateExtraModal(8, undefined, 'afternoon');
+                              } else {
+                                openSlotEditor(weekday, 'afternoon', period);
+                              }
+                            }}
+                            title={weekday === 8 ? 'Nhấp để thêm lớp học thêm buổi chiều' : 'Nhấp để thêm môn học'}
                             className={`p-1.5 text-center border-2 border-white transition-colors cursor-pointer hover:bg-blue-50/60 ${
                               isEditMode
                                 ? 'border-dashed border-blue-200'
@@ -1110,14 +1256,19 @@ export const TimetablePage: React.FC = () => {
                       {times}
                     </td>
                     {weekdays.map((weekday) => {
-                      const extra = extraList.find((ex) => {
-                        if (!ex.weekdays.includes(weekday)) return false;
-                        if (idx === 0 && ex.start_time.startsWith('17')) return true;
-                        if (
-                          idx === 1 &&
-                          (ex.start_time.startsWith('19') || (ex.start_time.startsWith('08') && weekday === 8))
-                        )
-                          return true;
+                      const isEvening = (ex: ExtraSchedule) => {
+                        if (ex.session === 'morning' || ex.session === 'afternoon') return false;
+                        const hour = parseInt(ex.start_time.split(':')[0], 10);
+                        return hour >= 16;
+                      };
+
+                      const dayEveningExtras = extraList.filter(
+                        (ex) => ex.weekdays.includes(weekday) && isEvening(ex)
+                      );
+
+                      const extra = dayEveningExtras.find((ex) => {
+                        if (idx === 0) return ex.start_time < '19:15';
+                        if (idx === 1) return ex.start_time >= '19:15';
                         return false;
                       });
 
@@ -1125,8 +1276,8 @@ export const TimetablePage: React.FC = () => {
                         return (
                           <td
                             key={weekday}
-                            onClick={() => openCreateExtraModal(weekday)}
-                            title="Nhấp để thêm lớp học thêm buổi tối"
+                            onClick={() => openCreateExtraModal(weekday, (idx + 1) as 1 | 2, 'evening')}
+                            title={`Nhấp để thêm lớp học thêm Ca ${period} (${times})`}
                             className="p-1.5 text-center text-slate-300 border-2 border-white hover:bg-indigo-50/50 cursor-pointer transition-colors"
                           >
                             —
@@ -1857,7 +2008,9 @@ export const TimetablePage: React.FC = () => {
           <div className="bg-app-card border border-app-border rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-app-border">
               <h3 className="text-base font-bold text-content-primary flex items-center gap-2">
-                <span className="text-xl">🌙</span>
+                <span className="text-xl">
+                  {formExtraSession === 'morning' ? '☀️' : formExtraSession === 'afternoon' ? '☁️' : '🌙'}
+                </span>
                 <span>{editingExtra ? 'Chỉnh Sửa Lớp Học Thêm' : 'Thêm Lớp Học Thêm Mới'}</span>
               </h3>
               <button
@@ -1917,6 +2070,55 @@ export const TimetablePage: React.FC = () => {
                 </div>
               </div>
 
+              {/* Buổi trong ngày */}
+              <div className="space-y-1">
+                <label className="font-bold text-content-primary">Buổi trong ngày *</label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {(
+                    [
+                      { id: 'morning', label: '☀️ Sáng', hint: '08:00 – 10:00' },
+                      { id: 'afternoon', label: '☁️ Chiều', hint: '14:00 – 16:00' },
+                      { id: 'evening', label: '🌙 Tối', hint: '17:15 – 21:15' },
+                    ] as const
+                  ).map((s) => {
+                    const isSelected = formExtraSession === s.id;
+                    return (
+                      <button
+                        type="button"
+                        key={s.id}
+                        onClick={() => {
+                          setFormExtraSession(s.id);
+                          if (s.id === 'morning') {
+                            setFormExtraStartTime('08:00');
+                            setFormExtraEndTime('10:00');
+                          } else if (s.id === 'afternoon') {
+                            setFormExtraStartTime('14:00');
+                            setFormExtraEndTime('16:00');
+                          } else {
+                            setFormExtraStartTime('17:15');
+                            setFormExtraEndTime('19:15');
+                          }
+                        }}
+                        className={`p-2 rounded-lg text-xs font-bold text-center border transition-all ${
+                          isSelected
+                            ? 'bg-primary text-primary-foreground border-primary shadow-xs'
+                            : 'bg-app-surface text-content-secondary border-app-border hover:border-primary/40'
+                        }`}
+                      >
+                        <div>{s.label}</div>
+                        <div
+                          className={`text-[10px] font-normal ${
+                            isSelected ? 'text-primary-foreground/80' : 'text-content-muted'
+                          }`}
+                        >
+                          {s.hint}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* Thời gian */}
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
@@ -1925,7 +2127,13 @@ export const TimetablePage: React.FC = () => {
                     type="time"
                     required
                     value={formExtraStartTime}
-                    onChange={(e) => setFormExtraStartTime(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFormExtraStartTime(val);
+                      if (val < '12:00') setFormExtraSession('morning');
+                      else if (val < '17:00') setFormExtraSession('afternoon');
+                      else setFormExtraSession('evening');
+                    }}
                     className="w-full px-3 py-1.5 rounded-lg border border-app-border bg-app-bg text-content-primary focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>

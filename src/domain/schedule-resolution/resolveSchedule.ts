@@ -7,6 +7,7 @@ import {
   ResolvedDailySchedule,
   DailyScheduleItem,
   WeekdayNumber,
+  SessionType,
 } from '@/domain/types';
 
 export function getVietnameseWeekday(dateStr: string): WeekdayNumber {
@@ -153,13 +154,22 @@ export function resolveSchedule(
       (exc) => exc.subject === extra.name && exc.type === 'cancel'
     );
 
+    const effectiveSession: SessionType =
+      extra.session && (
+        (extra.session === 'morning' && extra.start_time < '12:00') ||
+        (extra.session === 'afternoon' && extra.start_time >= '12:00' && extra.start_time < '17:00') ||
+        (extra.session === 'evening' && extra.start_time >= '17:00')
+      )
+        ? extra.session
+        : (extra.start_time < '12:00' ? 'morning' : extra.start_time < '17:00' ? 'afternoon' : 'evening');
+
     return {
       id: `extra-${extra.id}`,
       source: 'extra',
       title: extra.name,
       subtitle: extra.category,
       timeDisplay: `${extra.start_time} – ${extra.end_time}`,
-      session: extra.session,
+      session: effectiveSession,
       note: extra.note,
       color: extra.color,
       isExtra: true,

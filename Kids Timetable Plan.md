@@ -2206,3 +2206,55 @@ The global Design System and Theme System sit across all domains:
 The long-term product goal is:
 
 **One place where parents can see what their children need to do, what they have achieved, what they are preparing for, and how their recorded performance has changed over the years — presented through one beautiful, consistent, themeable interface.**
+
+---
+
+# 55. Milestone & Exam Roadmap — Kanban & Timeline Schedule (Learning Milestones as Project Management)
+
+Parents need a project-management style overview of the school year to know **where their child currently is** and **upcoming critical academic milestones**.
+
+### 55.1 Core Milestone Concept
+
+A school year consists of distinct academic milestones:
+- **Diagnostic / Survey Tests (Thi khảo sát đầu năm / đầu kỳ)**: Evaluates starting point.
+- **Midterm Exams (Thi giữa kỳ HK1, HK2)**: Mid-semester assessment.
+- **Semester Final Exams (Thi học kỳ HK1, HK2)**: High-weight formal tests.
+- **Gifted / Olympic / Cambridge / IELTS Junior competitions**: Special contests.
+
+### 55.2 Two Complementary Views
+
+1. **Kanban Board (Agile Milestones)**:
+   - **📋 Sắp tới / Lên kế hoạch (Planned / Upcoming)**: Milestones in upcoming months with target scores and preparation checklists.
+   - **🔥 Đang diễn ra trong tháng (Active / This Month)**: Current focal milestones with D-Day countdown (`D-12 ngày`, `D-3 ngày`).
+   - **✅ Đã hoàn thành & Đã có kết quả (Completed & Graded)**: Finished milestones displaying final score vs. target and teacher feedback.
+
+2. **Timeline Schedule Roadmap (Gantt-like Overview)**:
+   - Horizontal chronological bar from September to May.
+   - Distinct **"📍 HÔM NAY / NOW"** marker line visually showing where the student is in the school year journey.
+   - Milestone nodes plotted chronologically with color-coded status badges and days-remaining counters.
+
+---
+
+# 56. Extra Class Attendance Tracking & Individual Class Tuition Management
+
+Each extra class has different fees (e.g. Toán: 150.000đ/buổi, Tiếng Anh IELTS: 250.000đ/buổi, Luyện thi HSG: 300.000đ/buổi). Parents need an automated, clear monthly summary of classes attended and the exact tuition owed to each teacher.
+
+### 56.1 Per-Class Fee Configuration (Setup đơn giá riêng cho từng lớp)
+
+- Every `ExtraSchedule` has its own `fee_per_session` field (VNĐ/buổi).
+- Optional `pricing_model`: `per_session` (theo buổi) or `monthly_fixed` (khoán cố định/tháng).
+- Khi tạo/sửa lớp học thêm hoặc trong bảng quản lý học phí của phụ huynh, cha mẹ có thể nhập/cập nhật đơn giá này.
+- **NGUYÊN TẮC CỐT LÕI (Bảo vệ tâm lý trẻ nhỏ)**: Số tiền và học phí **CHỈ ĐƯỢC HIỂN THỊ Ở DUY NHẤT 1 NƠI** — khu vực Quản lý Học phí của Phụ huynh (Tab Bảng tính học phí trong trang Quản lý học thêm). **TUYỆT ĐỐI KHÔNG** hiển thị tiền học, giá tiền hay tag chi phí trên Thời khóa biểu, Dashboard hay bất kỳ màn hình nào các con theo dõi hàng ngày, giúp các con học tập vô tư, không bận tâm về tiền bạc.
+
+### 56.2 Monthly Attendance & Tuition Billing Summary (Bảng tính học phí hàng tháng)
+
+- Filter by Year & Month (e.g., Tháng 09/2026).
+- Automatically calculate the number of scheduled/attended sessions for each class within the selected month based on recurring weekdays and effective dates (accounting for any holidays/exceptions).
+- **Tuition Formula**:
+  $$\text{Tổng tiền lớp} = \text{Số buổi học trong tháng} \times \text{Đơn giá riêng của lớp (fee\_per\_session)}$$
+- Inline adjustment: Parents can quickly adjust session count or fee override directly on the billing table if there was a makeup class, illness absence, or special discount.
+- **Teacher Payment Tracking**:
+  - Group total amount by Teacher / Class.
+  - Payment status: `⏳ Chưa chuyển khoản` / `✅ Đã thanh toán`.
+  - Payment details: Date paid, transaction reference/note, and teacher's bank information for 1-tap copy/QR.
+

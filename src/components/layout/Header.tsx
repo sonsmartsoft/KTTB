@@ -3,6 +3,7 @@ import { useChild } from '@/context/ChildContext';
 import { useTheme } from '@/context/ThemeContext';
 import { ChevronDown, Palette, Check } from 'lucide-react';
 import { AppTheme } from '@/domain/types';
+import { formatChildDisplayName } from '@/lib/childNameHelper';
 
 export const Header: React.FC = () => {
   const { childrenList, activeChild, setActiveChildId } = useChild();
@@ -34,7 +35,7 @@ export const Header: React.FC = () => {
           </div>
           <div>
             <div className="text-xs font-bold text-content-primary flex items-center gap-1">
-              <span>{activeChild.name}</span>
+              <span>{formatChildDisplayName(activeChild)}</span>
               <ChevronDown className="w-3.5 h-3.5 text-content-muted" />
             </div>
             <div className="text-[10px] text-content-muted">
@@ -51,7 +52,7 @@ export const Header: React.FC = () => {
             />
             <div className="absolute left-0 mt-2 w-64 bg-app-card border border-app-border rounded-theme-md shadow-theme-lg p-2 z-50 animate-in fade-in zoom-in-95 duration-150">
               <div className="text-[11px] font-bold text-content-muted px-2 py-1 uppercase tracking-wider">
-                Chọn bé hiển thị
+                Chọn hồ sơ học sinh
               </div>
               <div className="space-y-1 mt-1">
                 {childrenList.map((c) => (
@@ -79,7 +80,7 @@ export const Header: React.FC = () => {
                         )}
                       </div>
                       <div>
-                        <div>{c.name}</div>
+                        <div>{formatChildDisplayName(c)}</div>
                         <div className="text-[10px] text-content-muted font-normal">
                           {c.class_name} ({c.birthYear})
                         </div>

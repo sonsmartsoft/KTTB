@@ -29,6 +29,8 @@ export const STORAGE_TO_TABLE: Record<string, string> = {
   ktt_session_logs: 'ktt_session_logs',
   ktt_homework: 'ktt_homework',
   ktt_daily_teacher_comments: 'ktt_daily_teacher_comments',
+  ktt_tuition_payments: 'ktt_tuition_payments',
+  ktt_academic_milestones: 'ktt_academic_milestones',
 };
 
 // All table entries for loadAll

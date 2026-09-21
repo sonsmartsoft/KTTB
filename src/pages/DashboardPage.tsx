@@ -19,6 +19,7 @@ import { getSubjectMeta } from '@/design-system/tokens/colors';
 import { format, addDays, parseISO } from 'date-fns';
 import { getLunarDateInfo } from '@/utils/lunarCalendar';
 import { HomeworkTask, DailyTeacherComment, TeacherContact } from '@/domain/types';
+import { formatChildDisplayName } from '@/lib/childNameHelper';
 
 const SUBJECT_OPTIONS = [
   'Toán', 'Ngữ văn', 'Tiếng Anh', 'Khoa học', 'Lịch sử', 'Địa lý',
@@ -201,7 +202,7 @@ export const DashboardPage: React.FC = () => {
               <span>Thời khóa biểu hôm nay</span>
             </div>
             <h2 className="text-2xl md:text-3xl font-bold font-display text-content-primary">
-              Chào ngày mới, {activeChild.name}! 👋
+              Chào ngày mới, {formatChildDisplayName(activeChild)}! 👋
             </h2>
             <p className="text-xs md:text-sm text-content-secondary leading-relaxed">
               {activeChild.class_name} • {activeChild.school_name} — Chúc con một ngày học tập thật hứng khởi và nhiều niềm vui!
@@ -326,7 +327,7 @@ export const DashboardPage: React.FC = () => {
             <span className="text-xs text-content-muted">17:15 – 21:30</span>
           </div>
           {resolved.evening.length === 0 ? (
-            <div className="py-6 text-center text-xs text-content-muted">Tối nay bé không có lịch học thêm, được nghỉ ngơi! 🎉</div>
+            <div className="py-6 text-center text-xs text-content-muted">Tối nay {formatChildDisplayName(activeChild)} không có lịch học thêm, được nghỉ ngơi! 🎉</div>
           ) : (
             <div className="space-y-2">
               {resolved.evening.map((item) => {

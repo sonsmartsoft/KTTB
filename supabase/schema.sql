@@ -102,6 +102,18 @@ create table if not exists ktt_daily_teacher_comments (
   synced_at timestamptz default now()
 );
 
+create table if not exists ktt_tuition_payments (
+  id text primary key,
+  data jsonb not null,
+  synced_at timestamptz default now()
+);
+
+create table if not exists ktt_academic_milestones (
+  id text primary key,
+  data jsonb not null,
+  synced_at timestamptz default now()
+);
+
 -- ============================================================
 -- Tắt RLS (Row Level Security) - app gia đình, không cần auth
 -- ============================================================
@@ -121,6 +133,8 @@ alter table ktt_timetable_legend disable row level security;
 alter table ktt_session_logs disable row level security;
 alter table ktt_homework disable row level security;
 alter table ktt_daily_teacher_comments disable row level security;
+alter table ktt_tuition_payments disable row level security;
+alter table ktt_academic_milestones disable row level security;
 
 -- ============================================================
 -- Cấp quyền cho anon key (publishable key)
@@ -141,3 +155,5 @@ grant all on ktt_timetable_legend to anon, authenticated;
 grant all on ktt_session_logs to anon, authenticated;
 grant all on ktt_homework to anon, authenticated;
 grant all on ktt_daily_teacher_comments to anon, authenticated;
+grant all on ktt_tuition_payments to anon, authenticated;
+grant all on ktt_academic_milestones to anon, authenticated;

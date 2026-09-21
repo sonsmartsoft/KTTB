@@ -10,6 +10,7 @@ import {
   Users,
   Settings,
   UserCheck,
+  Flag,
 } from 'lucide-react';
 import { useChild } from '@/context/ChildContext';
 
@@ -27,6 +28,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/performance', label: 'Điểm & Học bạ', icon: <Sparkles className="w-5 h-5" /> },
   { to: '/achievements', label: 'Thành tích & Khen thưởng', icon: <Award className="w-5 h-5" /> },
   { to: '/teachers', label: 'Sổ liên lạc thầy cô', icon: <UserCheck className="w-5 h-5" /> },
+  { to: '/milestones', label: 'Cột mốc & Lộ trình', icon: <Flag className="w-5 h-5" /> },
   { to: '/children', label: 'Hồ sơ các bé', icon: <Users className="w-5 h-5" /> },
   { to: '/settings', label: 'Giao diện & Cài đặt', icon: <Settings className="w-5 h-5" /> },
 ];

@@ -28,7 +28,7 @@ describe('Schedule Resolution Domain Engine', () => {
       exceptions: SEED_SCHEDULE_EXCEPTIONS,
     });
 
-    expect(result.child.name).toBe('Bé Trung Quân');
+    expect(result.child.name).toBe('Trung Quân');
     expect(result.weekday).toBe(2);
     expect(result.timetableTemplate?.name).toContain('Lớp 6A5');
 

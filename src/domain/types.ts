@@ -66,6 +66,7 @@ export interface ExtraSchedule {
   valid_to?: string;
   note?: string;
   color?: string;
+  fee_per_session?: number; // Học phí mỗi buổi (VNĐ) riêng cho từng lớp
   active: boolean;
 }
 
@@ -291,4 +292,37 @@ export interface DailyTeacherComment {
   parent_acknowledged?: boolean;
   parent_reply?: string;
   created_at: string;
+}
+
+export interface MonthlyTuitionPayment {
+  id: string; // e.g. "child-id_extra-id_YYYY-MM"
+  child_id: string;
+  extra_schedule_id: string;
+  month: string; // "YYYY-MM"
+  attended_count: number;
+  fee_per_session: number;
+  total_amount: number;
+  is_paid: boolean;
+  paid_at?: string;
+  payment_method?: 'bank_transfer' | 'cash';
+  note?: string;
+}
+
+export type MilestoneCategory = 'survey' | 'midterm' | 'final' | 'olympic' | 'certificate' | 'other';
+export type MilestoneStatus = 'planned' | 'active' | 'completed';
+
+export interface AcademicMilestone {
+  id: string;
+  child_id: string;
+  title: string;
+  category: MilestoneCategory;
+  date: string; // YYYY-MM-DD
+  end_date?: string; // YYYY-MM-DD
+  status: MilestoneStatus;
+  target_score?: string;
+  actual_score?: string;
+  description?: string;
+  subjects?: string[];
+  color?: string;
+  preparation_notes?: string;
 }

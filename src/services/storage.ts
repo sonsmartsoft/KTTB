@@ -16,6 +16,8 @@ import {
   ExtraClassSessionLog,
   HomeworkTask,
   DailyTeacherComment,
+  MonthlyTuitionPayment,
+  AcademicMilestone,
 } from '@/domain/types';
 import { upsertToTable, syncOnStart, STORAGE_TO_TABLE } from '@/lib/supabaseSync';
 import {
@@ -35,6 +37,7 @@ import {
   SEED_SESSION_LOGS,
   SEED_HOMEWORK_TASKS,
   SEED_DAILY_TEACHER_COMMENTS,
+  SEED_ACADEMIC_MILESTONES,
 } from './seedData';
 
 const KEYS = {
@@ -55,6 +58,8 @@ const KEYS = {
   SESSION_LOGS: 'ktt_session_logs',
   HOMEWORK: 'ktt_homework',
   DAILY_COMMENTS: 'ktt_daily_teacher_comments',
+  TUITION_PAYMENTS: 'ktt_tuition_payments',
+  MILESTONES: 'ktt_academic_milestones',
 };
 
 function getItem<T>(key: string, defaultValue: T): T {
@@ -212,22 +217,40 @@ export const storage = {
 
   // Extra Schedules
   getExtraSchedules(): ExtraSchedule[] {
-    return getItem(KEYS.EXTRA_SCHEDULES, SEED_EXTRA_SCHEDULES);
+    const list = getItem<ExtraSchedule[]>(KEYS.EXTRA_SCHEDULES, SEED_EXTRA_SCHEDULES);
+    return list.map((item) => {
+      if (item.start_time && item.session === 'evening' && item.start_time < '12:00') {
+        return { ...item, session: 'morning' as const };
+      }
+      if (item.start_time && item.session === 'evening' && item.start_time >= '12:00' && item.start_time < '17:00') {
+        return { ...item, session: 'afternoon' as const };
+      }
+      return item;
+    });
   },
   saveExtraSchedules(schedules: ExtraSchedule[]): void {
     setItem(KEYS.EXTRA_SCHEDULES, schedules);
   },
   addExtraSchedule(schedule: Omit<ExtraSchedule, 'id'>): ExtraSchedule {
     const list = this.getExtraSchedules();
+    const session = schedule.session || (schedule.start_time < '12:00' ? 'morning' : schedule.start_time < '17:00' ? 'afternoon' : 'evening');
     const newItem: ExtraSchedule = {
       ...schedule,
+      session,
       id: `extra-${Date.now()}`,
     };
     this.saveExtraSchedules([...list, newItem]);
     return newItem;
   },
   updateExtraSchedule(id: string, updates: Partial<ExtraSchedule>): void {
-    const list = this.getExtraSchedules().map((e) => (e.id === id ? { ...e, ...updates } : e));
+    const list = this.getExtraSchedules().map((e) => {
+      if (e.id !== id) return e;
+      const updated = { ...e, ...updates };
+      if (!updates.session && updates.start_time) {
+        updated.session = updates.start_time < '12:00' ? 'morning' : updates.start_time < '17:00' ? 'afternoon' : 'evening';
+      }
+      return updated;
+    });
     this.saveExtraSchedules(list);
   },
   deleteExtraSchedule(id: string): void {
@@ -538,5 +561,53 @@ export const storage = {
   deleteDailyComment(id: string): void {
     const list = this.getDailyComments().filter((c) => c.id !== id);
     this.saveDailyComments(list);
+  },
+
+  // Monthly Tuition Payments (Theo dõi đóng học phí hàng tháng)
+  getTuitionPayments(): MonthlyTuitionPayment[] {
+    return getItem(KEYS.TUITION_PAYMENTS, []);
+  },
+  saveTuitionPayments(payments: MonthlyTuitionPayment[]): void {
+    setItem(KEYS.TUITION_PAYMENTS, payments);
+  },
+  upsertTuitionPayment(payment: MonthlyTuitionPayment): void {
+    const list = this.getTuitionPayments();
+    const idx = list.findIndex(
+      (p) =>
+        p.child_id === payment.child_id &&
+        p.extra_schedule_id === payment.extra_schedule_id &&
+        p.month === payment.month
+    );
+    if (idx >= 0) {
+      list[idx] = { ...list[idx], ...payment };
+      this.saveTuitionPayments([...list]);
+    } else {
+      this.saveTuitionPayments([...list, payment]);
+    }
+  },
+
+  // Academic Milestones (Cột mốc kỳ thi & Khảo sát năng lực)
+  getMilestones(): AcademicMilestone[] {
+    return getItem(KEYS.MILESTONES, SEED_ACADEMIC_MILESTONES);
+  },
+  saveMilestones(milestones: AcademicMilestone[]): void {
+    setItem(KEYS.MILESTONES, milestones);
+  },
+  addMilestone(milestone: Omit<AcademicMilestone, 'id'>): AcademicMilestone {
+    const list = this.getMilestones();
+    const newMilestone: AcademicMilestone = {
+      ...milestone,
+      id: `milestone-${Date.now()}`,
+    };
+    this.saveMilestones([...list, newMilestone]);
+    return newMilestone;
+  },
+  updateMilestone(id: string, updates: Partial<AcademicMilestone>): void {
+    const list = this.getMilestones().map((m) => (m.id === id ? { ...m, ...updates } : m));
+    this.saveMilestones(list);
+  },
+  deleteMilestone(id: string): void {
+    const list = this.getMilestones().filter((m) => m.id !== id);
+    this.saveMilestones(list);
   },
 };

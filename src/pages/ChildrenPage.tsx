@@ -3,8 +3,9 @@ import { useChild } from '@/context/ChildContext';
 import { Card } from '@/design-system/components/Card';
 import { Badge } from '@/design-system/components/Badge';
 import { Button } from '@/design-system/components/Button';
-import { Users, Plus, Check, School, Calendar, Edit2, X, Sparkles, UserPlus, Camera, Upload, Trash2 } from 'lucide-react';
+import { Users, Plus, Check, School, Calendar, Edit2, X, Sparkles, UserPlus, Camera, Upload, Trash2, AlertCircle } from 'lucide-react';
 import { Child } from '@/domain/types';
+import { formatChildDisplayName } from '@/lib/childNameHelper';
 
 export const ChildrenPage: React.FC = () => {
   const { childrenList, activeChild, setActiveChildId, updateChild, addChild } = useChild();
@@ -106,12 +107,12 @@ export const ChildrenPage: React.FC = () => {
             <span>Hồ Sơ Các Con Trong Gia Đình</span>
           </h2>
           <p className="text-sm text-content-secondary mt-1">
-            Quản lý thông tin học tập, trường lớp và chuyển đổi linh hoạt giữa Bé Trung Quân và Bé Hạ Băng
+            Quản lý thông tin học tập, trường lớp và chuyển đổi linh hoạt giữa các con trong gia đình
           </p>
         </div>
 
         <Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />} onClick={openAddModal}>
-          Thêm bé mới
+          Thêm hồ sơ con
         </Button>
       </div>
 
@@ -138,7 +139,7 @@ export const ChildrenPage: React.FC = () => {
                     )}
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-content-primary">{c.name}</h3>
+                    <h3 className="text-lg font-bold text-content-primary">{formatChildDisplayName(c)}</h3>
                     <p className="text-xs text-content-muted">Tên thân mật: {c.nickname}</p>
                   </div>
                 </div>
@@ -157,7 +158,7 @@ export const ChildrenPage: React.FC = () => {
                     </Badge>
                   ) : (
                     <Button variant="outline" size="sm" onClick={() => setActiveChildId(c.id)}>
-                      Chọn bé này
+                      Chọn hồ sơ này
                     </Button>
                   )}
                 </div>

@@ -24,9 +24,17 @@ import {
   UserCheck,
   CalendarDays,
   Filter,
+  DollarSign,
+  Wallet,
+  ShieldCheck,
+  AlertCircle,
+  CreditCard,
+  Receipt,
+  RotateCcw,
 } from 'lucide-react';
 import { DAY_HEADER_COLORS } from '@/design-system/tokens/colors';
-import { ExtraSchedule, WeekdayNumber, SessionType, ExtraClassSessionLog } from '@/domain/types';
+import { ExtraSchedule, WeekdayNumber, SessionType, ExtraClassSessionLog, MonthlyTuitionPayment } from '@/domain/types';
+import { formatChildDisplayName } from '@/lib/childNameHelper';
 
 const CATEGORY_MAP: Record<string, { label: string; color: string }> = {
   academic: { label: 'Văn hóa & Bồi dưỡng', color: 'bg-blue-100 text-blue-800' },
@@ -37,13 +45,39 @@ const CATEGORY_MAP: Record<string, { label: string; color: string }> = {
   other: { label: 'Khác', color: 'bg-slate-100 text-slate-800' },
 };
 
+function formatVND(amount: number): string {
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+}
+
+function getSessionsCountInMonth(yearMonth: string, weekdays: WeekdayNumber[]): number {
+  if (!yearMonth || !weekdays || weekdays.length === 0) return 0;
+  const [y, m] = yearMonth.split('-').map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  let count = 0;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(y, m - 1, d);
+    const day = date.getDay(); // 0 is Sunday
+    const vnDay = (day === 0 ? 8 : day + 1) as WeekdayNumber;
+    if (weekdays.includes(vnDay)) {
+      count++;
+    }
+  }
+  return count;
+}
+
 export const ExtraClassesPage: React.FC = () => {
   const { activeChild } = useChild();
   const [extraSchedules, setExtraSchedules] = useState<ExtraSchedule[]>(() => storage.getExtraSchedules());
   const [sessionLogs, setSessionLogs] = useState<ExtraClassSessionLog[]>(() => storage.getSessionLogs());
 
-  // Active Tab: 'classes' (Danh sách lớp) vs 'journal' (Nhật ký từng buổi & Đánh giá)
-  const [activeTab, setActiveTab] = useState<'classes' | 'journal'>('classes');
+  // Active Tab: 'classes' | 'journal' | 'tuition'
+  const [activeTab, setActiveTab] = useState<'classes' | 'journal' | 'tuition'>('classes');
+
+  // Tuition Management State (Phụ huynh)
+  const [tuitionMonth, setTuitionMonth] = useState('2026-09');
+  const [tuitionPayments, setTuitionPayments] = useState<MonthlyTuitionPayment[]>(() => storage.getTuitionPayments());
+  const [editingFeeScheduleId, setEditingFeeScheduleId] = useState<string | null>(null);
+  const [inlineFeeValue, setInlineFeeValue] = useState<number>(150000);
 
   // Journal Filter State
   const [selectedMonth, setSelectedMonth] = useState('2026-09');
@@ -63,13 +97,14 @@ export const ExtraClassesPage: React.FC = () => {
   const [logComment, setLogComment] = useState('');
   const [logParentNote, setLogParentNote] = useState('');
 
-  // Form State
+  // Form State for Extra Class
   const [name, setName] = useState('');
   const [category, setCategory] = useState('academic');
   const [weekdays, setWeekdays] = useState<WeekdayNumber[]>([2, 5]);
   const [session, setSession] = useState<SessionType>('evening');
   const [startTime, setStartTime] = useState('19:15');
   const [endTime, setEndTime] = useState('21:15');
+  const [feePerSession, setFeePerSession] = useState<number>(150000);
   const [note, setNote] = useState('');
 
   const childSchedules = extraSchedules.filter((e) => e.child_id === activeChild.id);
@@ -82,6 +117,7 @@ export const ExtraClassesPage: React.FC = () => {
     setSession('evening');
     setStartTime('19:15');
     setEndTime('21:15');
+    setFeePerSession(150000);
     setNote('');
     setIsModalOpen(true);
   };
@@ -94,6 +130,7 @@ export const ExtraClassesPage: React.FC = () => {
     setSession(item.session);
     setStartTime(item.start_time);
     setEndTime(item.end_time);
+    setFeePerSession(item.fee_per_session || 150000);
     setNote(item.note || '');
     setIsModalOpen(true);
   };
@@ -116,6 +153,7 @@ export const ExtraClassesPage: React.FC = () => {
         session,
         start_time: startTime,
         end_time: endTime,
+        fee_per_session: feePerSession,
         note: note.trim() || undefined,
       });
     } else {
@@ -127,6 +165,7 @@ export const ExtraClassesPage: React.FC = () => {
         session,
         start_time: startTime,
         end_time: endTime,
+        fee_per_session: feePerSession,
         note: note.trim() || undefined,
         active: true,
       });
@@ -134,6 +173,32 @@ export const ExtraClassesPage: React.FC = () => {
 
     setExtraSchedules(storage.getExtraSchedules());
     setIsModalOpen(false);
+  };
+
+  const handleToggleTuitionPayment = (schedule: ExtraSchedule, attendedCount: number, fee: number) => {
+    const existing = tuitionPayments.find(
+      (p) => p.child_id === activeChild.id && p.extra_schedule_id === schedule.id && p.month === tuitionMonth
+    );
+    const newIsPaid = !existing?.is_paid;
+    const payment: MonthlyTuitionPayment = {
+      id: `${activeChild.id}_${schedule.id}_${tuitionMonth}`,
+      child_id: activeChild.id,
+      extra_schedule_id: schedule.id,
+      month: tuitionMonth,
+      attended_count: attendedCount,
+      fee_per_session: fee,
+      total_amount: attendedCount * fee,
+      is_paid: newIsPaid,
+      paid_at: newIsPaid ? new Date().toISOString().split('T')[0] : undefined,
+    };
+    storage.upsertTuitionPayment(payment);
+    setTuitionPayments(storage.getTuitionPayments());
+  };
+
+  const handleSaveInlineFee = (scheduleId: string) => {
+    storage.updateExtraSchedule(scheduleId, { fee_per_session: inlineFeeValue });
+    setExtraSchedules(storage.getExtraSchedules());
+    setEditingFeeScheduleId(null);
   };
 
   const handleDeleteClass = (id: string) => {
@@ -228,28 +293,34 @@ export const ExtraClassesPage: React.FC = () => {
         <div>
           <h2 className="text-2xl font-bold font-display text-content-primary flex items-center gap-2">
             <BookOpen className="w-6 h-6 text-primary" />
-            <span>Lịch Học Thêm & Nhật Ký Đánh Giá</span>
+            <span>Lịch Học Thêm & Sổ Tay Học Phí</span>
           </h2>
           <p className="text-sm text-content-secondary mt-1">
-            Quản lý lịch học ngoại khóa, nhật ký điểm số và lời phê từng buổi để tổng kết định kỳ cuối tháng cho {activeChild.name}
+            Quản lý lịch học ngoại khóa, nhật ký đánh giá và theo dõi học phí hàng tháng cho {formatChildDisplayName(activeChild)}
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          {activeTab === 'classes' ? (
+          {activeTab === 'classes' && (
             <Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />} onClick={openAddModal}>
               Thêm lớp học thêm
             </Button>
-          ) : (
+          )}
+          {activeTab === 'journal' && (
             <Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />} onClick={openAddLogModal}>
               Ghi nhận buổi học
+            </Button>
+          )}
+          {activeTab === 'tuition' && (
+            <Button variant="outline" size="sm" icon={<Plus className="w-4 h-4" />} onClick={openAddModal}>
+              Cài đặt thêm lớp & Đơn giá
             </Button>
           )}
         </div>
       </div>
 
       {/* Tabs Switcher */}
-      <div className="flex items-center gap-2 border-b border-app-border pb-2">
+      <div className="flex flex-wrap items-center gap-2 border-b border-app-border pb-2">
         <button
           onClick={() => setActiveTab('classes')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs md:text-sm font-bold transition-all ${
@@ -271,7 +342,19 @@ export const ExtraClassesPage: React.FC = () => {
           }`}
         >
           <ClipboardCheck className="w-4 h-4" />
-          <span>Nhật Ký Từng Buổi & Đánh Giá Cuối Tháng</span>
+          <span>Nhật Ký Từng Buổi & Đánh Giá</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('tuition')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs md:text-sm font-bold transition-all ${
+            activeTab === 'tuition'
+              ? 'bg-emerald-600 text-white shadow-theme-sm'
+              : 'text-content-secondary hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/20'
+          }`}
+        >
+          <Wallet className="w-4 h-4" />
+          <span>💰 Bảng Tính Học Phí Hàng Tháng (Phụ Huynh)</span>
         </button>
       </div>
 
@@ -586,6 +669,278 @@ export const ExtraClassesPage: React.FC = () => {
         </div>
       )}
 
+      {/* TAB 3: TUITION BILLING MANAGEMENT (PHỤ HUYNH) */}
+      {activeTab === 'tuition' && (
+        <div className="space-y-5">
+          {/* Privacy Security Notice */}
+          <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 flex items-start gap-3.5 shadow-theme-sm">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <div className="space-y-1 text-xs">
+              <div className="font-extrabold text-amber-900 dark:text-amber-200 text-sm flex items-center gap-2">
+                <span>Khu Vực Quản Lý Học Phí Của Phụ Huynh</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-200/60 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 font-bold">
+                  Bảo mật tài chính
+                </span>
+              </div>
+              <p className="text-amber-800/90 dark:text-amber-300/90 leading-relaxed">
+                Bảng tính này là <strong>nơi DUY NHẤT</strong> hiển thị số tiền học phí để cha mẹ kiểm tra số buổi thực tế và thanh toán cho các thầy cô. Toàn bộ thông tin tiền bạc được ẩn hoàn toàn khỏi Thời khóa biểu học tập của các con.
+              </p>
+            </div>
+          </div>
+
+          {/* Month Selector and Filter Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-app-card p-4 rounded-2xl border border-app-border shadow-theme-sm">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold">
+                <Receipt className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-xs text-content-muted">Kỳ tính học phí</div>
+                <div className="text-sm font-extrabold text-content-primary">
+                  Tháng {tuitionMonth.split('-').reverse().join('/')}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-content-secondary">Chọn tháng:</span>
+              <input
+                type="month"
+                value={tuitionMonth}
+                onChange={(e) => setTuitionMonth(e.target.value)}
+                className="px-3 py-1.5 rounded-xl border border-app-border bg-app-bg text-content-primary text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+          </div>
+
+          {/* Monthly KPI Overview Cards */}
+          {(() => {
+            const classSummaries = childSchedules.map((extra) => {
+              const sessionsCount = getSessionsCountInMonth(tuitionMonth, extra.weekdays);
+              const fee = extra.fee_per_session || 150000;
+              const payment = tuitionPayments.find(
+                (p) => p.child_id === activeChild.id && p.extra_schedule_id === extra.id && p.month === tuitionMonth
+              );
+              const isPaid = payment?.is_paid || false;
+              const totalFee = sessionsCount * fee;
+              return { extra, sessionsCount, fee, isPaid, totalFee, payment };
+            });
+
+            const totalSessionsSum = classSummaries.reduce((acc, c) => acc + c.sessionsCount, 0);
+            const totalTuitionSum = classSummaries.reduce((acc, c) => acc + c.totalFee, 0);
+            const paidTuitionSum = classSummaries.filter((c) => c.isPaid).reduce((acc, c) => acc + c.totalFee, 0);
+            const remainingTuitionSum = totalTuitionSum - paidTuitionSum;
+
+            return (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <Card className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/20 border-blue-200 dark:border-blue-900/40">
+                    <div className="text-xs text-content-muted">Tổng số buổi trong tháng</div>
+                    <div className="text-2xl font-black text-content-primary mt-1">
+                      {totalSessionsSum} <span className="text-sm font-normal text-content-muted">buổi</span>
+                    </div>
+                    <div className="text-[10px] text-content-secondary mt-1">
+                      Tính theo lịch cố định các thứ trong tuần
+                    </div>
+                  </Card>
+
+                  <Card className="p-4 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/20 border-purple-200 dark:border-purple-900/40">
+                    <div className="text-xs text-content-muted">Tổng học phí cần thanh toán</div>
+                    <div className="text-2xl font-black text-purple-700 dark:text-purple-300 mt-1">
+                      {formatVND(totalTuitionSum)}
+                    </div>
+                    <div className="text-[10px] text-content-secondary mt-1">
+                      {childSchedules.length} lớp học thêm
+                    </div>
+                  </Card>
+
+                  <Card className="p-4 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/20 border-emerald-200 dark:border-emerald-900/40">
+                    <div className="text-xs text-content-muted">Đã thanh toán</div>
+                    <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
+                      {formatVND(paidTuitionSum)}
+                    </div>
+                    <div className="text-[10px] text-emerald-700 dark:text-emerald-400 mt-1 font-semibold">
+                      {classSummaries.filter((c) => c.isPaid).length} / {childSchedules.length} lớp đã chuyển
+                    </div>
+                  </Card>
+
+                  <Card className="p-4 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/20 border-amber-200 dark:border-amber-900/40">
+                    <div className="text-xs text-content-muted">Còn lại cần chuyển</div>
+                    <div className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">
+                      {formatVND(remainingTuitionSum)}
+                    </div>
+                    <div className="text-[10px] text-amber-700 dark:text-amber-400 mt-1 font-semibold">
+                      {classSummaries.filter((c) => !c.isPaid).length} lớp đang chờ nộp
+                    </div>
+                  </Card>
+                </div>
+
+                {/* Detailed Tuition Per Class */}
+                <div className="space-y-3">
+                  <h3 className="text-sm font-extrabold text-content-primary flex items-center justify-between">
+                    <span>Chi Tiết Từng Lớp Học Thêm ({childSchedules.length})</span>
+                    <span className="text-xs font-normal text-content-muted">
+                      Nhấn vào nút trạng thái để đánh dấu đã chuyển khoản
+                    </span>
+                  </h3>
+
+                  <div className="grid grid-cols-1 gap-3.5">
+                    {classSummaries.map(({ extra, sessionsCount, fee, isPaid, totalFee, payment }) => {
+                      const isEditingFee = editingFeeScheduleId === extra.id;
+                      return (
+                        <Card
+                          key={extra.id}
+                          className={`p-4 transition-all border-2 ${
+                            isPaid
+                              ? 'border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/20 dark:bg-emerald-950/10'
+                              : 'border-app-border hover:border-amber-400/60 bg-app-surface'
+                          }`}
+                        >
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="space-y-1.5 flex-1">
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-base font-bold text-content-primary">{extra.name}</h4>
+                                <Badge variant={isPaid ? 'primary' : 'outline'} size="sm">
+                                  {isPaid ? 'Đã đóng học phí' : 'Chờ thanh toán'}
+                                </Badge>
+                              </div>
+                              <div className="text-xs text-content-secondary flex flex-wrap items-center gap-2">
+                                <span className="font-semibold text-primary">{extra.note || 'Lớp học thêm'}</span>
+                                <span>•</span>
+                                <span className="font-mono">
+                                  {extra.start_time} – {extra.end_time}
+                                </span>
+                                <span>•</span>
+                                <div className="flex gap-1">
+                                  {extra.weekdays.map((w) => (
+                                    <span
+                                      key={w}
+                                      className="px-1.5 py-0.5 rounded text-[10px] font-bold text-white"
+                                      style={{ backgroundColor: DAY_HEADER_COLORS[w]?.bg || '#2563EB' }}
+                                    >
+                                      {DAY_HEADER_COLORS[w]?.label || `T${w}`}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Calculation Breakdown */}
+                            <div className="flex flex-wrap items-center gap-4 text-xs">
+                              {/* Sessions in month */}
+                              <div className="text-center px-3 py-1.5 rounded-xl bg-app-bg border border-app-border">
+                                <div className="text-[10px] text-content-muted">Số buổi tháng</div>
+                                <div className="font-extrabold text-sm text-content-primary font-mono">
+                                  {sessionsCount} buổi
+                                </div>
+                              </div>
+
+                              <div className="text-content-muted font-bold">×</div>
+
+                              {/* Per-class fee setup */}
+                              <div className="text-center px-3 py-1.5 rounded-xl bg-app-bg border border-app-border min-w-[130px]">
+                                <div className="text-[10px] text-content-muted flex items-center justify-center gap-1">
+                                  <span>Đơn giá lớp</span>
+                                  {!isEditingFee && (
+                                    <button
+                                      onClick={() => {
+                                        setEditingFeeScheduleId(extra.id);
+                                        setInlineFeeValue(fee);
+                                      }}
+                                      className="text-primary hover:underline"
+                                      title="Cài đặt lại số tiền lớp này"
+                                    >
+                                      <Edit2 className="w-3 h-3 inline" />
+                                    </button>
+                                  )}
+                                </div>
+                                {isEditingFee ? (
+                                  <div className="flex items-center gap-1 mt-1">
+                                    <input
+                                      type="number"
+                                      step={10000}
+                                      value={inlineFeeValue}
+                                      onChange={(e) => setInlineFeeValue(Number(e.target.value) || 0)}
+                                      className="w-20 px-1 py-0.5 text-xs font-mono font-bold rounded border border-primary bg-white dark:bg-slate-900"
+                                      autoFocus
+                                    />
+                                    <button
+                                      onClick={() => handleSaveInlineFee(extra.id)}
+                                      className="px-1.5 py-0.5 rounded bg-primary text-white text-[10px] font-bold"
+                                    >
+                                      Lưu
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="font-extrabold text-sm text-emerald-600 dark:text-emerald-400 font-mono">
+                                    {formatVND(fee)}
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="text-content-muted font-bold">=</div>
+
+                              {/* Total for class */}
+                              <div className="text-right min-w-[130px]">
+                                <div className="text-[10px] text-content-muted">Thành tiền tháng</div>
+                                <div className="text-base font-black text-content-primary font-mono">
+                                  {formatVND(totalFee)}
+                                </div>
+                              </div>
+
+                              {/* Toggle Payment Button */}
+                              <div className="shrink-0">
+                                <button
+                                  onClick={() => handleToggleTuitionPayment(extra, sessionsCount, fee)}
+                                  className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-theme-sm ${
+                                    isPaid
+                                      ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                      : 'bg-amber-500 text-white hover:bg-amber-600'
+                                  }`}
+                                >
+                                  {isPaid ? (
+                                    <>
+                                      <CheckCircle2 className="w-4 h-4" />
+                                      <span>Đã chuyển tiền</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Clock className="w-4 h-4" />
+                                      <span>Chưa thanh toán</span>
+                                    </>
+                                  )}
+                                </button>
+                                {payment?.paid_at && (
+                                  <div className="text-[10px] text-emerald-600 dark:text-emerald-400 text-center mt-1">
+                                    Ngày {payment.paid_at.split('-').reverse().join('/')}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </Card>
+                      );
+                    })}
+
+                    {childSchedules.length === 0 && (
+                      <Card className="p-8 text-center space-y-2">
+                        <div className="text-4xl">💰</div>
+                        <h4 className="text-sm font-bold text-content-primary">Chưa có lớp học thêm nào để tính học phí</h4>
+                        <p className="text-xs text-content-muted">
+                          Hãy thêm các lớp học thêm ở Tab "Danh Sách Lớp" và cài đặt số tiền học phí cho từng lớp.
+                        </p>
+                      </Card>
+                    )}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </div>
+      )}
+
       {/* ADD / EDIT SESSION LOG MODAL */}
       {isLogModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in">
@@ -804,6 +1159,34 @@ export const ExtraClassesPage: React.FC = () => {
                     className="w-full px-3 py-2 rounded-lg border border-app-border bg-app-bg text-content-primary focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
+              </div>
+
+              {/* Per-Class Tuition Fee Setup */}
+              <div className="space-y-1 p-3 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                    <DollarSign className="w-3.5 h-3.5" />
+                    <span>Học phí mỗi buổi (VNĐ)</span>
+                  </label>
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                    Chỉ hiển thị cho phụ huynh
+                  </span>
+                </div>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={0}
+                    step={10000}
+                    placeholder="Ví dụ: 150000"
+                    value={feePerSession}
+                    onChange={(e) => setFeePerSession(Number(e.target.value) || 0)}
+                    className="w-full px-3 py-2 pr-16 rounded-lg border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-slate-900 text-content-primary font-mono font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <span className="absolute right-3 top-2 text-xs font-bold text-content-muted">đ / buổi</span>
+                </div>
+                <p className="text-[10px] text-content-muted italic">
+                  * Hệ thống tự động nhân số buổi thực tế trong tháng theo đơn giá riêng của lớp này để tính tiền cần thanh toán cho thầy cô. Hoàn toàn ẩn khỏi TKB của các con.
+                </p>
               </div>
 
               {/* Note */}
