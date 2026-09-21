@@ -7,10 +7,12 @@ import { Card } from '@/design-system/components/Card';
 import { Badge } from '@/design-system/components/Badge';
 import { Button } from '@/design-system/components/Button';
 import { MascotBoy } from '@/design-system/illustrations/MascotBoy';
+import { MascotGirl } from '@/design-system/illustrations/MascotGirl';
 import { BookStack } from '@/design-system/illustrations/BookStack';
-import { Sun, Cloud, Moon, Calendar as CalendarIcon, ArrowRight, Sparkles } from 'lucide-react';
+import { Sun, Cloud, Moon, Calendar as CalendarIcon, ArrowRight, Sparkles, Bell } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getSubjectMeta } from '@/design-system/tokens/colors';
+import { format, addDays, parseISO } from 'date-fns';
 
 export const DashboardPage: React.FC = () => {
   const { activeChild } = useChild();
@@ -29,6 +31,15 @@ export const DashboardPage: React.FC = () => {
     extraSchedules,
     exceptions,
   });
+
+  // Resolve next 3 days for upcoming panel
+  const upcomingDays = [1, 2, 3].map((offset) => {
+    const dateStr = format(addDays(parseISO(selectedDate), offset), 'yyyy-MM-dd');
+    const dayResolved = resolveSchedule(dateStr, { child: activeChild, templates, entries, extraSchedules, exceptions });
+    return { dateStr, resolved: dayResolved };
+  });
+
+  const isGirl = activeChild.avatar_url === 'girl';
 
   const weekdayLabel = {
     2: 'Thứ 2',
@@ -71,7 +82,7 @@ export const DashboardPage: React.FC = () => {
           </div>
 
           <div className="hidden lg:flex items-center gap-3 z-10">
-            <MascotBoy size={120} />
+            {isGirl ? <MascotGirl size={120} /> : <MascotBoy size={120} />}
             <BookStack size={90} />
           </div>
         </div>
@@ -259,6 +270,50 @@ export const DashboardPage: React.FC = () => {
           )}
         </Card>
       </div>
+
+      {/* Upcoming 3 Days Panel */}
+      <Card className="p-5 space-y-4">
+        <div className="flex items-center gap-2 pb-2 border-b border-app-border">
+          <Bell className="w-5 h-5 text-primary" />
+          <h3 className="text-sm font-bold text-content-primary">3 Ngày Tới</h3>
+          <Badge variant="outline" size="sm">Sắp có lịch</Badge>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {upcomingDays.map(({ dateStr, resolved: dr }) => {
+            const dayLabel = ({
+              2: 'Thứ 2', 3: 'Thứ 3', 4: 'Thứ 4', 5: 'Thứ 5',
+              6: 'Thứ 6', 7: 'Thứ 7', 8: 'Chủ nhật',
+            } as Record<number, string>)[dr.weekday] || '';
+            const totalSlots = dr.morning.length + dr.afternoon.length + dr.evening.length;
+            return (
+              <div
+                key={dateStr}
+                className="p-3.5 rounded-theme-md border border-app-border bg-app-surface hover:border-primary/50 hover:bg-primary/5 transition-all space-y-2"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-primary">{dayLabel}</span>
+                  <span className="text-[11px] font-mono text-content-muted">{dateStr.split('-').reverse().join('/')}</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                  <span className="flex items-center gap-1 text-amber-700">☀️ {dr.morning.length} tiết</span>
+                  <span className="flex items-center gap-1 text-sky-700">☁️ {dr.afternoon.length} tiết</span>
+                  {dr.evening.length > 0 && (
+                    <span className="flex items-center gap-1 text-purple-700">🌙 {dr.evening.length}</span>
+                  )}
+                </div>
+                {dr.morning[0] && (
+                  <div className="text-[11px] text-content-secondary truncate">
+                    Đầu ngày: <span className="font-bold text-content-primary">{dr.morning[0].title}</span>
+                  </div>
+                )}
+                {totalSlots === 0 && (
+                  <div className="text-[11px] text-content-muted italic">Ngày nghỉ 🎉</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </Card>
     </div>
   );
 };
