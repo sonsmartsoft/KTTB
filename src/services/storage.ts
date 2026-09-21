@@ -96,6 +96,66 @@ export const storage = {
   saveTemplates(templates: TimetableTemplate[]): void {
     setItem(KEYS.TEMPLATES, templates);
   },
+  createTemplate(template: Omit<TimetableTemplate, 'id' | 'created_at' | 'updated_at'>): TimetableTemplate {
+    const templates = this.getTemplates();
+    const newTemplate: TimetableTemplate = {
+      ...template,
+      id: `template-${Date.now()}`,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    this.saveTemplates([...templates, newTemplate]);
+    return newTemplate;
+  },
+  updateTemplate(id: string, updates: Partial<TimetableTemplate>): void {
+    const templates = this.getTemplates().map((t) =>
+      t.id === id ? { ...t, ...updates, updated_at: new Date().toISOString() } : t
+    );
+    this.saveTemplates(templates);
+  },
+  duplicateTemplate(
+    sourceId: string,
+    newName: string,
+    newSemester: string,
+    validFrom: string,
+    validTo: string
+  ): TimetableTemplate {
+    const templates = this.getTemplates();
+    const source = templates.find((t) => t.id === sourceId);
+    if (!source) throw new Error('Source template not found');
+
+    const newTemplateId = `template-${Date.now()}`;
+    const newTemplate: TimetableTemplate = {
+      ...source,
+      id: newTemplateId,
+      name: newName,
+      semester: newSemester,
+      valid_from: validFrom,
+      valid_to: validTo,
+      status: 'active',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    this.saveTemplates([...templates, newTemplate]);
+
+    // Clone all entries
+    const sourceEntries = this.getEntries().filter((e) => e.timetable_id === sourceId);
+    const clonedEntries: TimetableEntry[] = sourceEntries.map((e, idx) => ({
+      ...e,
+      id: `entry-${Date.now()}-${idx}`,
+      timetable_id: newTemplateId,
+    }));
+    const allEntries = [...this.getEntries(), ...clonedEntries];
+    this.saveEntries(allEntries);
+
+    return newTemplate;
+  },
+  deleteTemplate(id: string): void {
+    const templates = this.getTemplates().filter((t) => t.id !== id);
+    this.saveTemplates(templates);
+    const entries = this.getEntries().filter((e) => e.timetable_id !== id);
+    this.saveEntries(entries);
+  },
 
   // Timetable Entries
   getEntries(): TimetableEntry[] {
@@ -103,6 +163,10 @@ export const storage = {
   },
   saveEntries(entries: TimetableEntry[]): void {
     setItem(KEYS.ENTRIES, entries);
+  },
+  setEntriesForTimetable(timetableId: string, newEntries: TimetableEntry[]): void {
+    const otherEntries = this.getEntries().filter((e) => e.timetable_id !== timetableId);
+    this.saveEntries([...otherEntries, ...newEntries]);
   },
 
   // Extra Schedules
@@ -112,6 +176,23 @@ export const storage = {
   saveExtraSchedules(schedules: ExtraSchedule[]): void {
     setItem(KEYS.EXTRA_SCHEDULES, schedules);
   },
+  addExtraSchedule(schedule: Omit<ExtraSchedule, 'id'>): ExtraSchedule {
+    const list = this.getExtraSchedules();
+    const newItem: ExtraSchedule = {
+      ...schedule,
+      id: `extra-${Date.now()}`,
+    };
+    this.saveExtraSchedules([...list, newItem]);
+    return newItem;
+  },
+  updateExtraSchedule(id: string, updates: Partial<ExtraSchedule>): void {
+    const list = this.getExtraSchedules().map((e) => (e.id === id ? { ...e, ...updates } : e));
+    this.saveExtraSchedules(list);
+  },
+  deleteExtraSchedule(id: string): void {
+    const list = this.getExtraSchedules().filter((e) => e.id !== id);
+    this.saveExtraSchedules(list);
+  },
 
   // Schedule Exceptions
   getExceptions(): ScheduleException[] {
@@ -119,6 +200,19 @@ export const storage = {
   },
   saveExceptions(exceptions: ScheduleException[]): void {
     setItem(KEYS.EXCEPTIONS, exceptions);
+  },
+  addException(exception: Omit<ScheduleException, 'id'>): ScheduleException {
+    const list = this.getExceptions();
+    const newItem: ScheduleException = {
+      ...exception,
+      id: `exception-${Date.now()}`,
+    };
+    this.saveExceptions([...list, newItem]);
+    return newItem;
+  },
+  deleteException(id: string): void {
+    const list = this.getExceptions().filter((e) => e.id !== id);
+    this.saveExceptions(list);
   },
 
   // Assessment Plans
@@ -136,6 +230,10 @@ export const storage = {
   saveAssessments(assessments: Assessment[]): void {
     setItem(KEYS.ASSESSMENTS, assessments);
   },
+  addAssessment(assessment: Assessment): void {
+    const list = this.getAssessments();
+    this.saveAssessments([assessment, ...list]);
+  },
 
   // Targets
   getTargets(): PerformanceTarget[] {
@@ -144,6 +242,10 @@ export const storage = {
   saveTargets(targets: PerformanceTarget[]): void {
     setItem(KEYS.TARGETS, targets);
   },
+  updateTarget(id: string, updates: Partial<PerformanceTarget>): void {
+    const list = this.getTargets().map((t) => (t.id === id ? { ...t, ...updates } : t));
+    this.saveTargets(list);
+  },
 
   // Achievements
   getAchievements(): AchievementRecord[] {
@@ -151,6 +253,19 @@ export const storage = {
   },
   saveAchievements(achievements: AchievementRecord[]): void {
     setItem(KEYS.ACHIEVEMENTS, achievements);
+  },
+  addAchievement(achievement: Omit<AchievementRecord, 'id'>): AchievementRecord {
+    const list = this.getAchievements();
+    const newItem: AchievementRecord = {
+      ...achievement,
+      id: `achieve-${Date.now()}`,
+    };
+    this.saveAchievements([newItem, ...list]);
+    return newItem;
+  },
+  deleteAchievement(id: string): void {
+    const list = this.getAchievements().filter((a) => a.id !== id);
+    this.saveAchievements(list);
   },
 
   // Settings

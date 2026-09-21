@@ -1,18 +1,42 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useChild } from '@/context/ChildContext';
 import { useScheduleDate } from '@/context/DateContext';
 import { Card } from '@/design-system/components/Card';
 import { Badge } from '@/design-system/components/Badge';
 import { Button } from '@/design-system/components/Button';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  Calendar as CalendarIcon,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Trash2,
+  AlertCircle,
+  Clock,
+  Sparkles,
+  X,
+  CheckCircle2,
+  CalendarX,
+  RefreshCw,
+} from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { storage } from '@/services/storage';
 import { resolveSchedule } from '@/domain/schedule-resolution/resolveSchedule';
+import { ScheduleException, ExceptionType } from '@/domain/types';
 
 export const CalendarPage: React.FC = () => {
   const { activeChild } = useChild();
   const { selectedDate, setSelectedDate } = useScheduleDate();
+
+  const [exceptions, setExceptions] = useState<ScheduleException[]>(() => storage.getExceptions());
+  const [isAddExceptionOpen, setIsAddExceptionOpen] = useState(false);
+
+  // Form state
+  const [excType, setExcType] = useState<ExceptionType>('cancel');
+  const [excSubject, setExcSubject] = useState('');
+  const [excNote, setExcNote] = useState('');
+  const [excStartTime, setExcStartTime] = useState('07:00');
+  const [excEndTime, setExcEndTime] = useState('11:30');
 
   const selectedDateObj = parseISO(selectedDate);
   const monthStart = startOfMonth(selectedDateObj);
@@ -23,7 +47,6 @@ export const CalendarPage: React.FC = () => {
   const templates = storage.getTemplates();
   const entries = storage.getEntries();
   const extraSchedules = storage.getExtraSchedules();
-  const exceptions = storage.getExceptions();
 
   const resolved = resolveSchedule(selectedDate, {
     child: activeChild,
@@ -33,16 +56,74 @@ export const CalendarPage: React.FC = () => {
     exceptions,
   });
 
+  const dayExceptions = exceptions.filter((e) => e.child_id === activeChild.id && e.date === selectedDate);
+
+  const handleAddException = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newExc: Omit<ScheduleException, 'id'> = {
+      child_id: activeChild.id,
+      date: selectedDate,
+      type: excType,
+      subject: excSubject.trim() || undefined,
+      note: excNote.trim() || (excType === 'cancel' ? 'Nghỉ học cả ngày' : 'Thay đổi thời khóa biểu'),
+      start_time: excType === 'replace' ? excStartTime : undefined,
+      end_time: excType === 'replace' ? excEndTime : undefined,
+    };
+    const created = storage.addException(newExc);
+    setExceptions(storage.getExceptions());
+    setIsAddExceptionOpen(false);
+    setExcSubject('');
+    setExcNote('');
+  };
+
+  const handleDeleteException = (id: string) => {
+    storage.deleteException(id);
+    setExceptions(storage.getExceptions());
+  };
+
+  const handleQuickCancelDay = () => {
+    const newExc: Omit<ScheduleException, 'id'> = {
+      child_id: activeChild.id,
+      date: selectedDate,
+      type: 'cancel',
+      note: 'Nghỉ học cả ngày (Báo bận / Nghỉ lễ)',
+    };
+    storage.addException(newExc);
+    setExceptions(storage.getExceptions());
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
-      <div>
-        <h2 className="text-2xl font-bold font-display text-content-primary flex items-center gap-2">
-          <CalendarIcon className="w-6 h-6 text-primary" />
-          <span>Lịch Học & Sự Kiện Gia Đình</span>
-        </h2>
-        <p className="text-sm text-content-secondary mt-1">
-          Điều hướng thời gian theo tháng và tự động chọn đúng phiên bản Thời khóa biểu theo ngày hiệu lực
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-bold font-display text-content-primary flex items-center gap-2">
+            <CalendarIcon className="w-6 h-6 text-primary" />
+            <span>Lịch Học & Sự Kiện Gia Đình</span>
+          </h2>
+          <p className="text-sm text-content-secondary mt-1">
+            Điều hướng thời gian theo tháng, tự động giải quyết TKB theo khoảng hiệu lực và quản lý các ngày Ngoại lệ
+            (nghỉ học, học bù) cho {activeChild.name}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            icon={<CalendarX className="w-4 h-4 text-rose-500" />}
+            onClick={handleQuickCancelDay}
+          >
+            Báo nghỉ ngày này
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            icon={<Plus className="w-4 h-4" />}
+            onClick={() => setIsAddExceptionOpen(true)}
+          >
+            Thêm ngoại lệ / Đổi tiết
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -62,6 +143,16 @@ export const CalendarPage: React.FC = () => {
                 }}
               >
                 <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const todayStr = format(new Date(), 'yyyy-MM-dd');
+                  setSelectedDate(todayStr);
+                }}
+              >
+                Hôm nay
               </Button>
               <Button
                 variant="outline"
@@ -88,22 +179,35 @@ export const CalendarPage: React.FC = () => {
               const dateStr = format(day, 'yyyy-MM-dd');
               const isSelected = dateStr === selectedDate;
               const hasException = exceptions.some((e) => e.child_id === activeChild.id && e.date === dateStr);
-              
+              const isToday = isSameDay(day, new Date());
+
               return (
                 <button
                   key={dateStr}
                   onClick={() => setSelectedDate(dateStr)}
-                  className={`min-h-[56px] p-1.5 rounded-theme-md flex flex-col items-center justify-between border transition-all ${
+                  className={`min-h-[58px] p-1.5 rounded-theme-md flex flex-col items-center justify-between border transition-all ${
                     isSelected
-                      ? 'bg-primary text-primary-foreground font-bold shadow-theme-sm border-primary'
-                      : 'bg-app-surface text-content-primary border-app-subtle hover:border-primary/40'
+                      ? 'bg-primary text-primary-foreground font-bold shadow-theme-sm border-primary scale-[1.02]'
+                      : 'bg-app-surface text-content-primary border-app-subtle hover:border-primary/40 hover:bg-black/5'
                   }`}
                 >
-                  <span className="text-xs">{format(day, 'd')}</span>
+                  <div className="flex items-center justify-between w-full">
+                    <span className="text-xs">{format(day, 'd')}</span>
+                    {isToday && (
+                      <span className={`text-[9px] px-1 rounded font-bold ${isSelected ? 'bg-white/20' : 'bg-primary/10 text-primary'}`}>
+                        Nay
+                      </span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-1 mt-1">
                     <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white' : 'bg-blue-500'}`} />
                     {hasException && (
-                      <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-amber-300' : 'bg-amber-500'}`} />
+                      <span
+                        className={`w-2 h-2 rounded-full ring-1 ring-white ${
+                          isSelected ? 'bg-amber-300' : 'bg-rose-500'
+                        }`}
+                        title="Có ngoại lệ / Thay đổi"
+                      />
                     )}
                   </div>
                 </button>
@@ -117,36 +221,89 @@ export const CalendarPage: React.FC = () => {
               <span>Lịch học chính khóa</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-amber-500" />
-              <span>Có sự kiện / Thay đổi / Thi</span>
+              <span className="w-2 h-2 rounded-full bg-rose-500" />
+              <span>Có ngoại lệ (nghỉ học / đổi môn / sự kiện)</span>
             </div>
           </div>
         </Card>
 
         {/* Selected Day Schedule Summary */}
         <Card className="p-5 space-y-4">
-          <div className="pb-3 border-b border-app-border">
-            <span className="text-xs font-bold text-primary">CHI TIẾT LỊCH TRÌNH</span>
-            <h3 className="text-lg font-bold text-content-primary mt-0.5">
-              Ngày {format(selectedDateObj, 'dd/MM/yyyy')}
-            </h3>
-            <p className="text-xs text-content-muted">
-              {activeChild.name} • {resolved.timetableTemplate?.name || 'Chưa có TKB'}
-            </p>
+          <div className="pb-3 border-b border-app-border flex items-start justify-between">
+            <div>
+              <span className="text-xs font-bold text-primary">CHI TIẾT LỊCH TRÌNH</span>
+              <h3 className="text-lg font-bold text-content-primary mt-0.5">
+                Ngày {format(selectedDateObj, 'dd/MM/yyyy')}
+              </h3>
+              <p className="text-xs text-content-muted">
+                {activeChild.name} • {resolved.timetableTemplate?.name || 'Không có TKB hiệu lực'}
+              </p>
+            </div>
+            {dayExceptions.length > 0 && (
+              <Badge variant="warning" size="sm">
+                {dayExceptions.length} ngoại lệ
+              </Badge>
+            )}
           </div>
 
+          {/* Active Exceptions List on this Day */}
+          {dayExceptions.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-xs font-bold text-rose-600 flex items-center gap-1">
+                <AlertCircle className="w-3.5 h-3.5" />
+                <span>Ngoại lệ áp dụng hôm nay:</span>
+              </div>
+              {dayExceptions.map((exc) => (
+                <div
+                  key={exc.id}
+                  className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-xs flex items-center justify-between text-rose-900"
+                >
+                  <div>
+                    <div className="font-bold flex items-center gap-1">
+                      <span>{exc.type === 'cancel' ? '🚫 Nghỉ học' : '🔄 Đổi môn/lịch'}</span>
+                      {exc.subject && <span>• Môn: {exc.subject}</span>}
+                    </div>
+                    {exc.note && <div className="text-[11px] text-rose-700 mt-0.5">{exc.note}</div>}
+                  </div>
+                  <button
+                    onClick={() => handleDeleteException(exc.id)}
+                    className="p-1 text-rose-400 hover:text-rose-700 rounded hover:bg-rose-100"
+                    title="Xoá ngoại lệ này"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Resolved Periods */}
           <div className="space-y-4">
             <div>
               <div className="text-xs font-bold text-amber-700 mb-1.5 flex items-center gap-1">
                 <span>☀️</span> Buổi sáng ({resolved.morning.length} tiết)
               </div>
               <div className="space-y-1.5">
-                {resolved.morning.map((m) => (
-                  <div key={m.id} className="p-2 rounded bg-app-bg border border-app-subtle text-xs flex justify-between">
-                    <span className="font-bold text-content-primary">{m.title}</span>
-                    <span className="text-content-muted font-mono">{m.timeDisplay}</span>
-                  </div>
-                ))}
+                {resolved.morning.length === 0 ? (
+                  <p className="text-xs text-content-muted italic">Không có tiết</p>
+                ) : (
+                  resolved.morning.map((m) => (
+                    <div
+                      key={m.id}
+                      className={`p-2 rounded border text-xs flex justify-between items-center ${
+                        m.isCancelled
+                          ? 'bg-rose-50/70 border-rose-200 line-through text-rose-700'
+                          : 'bg-app-bg border-app-subtle'
+                      }`}
+                    >
+                      <div>
+                        <span className="font-bold text-content-primary">{m.title}</span>
+                        {m.subtitle && <span className="text-[11px] text-content-muted ml-1">({m.subtitle})</span>}
+                      </div>
+                      <span className="text-content-muted font-mono text-[11px]">{m.timeDisplay}</span>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
@@ -155,12 +312,26 @@ export const CalendarPage: React.FC = () => {
                 <span>☁️</span> Buổi chiều ({resolved.afternoon.length} tiết)
               </div>
               <div className="space-y-1.5">
-                {resolved.afternoon.map((m) => (
-                  <div key={m.id} className="p-2 rounded bg-app-bg border border-app-subtle text-xs flex justify-between">
-                    <span className="font-bold text-content-primary">{m.title}</span>
-                    <span className="text-content-muted font-mono">{m.timeDisplay}</span>
-                  </div>
-                ))}
+                {resolved.afternoon.length === 0 ? (
+                  <p className="text-xs text-content-muted italic">Không có tiết</p>
+                ) : (
+                  resolved.afternoon.map((m) => (
+                    <div
+                      key={m.id}
+                      className={`p-2 rounded border text-xs flex justify-between items-center ${
+                        m.isCancelled
+                          ? 'bg-rose-50/70 border-rose-200 line-through text-rose-700'
+                          : 'bg-app-bg border-app-subtle'
+                      }`}
+                    >
+                      <div>
+                        <span className="font-bold text-content-primary">{m.title}</span>
+                        {m.subtitle && <span className="text-[11px] text-content-muted ml-1">({m.subtitle})</span>}
+                      </div>
+                      <span className="text-content-muted font-mono text-[11px]">{m.timeDisplay}</span>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
@@ -170,12 +341,15 @@ export const CalendarPage: React.FC = () => {
               </div>
               <div className="space-y-1.5">
                 {resolved.evening.length === 0 ? (
-                  <p className="text-xs text-content-muted italic">Nghỉ ngơi</p>
+                  <p className="text-xs text-content-muted italic">Nghỉ ngơi, không có lịch học thêm</p>
                 ) : (
                   resolved.evening.map((m) => (
-                    <div key={m.id} className="p-2 rounded bg-app-bg border border-app-subtle text-xs flex justify-between">
-                      <span className="font-bold text-purple-700">{m.title}</span>
-                      <span className="text-content-muted font-mono">{m.timeDisplay}</span>
+                    <div
+                      key={m.id}
+                      className="p-2 rounded bg-purple-50/60 border border-purple-200 text-xs flex justify-between items-center"
+                    >
+                      <span className="font-bold text-purple-800">{m.title}</span>
+                      <span className="text-purple-600 font-mono text-[11px]">{m.timeDisplay}</span>
                     </div>
                   ))
                 )}
@@ -184,6 +358,98 @@ export const CalendarPage: React.FC = () => {
           </div>
         </Card>
       </div>
+
+      {/* ADD EXCEPTION MODAL */}
+      {isAddExceptionOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-app-surface border border-app-border rounded-2xl p-6 shadow-theme-pop w-full max-w-md space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-2 border-b border-app-border">
+              <h3 className="text-base font-bold text-content-primary flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-amber-500" />
+                <span>Thêm Ngoại Lệ Cho Ngày {format(selectedDateObj, 'dd/MM/yyyy')}</span>
+              </h3>
+              <button
+                onClick={() => setIsAddExceptionOpen(false)}
+                className="p-1 rounded-lg text-content-muted hover:text-content-primary hover:bg-black/5"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddException} className="space-y-3 text-xs">
+              <div className="space-y-1">
+                <label className="font-bold text-content-primary">Loại ngoại lệ</label>
+                <select
+                  value={excType}
+                  onChange={(e) => setExcType(e.target.value as ExceptionType)}
+                  className="w-full px-3 py-2 rounded-lg border border-app-border bg-app-bg text-content-primary focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="cancel">🚫 Báo nghỉ học (Nghỉ ốm, Nghỉ lễ, Bận việc)</option>
+                  <option value="replace">🔄 Học bù / Đổi môn khác</option>
+                  <option value="custom">✨ Sự kiện đặc biệt (Dã ngoại, Thi kiểm tra...)</option>
+                </select>
+              </div>
+
+              {excType !== 'cancel' && (
+                <div className="space-y-1">
+                  <label className="font-bold text-content-primary">Môn học / Hoạt động *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ví dụ: Thi Giữa Kỳ, Dã ngoại sinh thái..."
+                    value={excSubject}
+                    onChange={(e) => setExcSubject(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-app-border bg-app-bg text-content-primary focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+              )}
+
+              {excType === 'replace' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="font-bold text-content-primary">Giờ bắt đầu</label>
+                    <input
+                      type="time"
+                      value={excStartTime}
+                      onChange={(e) => setExcStartTime(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-app-border bg-app-bg text-content-primary focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="font-bold text-content-primary">Giờ kết thúc</label>
+                    <input
+                      type="time"
+                      value={excEndTime}
+                      onChange={(e) => setExcEndTime(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-app-border bg-app-bg text-content-primary focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <label className="font-bold text-content-primary">Lý do / Ghi chú</label>
+                <textarea
+                  rows={2}
+                  placeholder="Ghi chú thêm cho gia đình..."
+                  value={excNote}
+                  onChange={(e) => setExcNote(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-app-border bg-app-bg text-content-primary focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-app-border">
+                <Button type="button" variant="outline" size="sm" onClick={() => setIsAddExceptionOpen(false)}>
+                  Huỷ
+                </Button>
+                <Button type="submit" variant="primary" size="sm">
+                  Lưu ngoại lệ
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
