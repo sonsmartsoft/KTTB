@@ -12,6 +12,7 @@ import {
   SchoolYearRecord,
   TeacherContact,
   SubjectItem,
+  TimetableLegendItem,
   ExtraClassSessionLog,
   HomeworkTask,
   DailyTeacherComment,
@@ -29,6 +30,7 @@ import {
   SEED_SCHOOL_YEARS,
   SEED_TEACHERS,
   SEED_SUBJECTS,
+  SEED_TIMETABLE_LEGEND,
   SEED_SESSION_LOGS,
   SEED_HOMEWORK_TASKS,
   SEED_DAILY_TEACHER_COMMENTS,
@@ -48,6 +50,7 @@ const KEYS = {
   SCHOOL_YEARS: 'ktt_school_years',
   TEACHERS: 'ktt_teachers',
   SUBJECTS: 'ktt_subjects',
+  TIMETABLE_LEGEND: 'ktt_timetable_legend',
   SESSION_LOGS: 'ktt_session_logs',
   HOMEWORK: 'ktt_homework',
   DAILY_COMMENTS: 'ktt_daily_teacher_comments',
@@ -92,6 +95,7 @@ export const storage = {
     setItem(KEYS.SCHOOL_YEARS, SEED_SCHOOL_YEARS);
     setItem(KEYS.TEACHERS, SEED_TEACHERS);
     setItem(KEYS.SUBJECTS, SEED_SUBJECTS);
+    setItem(KEYS.TIMETABLE_LEGEND, SEED_TIMETABLE_LEGEND);
     setItem(KEYS.SESSION_LOGS, SEED_SESSION_LOGS);
     setItem(KEYS.HOMEWORK, SEED_HOMEWORK_TASKS);
     setItem(KEYS.DAILY_COMMENTS, SEED_DAILY_TEACHER_COMMENTS);
@@ -352,7 +356,15 @@ export const storage = {
 
   // Subjects (Cấu hình danh mục môn học)
   getSubjects(): SubjectItem[] {
-    return getItem(KEYS.SUBJECTS, SEED_SUBJECTS);
+    const stored = getItem<SubjectItem[]>(KEYS.SUBJECTS, SEED_SUBJECTS);
+    const seedMap = new Map(SEED_SUBJECTS.map((s) => [s.id, s]));
+    return stored.map((s) => {
+      const seed = seedMap.get(s.id);
+      if (seed && !s.note && seed.note) {
+        return { ...s, note: seed.note };
+      }
+      return s;
+    });
   },
   saveSubjects(subjects: SubjectItem[]): void {
     setItem(KEYS.SUBJECTS, subjects);
@@ -373,6 +385,42 @@ export const storage = {
   deleteSubject(id: string): void {
     const list = this.getSubjects().filter((s) => s.id !== id);
     this.saveSubjects(list);
+  },
+  renameSubjectAcrossTimetables(oldName: string, newName: string): void {
+    if (!oldName || !newName || oldName === newName) return;
+    const entries = this.getEntries().map((e) =>
+      e.subject === oldName ? { ...e, subject: newName } : e
+    );
+    setItem(KEYS.ENTRIES, entries);
+    const extras = this.getExtraSchedules().map((ex) =>
+      ex.name === oldName ? { ...ex, name: newName } : ex
+    );
+    setItem(KEYS.EXTRA_SCHEDULES, extras);
+  },
+
+  // Timetable Legend / Ghi chú viết tắt & Tên môn
+  getTimetableLegend(): TimetableLegendItem[] {
+    return getItem(KEYS.TIMETABLE_LEGEND, SEED_TIMETABLE_LEGEND);
+  },
+  saveTimetableLegend(items: TimetableLegendItem[]): void {
+    setItem(KEYS.TIMETABLE_LEGEND, items);
+  },
+  updateTimetableLegendItem(id: string, updates: Partial<TimetableLegendItem>): void {
+    const list = this.getTimetableLegend().map((item) => (item.id === id ? { ...item, ...updates } : item));
+    this.saveTimetableLegend(list);
+  },
+  addTimetableLegendItem(item: Omit<TimetableLegendItem, 'id'>): TimetableLegendItem {
+    const list = this.getTimetableLegend();
+    const newItem: TimetableLegendItem = {
+      ...item,
+      id: `leg-${Date.now()}`,
+    };
+    this.saveTimetableLegend([...list, newItem]);
+    return newItem;
+  },
+  deleteTimetableLegendItem(id: string): void {
+    const list = this.getTimetableLegend().filter((item) => item.id !== id);
+    this.saveTimetableLegend(list);
   },
 
   // Extra Class Session Logs (Nhật ký từng buổi & Đánh giá)

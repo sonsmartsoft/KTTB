@@ -27,7 +27,8 @@ import { MascotBoy } from '@/design-system/illustrations/MascotBoy';
 import { MascotGirl } from '@/design-system/illustrations/MascotGirl';
 import { BookStack } from '@/design-system/illustrations/BookStack';
 import { PushPin, SpeechBubble, MotivationalRibbon } from '@/design-system/illustrations/DecorativeBadges';
-import { TimetableEntry, TimetableTemplate, WeekdayNumber, SessionType, SubjectItem } from '@/domain/types';
+import { TimetableEntry, TimetableTemplate, WeekdayNumber, SessionType, SubjectItem, TimetableLegendItem, ExtraSchedule } from '@/domain/types';
+import { SEED_TIMETABLE_LEGEND } from '@/services/seedData';
 
 const MORNING_TIMES = ['7:00 – 7:45', '8:45 – 9:30', '9:50 – 10:35', '10:55 – 11:40'];
 const AFTERNOON_TIMES = ['13:30 – 14:15', '14:35 – 15:20', '15:40 – 16:25'];
@@ -42,7 +43,24 @@ export const TimetablePage: React.FC = () => {
   const [isSubjectModalOpen, setIsSubjectModalOpen] = useState(false);
   const [newSubjName, setNewSubjName] = useState('');
   const [newSubjCode, setNewSubjCode] = useState('');
+  const [newSubjNote, setNewSubjNote] = useState('');
   const [newSubjColor, setNewSubjColor] = useState('#2563EB');
+
+  // Editing Subject in Modal
+  const [editingSubjId, setEditingSubjId] = useState<string | null>(null);
+  const [editSubjName, setEditSubjName] = useState('');
+  const [editSubjCode, setEditSubjCode] = useState('');
+  const [editSubjNote, setEditSubjNote] = useState('');
+  const [editSubjColor, setEditSubjColor] = useState('#2563EB');
+
+  // Dynamic Timetable Legend / Ghi chú viết tắt
+  const [legendList, setLegendList] = useState<TimetableLegendItem[]>(() => storage.getTimetableLegend());
+  const [isLegendModalOpen, setIsLegendModalOpen] = useState(false);
+  const [newLegendCode, setNewLegendCode] = useState('');
+  const [newLegendNote, setNewLegendNote] = useState('');
+  const [editingLegendId, setEditingLegendId] = useState<string | null>(null);
+  const [editLegendCode, setEditLegendCode] = useState('');
+  const [editLegendNote, setEditLegendNote] = useState('');
 
   // Templates of active child
   const templates = storage.getTemplates().filter((t) => t.child_id === activeChild.id);
@@ -97,7 +115,87 @@ export const TimetablePage: React.FC = () => {
   const [dupValidTo, setDupValidTo] = useState('2027-05-31');
 
   // Extra classes for evening
-  const extraSchedules = storage.getExtraSchedules().filter((e) => e.child_id === activeChild.id && e.active);
+  const [extraList, setExtraList] = useState<ExtraSchedule[]>(() =>
+    storage.getExtraSchedules().filter((e) => e.child_id === activeChild.id && e.active)
+  );
+
+  useEffect(() => {
+    setExtraList(storage.getExtraSchedules().filter((e) => e.child_id === activeChild.id && e.active));
+  }, [activeChild.id]);
+
+  // Extra Class Modal State
+  const [editingExtra, setEditingExtra] = useState<ExtraSchedule | null>(null);
+  const [isNewExtraModalOpen, setIsNewExtraModalOpen] = useState(false);
+  const [formExtraName, setFormExtraName] = useState('');
+  const [formExtraNote, setFormExtraNote] = useState('');
+  const [formExtraWeekdays, setFormExtraWeekdays] = useState<WeekdayNumber[]>([2]);
+  const [formExtraStartTime, setFormExtraStartTime] = useState('17:15');
+  const [formExtraEndTime, setFormExtraEndTime] = useState('19:15');
+  const [formExtraColor, setFormExtraColor] = useState('#DB2777');
+
+  const openEditExtraModal = (extra: ExtraSchedule) => {
+    setEditingExtra(extra);
+    setIsNewExtraModalOpen(false);
+    setFormExtraName(extra.name);
+    setFormExtraNote(extra.note || '');
+    setFormExtraWeekdays([...extra.weekdays]);
+    setFormExtraStartTime(extra.start_time);
+    setFormExtraEndTime(extra.end_time);
+    setFormExtraColor(extra.color || '#DB2777');
+  };
+
+  const openCreateExtraModal = (defaultWeekday?: WeekdayNumber) => {
+    setEditingExtra(null);
+    setIsNewExtraModalOpen(true);
+    setFormExtraName('');
+    setFormExtraNote('');
+    setFormExtraWeekdays(defaultWeekday ? [defaultWeekday] : [4, 7]);
+    setFormExtraStartTime('17:15');
+    setFormExtraEndTime('19:15');
+    setFormExtraColor('#DB2777');
+  };
+
+  const handleSaveExtra = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formExtraName.trim() || formExtraWeekdays.length === 0) return;
+
+    if (editingExtra) {
+      storage.updateExtraSchedule(editingExtra.id, {
+        name: formExtraName.trim(),
+        note: formExtraNote.trim() || undefined,
+        weekdays: formExtraWeekdays,
+        start_time: formExtraStartTime,
+        end_time: formExtraEndTime,
+        color: formExtraColor,
+      });
+    } else {
+      storage.addExtraSchedule({
+        child_id: activeChild.id,
+        name: formExtraName.trim(),
+        category: 'other',
+        session: 'evening',
+        weekdays: formExtraWeekdays,
+        start_time: formExtraStartTime,
+        end_time: formExtraEndTime,
+        note: formExtraNote.trim() || undefined,
+        color: formExtraColor,
+        active: true,
+      });
+    }
+
+    setExtraList(storage.getExtraSchedules().filter((e) => e.child_id === activeChild.id && e.active));
+    setEditingExtra(null);
+    setIsNewExtraModalOpen(false);
+  };
+
+  const handleDeleteExtra = (extraId: string) => {
+    if (window.confirm('Bạn có chắc chắn muốn xoá lớp học thêm này?')) {
+      storage.deleteExtraSchedule(extraId);
+      setExtraList(storage.getExtraSchedules().filter((e) => e.child_id === activeChild.id && e.active));
+      setEditingExtra(null);
+      setIsNewExtraModalOpen(false);
+    }
+  };
 
   const handlePrint = () => {
     window.print();
@@ -160,6 +258,7 @@ export const TimetablePage: React.FC = () => {
     const added = storage.addSubject({
       name: newSubjName.trim(),
       code: newSubjCode.trim() || undefined,
+      note: newSubjNote.trim() || undefined,
       color: newSubjColor,
       is_custom: true,
       category: 'core',
@@ -167,14 +266,126 @@ export const TimetablePage: React.FC = () => {
     setSubjectList(storage.getSubjects());
     setNewSubjName('');
     setNewSubjCode('');
+    setNewSubjNote('');
     if (editingSlot) {
       setFormSubject(added.name);
     }
   };
 
-  const handleDeleteCustomSubject = (id: string) => {
-    storage.deleteSubject(id);
+  const handleStartEditSubject = (subj: SubjectItem) => {
+    setEditingSubjId(subj.id);
+    setEditSubjName(subj.name);
+    setEditSubjCode(subj.code || '');
+    setEditSubjNote(subj.note || '');
+    setEditSubjColor(subj.color || '#2563EB');
+  };
+
+  const handleCancelEditSubject = () => {
+    setEditingSubjId(null);
+    setEditSubjName('');
+    setEditSubjCode('');
+    setEditSubjNote('');
+  };
+
+  const handleSaveEditSubject = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSubjId || !editSubjName.trim()) return;
+    const oldSubj = subjectList.find((s) => s.id === editingSubjId);
+    const oldName = oldSubj?.name;
+    const newName = editSubjName.trim();
+
+    storage.updateSubject(editingSubjId, {
+      name: newName,
+      code: editSubjCode.trim() || undefined,
+      note: editSubjNote.trim() || undefined,
+      color: editSubjColor,
+    });
+
+    if (oldName && oldName !== newName) {
+      storage.renameSubjectAcrossTimetables(oldName, newName);
+      setDraftEntries((prev) =>
+        prev.map((item) => (item.subject === oldName ? { ...item, subject: newName } : item))
+      );
+      if (formSubject === oldName) {
+        setFormSubject(newName);
+      }
+    }
+
     setSubjectList(storage.getSubjects());
+    handleCancelEditSubject();
+  };
+
+  const handleDeleteSubject = (subj: SubjectItem) => {
+    if (window.confirm(`Bạn có chắc chắn muốn xoá môn "${subj.name}" khỏi danh mục?`)) {
+      storage.deleteSubject(subj.id);
+      setSubjectList(storage.getSubjects());
+      if (editingSubjId === subj.id) {
+        handleCancelEditSubject();
+      }
+    }
+  };
+
+  // Legend Handlers
+  const handleAddLegendItem = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newLegendCode.trim() || !newLegendNote.trim()) return;
+    storage.addTimetableLegendItem({
+      code: newLegendCode.trim(),
+      note: newLegendNote.trim(),
+    });
+    setLegendList(storage.getTimetableLegend());
+    setNewLegendCode('');
+    setNewLegendNote('');
+  };
+
+  const handleStartEditLegend = (item: TimetableLegendItem) => {
+    setEditingLegendId(item.id);
+    setEditLegendCode(item.code);
+    setEditLegendNote(item.note);
+  };
+
+  const handleCancelEditLegend = () => {
+    setEditingLegendId(null);
+    setEditLegendCode('');
+    setEditLegendNote('');
+  };
+
+  const handleSaveEditLegend = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingLegendId || !editLegendCode.trim() || !editLegendNote.trim()) return;
+    storage.updateTimetableLegendItem(editingLegendId, {
+      code: editLegendCode.trim(),
+      note: editLegendNote.trim(),
+    });
+    setLegendList(storage.getTimetableLegend());
+    handleCancelEditLegend();
+  };
+
+  const handleDeleteLegendItem = (id: string) => {
+    storage.deleteTimetableLegendItem(id);
+    setLegendList(storage.getTimetableLegend());
+    if (editingLegendId === id) {
+      handleCancelEditLegend();
+    }
+  };
+
+  const handleSyncLegendFromSubjects = () => {
+    const fromSubjects: TimetableLegendItem[] = subjectList
+      .filter((s) => s.code && s.note)
+      .map((s) => ({
+        id: `leg-sync-${s.id}`,
+        code: s.code || s.name,
+        note: s.note || s.name,
+      }));
+    if (fromSubjects.length > 0) {
+      storage.saveTimetableLegend(fromSubjects);
+      setLegendList(fromSubjects);
+    }
+  };
+
+  const handleResetLegendDefault = () => {
+    storage.saveTimetableLegend(SEED_TIMETABLE_LEGEND);
+    setLegendList(SEED_TIMETABLE_LEGEND);
   };
 
   const handleSaveSlot = (e: React.FormEvent) => {
@@ -532,7 +743,7 @@ export const TimetablePage: React.FC = () => {
           <div>
             <div className="text-[11px] text-content-muted font-medium">Lớp học thêm</div>
             <div className="text-sm md:text-base font-extrabold text-content-primary">
-              {extraSchedules.length} lớp học
+              {extraList.length} lớp học
             </div>
           </div>
         </div>
@@ -577,25 +788,34 @@ export const TimetablePage: React.FC = () => {
         </div>
 
         {/* Timetable Matrix Grid */}
-        <div className="min-w-[860px] mt-4">
-          <table className="w-full border-collapse">
+        <div className="w-full overflow-x-auto rounded-2xl bg-slate-100/90 dark:bg-slate-900/70 p-2 border border-slate-200/80 shadow-sm mt-4">
+          <table className="w-full table-fixed border-collapse">
+            <colgroup>
+              <col style={{ width: '84px' }} />
+              <col style={{ width: '56px' }} />
+              <col style={{ width: '92px' }} />
+              {weekdays.map((w) => (
+                <col key={w} style={{ width: 'calc((100% - 232px) / 7)' }} />
+              ))}
+            </colgroup>
             <thead>
               <tr>
-                <th className="p-2 text-xs font-bold text-white bg-blue-700 rounded-tl-lg w-28 text-center border border-white/20">
+                <th className="p-2 text-xs font-bold text-white bg-blue-700 rounded-tl-xl text-center border-2 border-white tracking-wide">
                   Buổi
                 </th>
-                <th className="p-2 text-xs font-bold text-white bg-blue-600 w-16 text-center border border-white/20">
+                <th className="p-2 text-xs font-bold text-white bg-blue-600 text-center border-2 border-white tracking-wide">
                   Tiết
                 </th>
-                <th className="p-2 text-xs font-bold text-white bg-blue-500 w-24 text-center border border-white/20">
+                <th className="p-2 text-xs font-bold text-white bg-blue-500 text-center border-2 border-white tracking-wide">
                   Thời gian
                 </th>
-                {weekdays.map((w) => {
+                {weekdays.map((w, idx) => {
                   const conf = DAY_HEADER_COLORS[w];
+                  const isLast = idx === weekdays.length - 1;
                   return (
                     <th
                       key={w}
-                      className="p-2 text-xs font-extrabold text-white text-center border border-white/20 uppercase tracking-wide"
+                      className={`p-2 text-xs font-extrabold text-white text-center border-2 border-white uppercase tracking-wider ${isLast ? 'rounded-tr-xl' : ''}`}
                       style={{ backgroundColor: conf.bg }}
                     >
                       {conf.label}
@@ -609,21 +829,21 @@ export const TimetablePage: React.FC = () => {
               {[1, 2, 3, 4].map((period, idx) => {
                 const times = MORNING_TIMES[idx];
                 return (
-                  <tr key={`morning-${period}`} className="border-b border-slate-100 hover:bg-slate-50/50">
+                  <tr key={`morning-${period}`} className="border-b border-white hover:bg-slate-50/50">
                     {idx === 0 && (
                       <td
                         rowSpan={4}
-                        className="p-2 text-center bg-amber-50 border border-slate-200 align-middle"
+                        className="p-2 text-center bg-amber-50/90 border-2 border-white align-middle"
                       >
                         <div className="text-2xl mb-1">☀️</div>
                         <div className="text-xs font-black text-amber-800 uppercase">Buổi sáng</div>
                         <div className="text-[10px] text-amber-700 font-mono">(7:00 – 11:30)</div>
                       </td>
                     )}
-                    <td className="p-2 text-center font-bold text-xs text-slate-700 bg-slate-50 border border-slate-200">
+                    <td className="p-2 text-center font-bold text-xs text-slate-700 bg-slate-50/90 border-2 border-white">
                       Tiết {period}
                     </td>
-                    <td className="p-2 text-center text-[11px] font-mono text-slate-600 bg-slate-50 border border-slate-200">
+                    <td className="p-2 text-center text-[11px] font-mono text-slate-600 bg-slate-50/90 border-2 border-white">
                       {times}
                     </td>
                     {weekdays.map((weekday) => {
@@ -640,13 +860,12 @@ export const TimetablePage: React.FC = () => {
                             onDragOver={isEditMode ? (e) => handleDragOver(e, slotKey) : undefined}
                             onDragLeave={isEditMode ? handleDragLeave : undefined}
                             onDrop={isEditMode ? (e) => handleDrop(e, weekday, 'morning', period) : undefined}
-                            onClick={isEditMode ? () => openSlotEditor(weekday, 'morning', period) : undefined}
-                            onDoubleClick={() => openSlotEditor(weekday, 'morning', period)}
-                            title={isEditMode ? 'Nhấp để thêm môn' : 'Nhấp đúp để chỉnh sửa nhanh'}
-                            className={`p-1.5 text-center border border-slate-200 transition-colors ${
+                            onClick={() => openSlotEditor(weekday, 'morning', period)}
+                            title="Nhấp để thêm môn học"
+                            className={`p-1.5 text-center border-2 border-white transition-colors cursor-pointer hover:bg-blue-50/60 ${
                               isEditMode
-                                ? 'cursor-pointer hover:bg-blue-50/70 border-dashed border-blue-200'
-                                : 'text-slate-300 hover:bg-slate-50 cursor-pointer'
+                                ? 'border-dashed border-blue-200'
+                                : 'text-slate-300'
                             } ${isDropTarget ? 'bg-blue-100 border-2 border-primary' : ''}`}
                           >
                             {isEditMode ? (
@@ -667,20 +886,19 @@ export const TimetablePage: React.FC = () => {
                           onDragOver={isEditMode ? (e) => handleDragOver(e, slotKey) : undefined}
                           onDragLeave={isEditMode ? handleDragLeave : undefined}
                           onDrop={isEditMode ? (e) => handleDrop(e, weekday, 'morning', period) : undefined}
-                          onDoubleClick={() => openSlotEditor(weekday, 'morning', period, entry)}
-                          title={isEditMode ? 'Kéo thả hoặc nhấp để sửa' : 'Nhấp đúp để chỉnh sửa nhanh'}
-                          className={`p-1 border border-slate-200 relative group transition-all ${
+                          onClick={() => openSlotEditor(weekday, 'morning', period, entry)}
+                          title="Nhấp để chỉnh sửa môn & ghi chú tiết học"
+                          className={`p-1 border-2 border-white relative group transition-all cursor-pointer ${
                             isDropTarget ? 'ring-2 ring-primary ring-inset bg-blue-50' : ''
                           }`}
                         >
                           <div
                             draggable={isEditMode}
                             onDragStart={() => handleDragStart(entry)}
-                            onClick={isEditMode ? () => openSlotEditor(weekday, 'morning', period, entry) : undefined}
                             className={`p-1.5 rounded-lg border ${meta.bgClass} ${meta.borderClass} text-center min-h-[46px] flex flex-col justify-center transition-all ${
                               isEditMode
                                 ? 'cursor-grab active:cursor-grabbing hover:shadow-md ring-1 ring-black/5 hover:scale-[1.02]'
-                                : 'hover:shadow-sm cursor-pointer'
+                                : 'hover:shadow-md hover:scale-[1.01]'
                             }`}
                           >
                             {/* Grip handle indicator in edit mode */}
@@ -690,12 +908,20 @@ export const TimetablePage: React.FC = () => {
                               </div>
                             )}
 
+                            {/* Quick Edit hint on hover */}
+                            <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-80 text-slate-400 hover:text-primary transition-opacity">
+                              <Edit3 className="w-3 h-3" />
+                            </div>
+
                             {/* Delete Button in edit mode */}
                             {isEditMode && (
                               <button
-                                onClick={(e) => handleDeleteSlot(entry.id, e)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteSlot(entry.id, e);
+                                }}
                                 title="Xoá môn"
-                                className="absolute top-1 right-1 w-4 h-4 rounded-full bg-rose-500 hover:bg-rose-600 text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                                className="absolute top-1 right-1 w-4 h-4 rounded-full bg-rose-500 hover:bg-rose-600 text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity shadow-sm z-10"
                               >
                                 <X className="w-2.5 h-2.5" />
                               </button>
@@ -714,6 +940,15 @@ export const TimetablePage: React.FC = () => {
                                 P.{entry.room}
                               </div>
                             )}
+                            {entry.note && (
+                              <div
+                                className="text-[9px] text-amber-900 bg-amber-100/90 px-1 py-0.5 rounded border border-amber-200/70 mt-1 truncate max-w-full font-normal leading-tight text-center flex items-center justify-center gap-0.5 shadow-2xs"
+                                title={`Ghi chú: ${entry.note}`}
+                              >
+                                <span className="shrink-0 text-[10px]">📝</span>
+                                <span className="truncate">{entry.note}</span>
+                              </div>
+                            )}
                           </div>
                         </td>
                       );
@@ -726,21 +961,21 @@ export const TimetablePage: React.FC = () => {
               {[1, 2, 3].map((period, idx) => {
                 const times = AFTERNOON_TIMES[idx];
                 return (
-                  <tr key={`afternoon-${period}`} className="border-b border-slate-100 hover:bg-slate-50/50">
+                  <tr key={`afternoon-${period}`} className="border-b border-white hover:bg-slate-50/50">
                     {idx === 0 && (
                       <td
                         rowSpan={3}
-                        className="p-2 text-center bg-sky-50 border border-slate-200 align-middle"
+                        className="p-2 text-center bg-sky-50 border-2 border-white align-middle"
                       >
                         <div className="text-2xl mb-1">☁️</div>
                         <div className="text-xs font-black text-sky-800 uppercase">Buổi chiều</div>
                         <div className="text-[10px] text-sky-700 font-mono">(13:30 – 17:00)</div>
                       </td>
                     )}
-                    <td className="p-2 text-center font-bold text-xs text-slate-700 bg-slate-50 border border-slate-200">
+                    <td className="p-2 text-center font-bold text-xs text-slate-700 bg-slate-50 border-2 border-white">
                       Tiết {period}
                     </td>
-                    <td className="p-2 text-center text-[11px] font-mono text-slate-600 bg-slate-50 border border-slate-200">
+                    <td className="p-2 text-center text-[11px] font-mono text-slate-600 bg-slate-50 border-2 border-white">
                       {times}
                     </td>
                     {weekdays.map((weekday) => {
@@ -757,13 +992,12 @@ export const TimetablePage: React.FC = () => {
                             onDragOver={isEditMode ? (e) => handleDragOver(e, slotKey) : undefined}
                             onDragLeave={isEditMode ? handleDragLeave : undefined}
                             onDrop={isEditMode ? (e) => handleDrop(e, weekday, 'afternoon', period) : undefined}
-                            onClick={isEditMode ? () => openSlotEditor(weekday, 'afternoon', period) : undefined}
-                            onDoubleClick={() => openSlotEditor(weekday, 'afternoon', period)}
-                            title={isEditMode ? 'Nhấp để thêm môn' : 'Nhấp đúp để chỉnh sửa nhanh'}
-                            className={`p-1.5 text-center border border-slate-200 transition-colors ${
+                            onClick={() => openSlotEditor(weekday, 'afternoon', period)}
+                            title="Nhấp để thêm môn học"
+                            className={`p-1.5 text-center border-2 border-white transition-colors cursor-pointer hover:bg-blue-50/60 ${
                               isEditMode
-                                ? 'cursor-pointer hover:bg-blue-50/70 border-dashed border-blue-200'
-                                : 'text-slate-300 hover:bg-slate-50 cursor-pointer'
+                                ? 'border-dashed border-blue-200'
+                                : 'text-slate-300'
                             } ${isDropTarget ? 'bg-blue-100 border-2 border-primary' : ''}`}
                           >
                             {isEditMode ? (
@@ -784,20 +1018,19 @@ export const TimetablePage: React.FC = () => {
                           onDragOver={isEditMode ? (e) => handleDragOver(e, slotKey) : undefined}
                           onDragLeave={isEditMode ? handleDragLeave : undefined}
                           onDrop={isEditMode ? (e) => handleDrop(e, weekday, 'afternoon', period) : undefined}
-                          onDoubleClick={() => openSlotEditor(weekday, 'afternoon', period, entry)}
-                          title={isEditMode ? 'Kéo thả hoặc nhấp để sửa' : 'Nhấp đúp để chỉnh sửa nhanh'}
-                          className={`p-1 border border-slate-200 relative group transition-all ${
+                          onClick={() => openSlotEditor(weekday, 'afternoon', period, entry)}
+                          title="Nhấp để chỉnh sửa môn & ghi chú tiết học"
+                          className={`p-1 border-2 border-white relative group transition-all cursor-pointer ${
                             isDropTarget ? 'ring-2 ring-primary ring-inset bg-blue-50' : ''
                           }`}
                         >
                           <div
                             draggable={isEditMode}
                             onDragStart={() => handleDragStart(entry)}
-                            onClick={isEditMode ? () => openSlotEditor(weekday, 'afternoon', period, entry) : undefined}
                             className={`p-1.5 rounded-lg border ${meta.bgClass} ${meta.borderClass} text-center min-h-[46px] flex flex-col justify-center transition-all ${
                               isEditMode
                                 ? 'cursor-grab active:cursor-grabbing hover:shadow-md ring-1 ring-black/5 hover:scale-[1.02]'
-                                : 'hover:shadow-sm cursor-pointer'
+                                : 'hover:shadow-md hover:scale-[1.01]'
                             }`}
                           >
                             {isEditMode && (
@@ -806,11 +1039,20 @@ export const TimetablePage: React.FC = () => {
                               </div>
                             )}
 
+                            {/* Quick Edit hint on hover */}
+                            <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-80 text-slate-400 hover:text-primary transition-opacity">
+                              <Edit3 className="w-3 h-3" />
+                            </div>
+
+                            {/* Delete Button in edit mode */}
                             {isEditMode && (
                               <button
-                                onClick={(e) => handleDeleteSlot(entry.id, e)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteSlot(entry.id, e);
+                                }}
                                 title="Xoá môn"
-                                className="absolute top-1 right-1 w-4 h-4 rounded-full bg-rose-500 hover:bg-rose-600 text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                                className="absolute top-1 right-1 w-4 h-4 rounded-full bg-rose-500 hover:bg-rose-600 text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity shadow-sm z-10"
                               >
                                 <X className="w-2.5 h-2.5" />
                               </button>
@@ -829,6 +1071,15 @@ export const TimetablePage: React.FC = () => {
                                 P.{entry.room}
                               </div>
                             )}
+                            {entry.note && (
+                              <div
+                                className="text-[9px] text-amber-900 bg-amber-100/90 px-1 py-0.5 rounded border border-amber-200/70 mt-1 truncate max-w-full font-normal leading-tight text-center flex items-center justify-center gap-0.5 shadow-2xs"
+                                title={`Ghi chú: ${entry.note}`}
+                              >
+                                <span className="shrink-0 text-[10px]">📝</span>
+                                <span className="truncate">{entry.note}</span>
+                              </div>
+                            )}
                           </div>
                         </td>
                       );
@@ -841,25 +1092,25 @@ export const TimetablePage: React.FC = () => {
               {[1, 2].map((period, idx) => {
                 const times = ['17:15 – 19:15', '19:15 – 21:15'][idx];
                 return (
-                  <tr key={`evening-${period}`} className="border-b border-slate-100 hover:bg-slate-50/50">
+                  <tr key={`evening-${period}`} className="border-b border-white hover:bg-slate-50/50">
                     {idx === 0 && (
                       <td
                         rowSpan={2}
-                        className="p-2 text-center bg-indigo-50 border border-slate-200 align-middle"
+                        className="p-2 text-center bg-indigo-50 border-2 border-white align-middle"
                       >
                         <div className="text-2xl mb-1">🌙</div>
                         <div className="text-xs font-black text-indigo-800 uppercase">Buổi tối</div>
                         <div className="text-[10px] text-indigo-700 font-mono">(17:15 – 21:30)</div>
                       </td>
                     )}
-                    <td className="p-2 text-center font-bold text-xs text-slate-700 bg-slate-50 border border-slate-200">
+                    <td className="p-2 text-center font-bold text-xs text-slate-700 bg-slate-50 border-2 border-white">
                       Ca {period}
                     </td>
-                    <td className="p-2 text-center text-[11px] font-mono text-slate-600 bg-slate-50 border border-slate-200">
+                    <td className="p-2 text-center text-[11px] font-mono text-slate-600 bg-slate-50 border-2 border-white">
                       {times}
                     </td>
                     {weekdays.map((weekday) => {
-                      const extra = extraSchedules.find((ex) => {
+                      const extra = extraList.find((ex) => {
                         if (!ex.weekdays.includes(weekday)) return false;
                         if (idx === 0 && ex.start_time.startsWith('17')) return true;
                         if (
@@ -872,7 +1123,12 @@ export const TimetablePage: React.FC = () => {
 
                       if (!extra) {
                         return (
-                          <td key={weekday} className="p-1.5 text-center text-slate-300 border border-slate-200">
+                          <td
+                            key={weekday}
+                            onClick={() => openCreateExtraModal(weekday)}
+                            title="Nhấp để thêm lớp học thêm buổi tối"
+                            className="p-1.5 text-center text-slate-300 border-2 border-white hover:bg-indigo-50/50 cursor-pointer transition-colors"
+                          >
                             —
                           </td>
                         );
@@ -880,16 +1136,32 @@ export const TimetablePage: React.FC = () => {
 
                       const meta = getSubjectMeta(extra.name);
                       return (
-                        <td key={weekday} className="p-1 border border-slate-200">
+                        <td
+                          key={weekday}
+                          onClick={() => openEditExtraModal(extra)}
+                          title="Nhấp để chỉnh sửa tên & thời gian lớp học thêm"
+                          className="p-1 border-2 border-white cursor-pointer group relative"
+                        >
                           <div
-                            className={`p-1.5 rounded-lg border ${meta.bgClass} ${meta.borderClass} text-center min-h-[46px] flex flex-col justify-center`}
+                            className={`p-1.5 rounded-lg border ${meta.bgClass} ${meta.borderClass} text-center min-h-[46px] flex flex-col justify-center transition-all group-hover:shadow-md group-hover:scale-[1.01] relative`}
                           >
+                            <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-80 text-slate-400 hover:text-primary transition-opacity">
+                              <Edit3 className="w-3 h-3" />
+                            </div>
                             <div className={`text-xs font-bold ${meta.textClass} leading-tight`}>
                               {extra.name}
                             </div>
                             <div className="text-[10px] text-slate-500 font-mono mt-0.5">
                               {extra.start_time} – {extra.end_time}
                             </div>
+                            {extra.note && (
+                              <div
+                                className="text-[9px] text-amber-900 bg-amber-100/90 px-1 py-0.5 rounded border border-amber-200/70 mt-1 truncate max-w-full font-normal leading-tight text-center"
+                                title={`Ghi chú: ${extra.note}`}
+                              >
+                                📝 {extra.note}
+                              </div>
+                            )}
                           </div>
                         </td>
                       );
@@ -905,25 +1177,53 @@ export const TimetablePage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-5 pt-4 border-t border-slate-100">
           {/* Extra Classes Board */}
           <div className="md:col-span-2 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-3.5 relative">
-            <div className="flex items-center gap-2 mb-2 font-bold text-xs text-blue-900">
-              <span className="text-base">📋</span>
-              <span className="uppercase tracking-wider">LỊCH HỌC THÊM</span>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2 font-bold text-xs text-blue-900">
+                <span className="text-base">📋</span>
+                <span className="uppercase tracking-wider">LỊCH HỌC THÊM</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => openCreateExtraModal()}
+                className="text-[11px] font-semibold text-blue-800 hover:text-blue-950 bg-blue-200/60 hover:bg-blue-200 px-2 py-0.5 rounded-md flex items-center gap-1 transition-colors border border-blue-300 shadow-2xs"
+                title="Thêm lớp học thêm mới"
+              >
+                <Plus className="w-3 h-3" />
+                <span>Thêm lớp</span>
+              </button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-              {extraSchedules.map((ex) => (
-                <div key={ex.id} className="bg-white/80 p-2.5 rounded-lg border border-blue-100">
-                  <div className="font-bold text-slate-700 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                    <span>{ex.name}:</span>
+              {extraList.map((ex) => (
+                <div
+                  key={ex.id}
+                  onClick={() => openEditExtraModal(ex)}
+                  className="bg-white/90 hover:bg-white p-2.5 rounded-lg border border-blue-100 hover:border-blue-300 transition-all cursor-pointer group flex items-start justify-between gap-2 shadow-2xs"
+                  title="Nhấp để chỉnh sửa tên & lịch học"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-slate-700 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                      <span className="truncate">{ex.name}</span>
+                    </div>
+                    <div className="text-[11px] text-slate-600 mt-1 pl-3.5 font-mono">
+                      {ex.weekdays.map((w) => (w === 8 ? 'Chủ nhật' : `Thứ ${w}`)).join(', ')} | {ex.start_time} –{' '}
+                      {ex.end_time}
+                    </div>
+                    {ex.note && (
+                      <div className="text-[10px] text-slate-500 mt-1 pl-3.5 italic">
+                        {ex.note}
+                      </div>
+                    )}
                   </div>
-                  <div className="text-[11px] text-slate-600 mt-1 pl-3.5 font-mono">
-                    {ex.weekdays.map((w) => (w === 8 ? 'Chủ nhật' : `Thứ ${w}`)).join(', ')} | {ex.start_time} –{' '}
-                    {ex.end_time}
+                  <div className="text-slate-400 group-hover:text-primary transition-colors p-1 shrink-0">
+                    <Edit3 className="w-3.5 h-3.5" />
                   </div>
                 </div>
               ))}
-              {extraSchedules.length === 0 && (
-                <div className="text-xs text-slate-400 italic">Chưa đăng ký lớp học thêm nào</div>
+              {extraList.length === 0 && (
+                <div className="text-xs text-slate-400 italic py-2">
+                  Chưa đăng ký lớp học thêm nào. Bấm "Thêm lớp" để thêm.
+                </div>
               )}
             </div>
           </div>
@@ -933,17 +1233,30 @@ export const TimetablePage: React.FC = () => {
             <div className="absolute -top-3 right-4">
               <PushPin size={24} />
             </div>
-            <div className="font-bold text-xs text-amber-900 mb-1.5 flex items-center gap-1">
-              <span>📌</span>
-              <span>Ghi chú viết tắt</span>
+            <div className="flex items-center justify-between mb-2">
+              <div className="font-bold text-xs text-amber-900 flex items-center gap-1.5">
+                <span>📌</span>
+                <span>Ghi chú viết tắt & Tên môn</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsLegendModalOpen(true)}
+                className="text-[11px] font-semibold text-amber-800 hover:text-amber-950 bg-amber-200/60 hover:bg-amber-200 px-2 py-0.5 rounded-md flex items-center gap-1 transition-colors border border-amber-300 shadow-2xs"
+                title="Chỉnh sửa ghi chú viết tắt tên các môn"
+              >
+                <Edit3 className="w-3 h-3" />
+                <span>Chỉnh sửa</span>
+              </button>
             </div>
             <ul className="text-[10px] text-amber-800 space-y-1">
-              <li>• <strong>TANN:</strong> Tiếng Anh, nói chung</li>
-              <li>• <strong>KNS:</strong> Kỹ năng sống</li>
-              <li>• <strong>SHL:</strong> Sinh hoạt lớp</li>
-              <li>• <strong>HĐTN:</strong> Hoạt động trải nghiệm hướng nghiệp</li>
-              <li>• <strong>CN:</strong> Công nghệ</li>
-              <li>• <strong>(S):</strong> Sinh học | <strong>(Lí):</strong> Vật lí</li>
+              {legendList.map((item) => (
+                <li key={item.id}>
+                  • <strong>{item.code}:</strong> {item.note}
+                </li>
+              ))}
+              {legendList.length === 0 && (
+                <li className="text-[11px] text-amber-600 italic">Chưa có ghi chú nào. Bấm Chỉnh sửa để thêm.</li>
+              )}
             </ul>
           </div>
         </div>
@@ -1153,10 +1466,13 @@ export const TimetablePage: React.FC = () => {
             <div className="flex items-center justify-between pb-2 border-b border-app-border">
               <h3 className="text-base font-bold text-content-primary flex items-center gap-2">
                 <Settings2 className="w-5 h-5 text-primary" />
-                <span>Cấu Hình Danh Mục Môn Học</span>
+                <span>Cấu Hình & Chỉnh Sửa Danh Mục Môn Học</span>
               </h3>
               <button
-                onClick={() => setIsSubjectModalOpen(false)}
+                onClick={() => {
+                  setIsSubjectModalOpen(false);
+                  handleCancelEditSubject();
+                }}
                 className="p-1 rounded-lg text-content-muted hover:text-content-primary hover:bg-black/5"
               >
                 <X className="w-5 h-5" />
@@ -1164,89 +1480,512 @@ export const TimetablePage: React.FC = () => {
             </div>
 
             <p className="text-xs text-content-secondary">
-              Danh sách các môn học dùng trong Thời Khóa Biểu. Bạn có thể thêm các môn học đặc thù, câu lạc bộ hoặc môn ngoại khóa mới bất kỳ lúc nào.
+              Quản lý danh sách các môn học dùng trong Thời Khóa Biểu. Bạn có thể sửa tên môn, mã viết tắt, ghi chú giải thích và đổi màu sắc cho từng môn bất kỳ lúc nào.
             </p>
 
-            {/* Quick Add Form */}
-            <form onSubmit={handleAddNewSubject} className="p-3 bg-app-card/60 rounded-xl border border-app-border space-y-2 text-xs">
-              <div className="font-bold text-content-primary flex items-center gap-1.5">
-                <Plus className="w-3.5 h-3.5 text-primary" />
-                <span>Thêm môn học mới</span>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="text"
-                  required
-                  placeholder="Tên môn (VD: STEM Robotics)"
-                  value={newSubjName}
-                  onChange={(e) => setNewSubjName(e.target.value)}
-                  className="px-2.5 py-1.5 rounded-lg border border-app-border bg-app-bg text-content-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-                <input
-                  type="text"
-                  placeholder="Mã viết tắt (VD: STEM)"
-                  value={newSubjCode}
-                  onChange={(e) => setNewSubjCode(e.target.value)}
-                  className="px-2.5 py-1.5 rounded-lg border border-app-border bg-app-bg text-content-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
-              <div className="flex items-center justify-between gap-2 pt-1">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-content-muted text-[11px]">Màu thẻ:</span>
-                  {['#2563EB', '#EC4899', '#10B981', '#F59E0B', '#8B5CF6', '#06B6D4', '#64748B'].map((clr) => (
-                    <button
-                      type="button"
-                      key={clr}
-                      onClick={() => setNewSubjColor(clr)}
-                      className={`w-5 h-5 rounded-full border ${newSubjColor === clr ? 'ring-2 ring-primary scale-110' : 'border-transparent'}`}
-                      style={{ backgroundColor: clr }}
-                    />
-                  ))}
+            {/* Edit Mode or Add Form */}
+            {editingSubjId ? (
+              <form onSubmit={handleSaveEditSubject} className="p-3 bg-amber-500/10 rounded-xl border border-amber-500/30 space-y-2 text-xs">
+                <div className="font-bold text-amber-900 dark:text-amber-200 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Edit3 className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Chỉnh sửa thông tin môn học</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleCancelEditSubject}
+                    className="text-[11px] text-content-muted hover:text-content-primary underline"
+                  >
+                    Huỷ bỏ
+                  </button>
                 </div>
-                <Button type="submit" variant="primary" size="sm" className="text-xs py-1">
-                  Thêm môn
-                </Button>
-              </div>
-            </form>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] text-content-secondary font-medium block mb-0.5">Tên môn học *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Tên môn (VD: Toán, STEM...)"
+                      value={editSubjName}
+                      onChange={(e) => setEditSubjName(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-app-border bg-app-bg text-content-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-content-secondary font-medium block mb-0.5">Mã viết tắt</label>
+                    <input
+                      type="text"
+                      placeholder="Mã viết tắt (VD: TOAN, TANN...)"
+                      value={editSubjCode}
+                      onChange={(e) => setEditSubjCode(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-app-border bg-app-bg text-content-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] text-content-secondary font-medium block mb-0.5">Ghi chú / Diễn giải viết tắt</label>
+                  <input
+                    type="text"
+                    placeholder="Diễn giải (VD: Tiếng Anh, nói chung | Sinh học | Vật lí...)"
+                    value={editSubjNote}
+                    onChange={(e) => setEditSubjNote(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-app-border bg-app-bg text-content-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-content-muted text-[11px]">Màu thẻ:</span>
+                    {['#2563EB', '#EC4899', '#10B981', '#F59E0B', '#8B5CF6', '#06B6D4', '#64748B'].map((clr) => (
+                      <button
+                        type="button"
+                        key={clr}
+                        onClick={() => setEditSubjColor(clr)}
+                        className={`w-5 h-5 rounded-full border ${editSubjColor === clr ? 'ring-2 ring-primary scale-110' : 'border-transparent'}`}
+                        style={{ backgroundColor: clr }}
+                      />
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={handleCancelEditSubject} className="text-xs py-1">
+                      Huỷ
+                    </Button>
+                    <Button type="submit" variant="primary" size="sm" className="text-xs py-1">
+                      Lưu cập nhật
+                    </Button>
+                  </div>
+                </div>
+              </form>
+            ) : (
+              /* Quick Add Form */
+              <form onSubmit={handleAddNewSubject} className="p-3 bg-app-card/60 rounded-xl border border-app-border space-y-2 text-xs">
+                <div className="font-bold text-content-primary flex items-center gap-1.5">
+                  <Plus className="w-3.5 h-3.5 text-primary" />
+                  <span>Thêm môn học mới</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] text-content-secondary font-medium block mb-0.5">Tên môn học *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Tên môn (VD: STEM Robotics)"
+                      value={newSubjName}
+                      onChange={(e) => setNewSubjName(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-app-border bg-app-bg text-content-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-content-secondary font-medium block mb-0.5">Mã viết tắt</label>
+                    <input
+                      type="text"
+                      placeholder="Mã viết tắt (VD: STEM)"
+                      value={newSubjCode}
+                      onChange={(e) => setNewSubjCode(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-app-border bg-app-bg text-content-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] text-content-secondary font-medium block mb-0.5">Ghi chú / Diễn giải tên môn</label>
+                  <input
+                    type="text"
+                    placeholder="Diễn giải viết tắt hoặc ghi chú môn..."
+                    value={newSubjNote}
+                    onChange={(e) => setNewSubjNote(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-app-border bg-app-bg text-content-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-content-muted text-[11px]">Màu thẻ:</span>
+                    {['#2563EB', '#EC4899', '#10B981', '#F59E0B', '#8B5CF6', '#06B6D4', '#64748B'].map((clr) => (
+                      <button
+                        type="button"
+                        key={clr}
+                        onClick={() => setNewSubjColor(clr)}
+                        className={`w-5 h-5 rounded-full border ${newSubjColor === clr ? 'ring-2 ring-primary scale-110' : 'border-transparent'}`}
+                        style={{ backgroundColor: clr }}
+                      />
+                    ))}
+                  </div>
+                  <Button type="submit" variant="primary" size="sm" className="text-xs py-1">
+                    Thêm môn
+                  </Button>
+                </div>
+              </form>
+            )}
 
             {/* Subject List */}
             <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 max-h-64">
-              <div className="text-[11px] font-bold text-content-muted uppercase tracking-wider">
-                Môn học hiện có ({subjectList.length})
+              <div className="text-[11px] font-bold text-content-muted uppercase tracking-wider flex items-center justify-between">
+                <span>Danh sách môn ({subjectList.length})</span>
+                <span className="text-[10px] font-normal lowercase text-content-muted">Bấm bút chì để sửa tên, mã, ghi chú</span>
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {subjectList.map((s) => (
                   <div
                     key={s.id}
-                    className="p-2 rounded-lg border border-app-border bg-app-card flex items-center justify-between text-xs"
+                    className={`p-2 rounded-lg border transition-all flex items-center justify-between text-xs ${
+                      editingSubjId === s.id
+                        ? 'border-amber-400 bg-amber-500/10 ring-1 ring-amber-400'
+                        : 'border-app-border bg-app-card hover:border-primary/40'
+                    }`}
                   >
-                    <div className="flex items-center gap-2 overflow-hidden">
-                      <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                    <div className="flex items-center gap-2 overflow-hidden min-w-0 pr-1">
+                      <span className="w-3 h-3 rounded-full shrink-0 shadow-2xs" style={{ backgroundColor: s.color }} />
                       <div className="truncate">
-                        <span className="font-bold text-content-primary">{s.name}</span>
-                        {s.code && <span className="text-[10px] text-content-muted ml-1">({s.code})</span>}
+                        <div className="flex items-center gap-1">
+                          <span className="font-bold text-content-primary truncate">{s.name}</span>
+                          {s.code && <span className="text-[10px] text-content-muted shrink-0">({s.code})</span>}
+                        </div>
+                        {s.note && (
+                          <div className="text-[10px] text-content-secondary truncate" title={s.note}>
+                            {s.note}
+                          </div>
+                        )}
                       </div>
                     </div>
-                    {s.is_custom && (
+                    <div className="flex items-center gap-0.5 shrink-0">
                       <button
                         type="button"
-                        onClick={() => handleDeleteCustomSubject(s.id)}
-                        className="p-1 text-content-muted hover:text-red-500 rounded"
-                        title="Xóa môn này"
+                        onClick={() => handleStartEditSubject(s)}
+                        className="p-1 text-content-muted hover:text-primary rounded hover:bg-primary/10 transition-colors"
+                        title={`Sửa môn ${s.name}`}
                       >
-                        <Trash2 className="w-3 h-3" />
+                        <Edit3 className="w-3.5 h-3.5" />
                       </button>
-                    )}
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteSubject(s)}
+                        className="p-1 text-content-muted hover:text-rose-500 rounded hover:bg-rose-50 transition-colors"
+                        title={`Xoá môn ${s.name}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
 
             <div className="flex justify-end pt-3 border-t border-app-border">
-              <Button type="button" variant="primary" size="sm" onClick={() => setIsSubjectModalOpen(false)}>
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                onClick={() => {
+                  setIsSubjectModalOpen(false);
+                  handleCancelEditSubject();
+                }}
+              >
                 Hoàn tất
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* TIMETABLE LEGEND / GHI CHÚ VIẾT TẮT MODAL */}
+      {isLegendModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-app-surface border border-app-border rounded-2xl p-6 shadow-theme-pop w-full max-w-lg space-y-4 animate-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between pb-2 border-b border-app-border">
+              <h3 className="text-base font-bold text-content-primary flex items-center gap-2">
+                <span className="text-lg">📌</span>
+                <span>Chỉnh Sửa Ghi Chú Viết Tắt & Tên Môn Học</span>
+              </h3>
+              <button
+                onClick={() => setIsLegendModalOpen(false)}
+                className="p-1 rounded-lg text-content-muted hover:text-content-primary hover:bg-black/5"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-content-secondary">
+              Tùy chỉnh danh sách chú thích ký hiệu viết tắt hiển thị trên bảng Thời Khóa Biểu (Ví dụ: TANN là Tiếng Anh, KNS là Kỹ năng sống, SHL là Sinh hoạt lớp...).
+            </p>
+
+            {/* Quick Actions */}
+            <div className="flex items-center justify-between gap-2 p-2 bg-app-card/70 rounded-xl border border-app-border text-xs">
+              <span className="text-[11px] text-content-muted font-medium">Tiện ích nhanh:</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleSyncLegendFromSubjects}
+                  className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition-colors flex items-center gap-1"
+                  title="Tự động lấy các môn có mã và ghi chú đưa vào danh sách viết tắt"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  <span>Đồng bộ từ môn học</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetLegendDefault}
+                  className="px-2.5 py-1 rounded-lg text-[11px] font-medium text-content-muted hover:text-content-primary bg-black/5 hover:bg-black/10 transition-colors flex items-center gap-1"
+                  title="Khôi phục ghi chú viết tắt mẫu mặc định"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Mẫu chuẩn</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Add new legend note */}
+            <form onSubmit={handleAddLegendItem} className="p-3 bg-app-card/60 rounded-xl border border-app-border space-y-2 text-xs">
+              <div className="font-bold text-content-primary flex items-center gap-1.5">
+                <Plus className="w-3.5 h-3.5 text-primary" />
+                <span>Thêm chú thích viết tắt mới</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <input
+                  type="text"
+                  required
+                  placeholder="Ký hiệu (VD: TANN)"
+                  value={newLegendCode}
+                  onChange={(e) => setNewLegendCode(e.target.value)}
+                  className="px-2.5 py-1.5 rounded-lg border border-app-border bg-app-bg text-content-primary focus:outline-none focus:ring-1 focus:ring-primary col-span-1 font-bold"
+                />
+                <input
+                  type="text"
+                  required
+                  placeholder="Ý nghĩa / Ghi chú (VD: Tiếng Anh, nói chung)"
+                  value={newLegendNote}
+                  onChange={(e) => setNewLegendNote(e.target.value)}
+                  className="px-2.5 py-1.5 rounded-lg border border-app-border bg-app-bg text-content-primary focus:outline-none focus:ring-1 focus:ring-primary col-span-2"
+                />
+              </div>
+              <div className="flex justify-end pt-1">
+                <Button type="submit" variant="primary" size="sm" className="text-xs py-1">
+                  Thêm chú thích
+                </Button>
+              </div>
+            </form>
+
+            {/* Legend List */}
+            <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 max-h-60">
+              <div className="text-[11px] font-bold text-content-muted uppercase tracking-wider">
+                Danh sách ghi chú ({legendList.length})
+              </div>
+              <div className="space-y-1.5">
+                {legendList.map((item) => {
+                  const isEditing = editingLegendId === item.id;
+                  if (isEditing) {
+                    return (
+                      <form
+                        key={item.id}
+                        onSubmit={handleSaveEditLegend}
+                        className="p-2 rounded-lg border border-amber-400 bg-amber-500/10 flex items-center gap-2 text-xs"
+                      >
+                        <input
+                          type="text"
+                          required
+                          value={editLegendCode}
+                          onChange={(e) => setEditLegendCode(e.target.value)}
+                          className="w-24 px-2 py-1 rounded border border-app-border bg-app-bg text-content-primary font-bold focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                        <input
+                          type="text"
+                          required
+                          value={editLegendNote}
+                          onChange={(e) => setEditLegendNote(e.target.value)}
+                          className="flex-1 px-2 py-1 rounded border border-app-border bg-app-bg text-content-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                        <button
+                          type="submit"
+                          className="px-2 py-1 bg-primary text-primary-foreground rounded text-[11px] font-bold"
+                        >
+                          Lưu
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCancelEditLegend}
+                          className="px-2 py-1 bg-black/5 hover:bg-black/10 rounded text-[11px]"
+                        >
+                          Huỷ
+                        </button>
+                      </form>
+                    );
+                  }
+                  return (
+                    <div
+                      key={item.id}
+                      className="p-2 rounded-lg border border-app-border bg-app-card flex items-center justify-between text-xs hover:border-primary/40 transition-colors"
+                    >
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <span className="font-bold text-content-primary shrink-0 bg-primary/10 text-primary px-1.5 py-0.5 rounded font-mono">
+                          {item.code}
+                        </span>
+                        <span className="text-content-secondary truncate">{item.note}</span>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleStartEditLegend(item)}
+                          className="p-1 text-content-muted hover:text-primary rounded hover:bg-primary/10 transition-colors"
+                          title="Sửa ghi chú này"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteLegendItem(item.id)}
+                          className="p-1 text-content-muted hover:text-rose-500 rounded hover:bg-rose-50 transition-colors"
+                          title="Xoá ghi chú này"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-3 border-t border-app-border">
+              <Button type="button" variant="primary" size="sm" onClick={() => setIsLegendModalOpen(false)}>
+                Hoàn tất
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Chỉnh sửa / Thêm mới Lớp học thêm */}
+      {(editingExtra || isNewExtraModalOpen) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-app-card border border-app-border rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-app-border">
+              <h3 className="text-base font-bold text-content-primary flex items-center gap-2">
+                <span className="text-xl">🌙</span>
+                <span>{editingExtra ? 'Chỉnh Sửa Lớp Học Thêm' : 'Thêm Lớp Học Thêm Mới'}</span>
+              </h3>
+              <button
+                onClick={() => {
+                  setEditingExtra(null);
+                  setIsNewExtraModalOpen(false);
+                }}
+                className="p-1 rounded-lg text-content-muted hover:text-content-primary hover:bg-black/5 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveExtra} className="space-y-3.5 text-xs">
+              {/* Tên lớp học thêm */}
+              <div className="space-y-1">
+                <label className="font-bold text-content-primary">Tên môn / Lớp học thêm *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="VD: Tiếng Anh giao tiếp & ngữ pháp, Toán tư duy..."
+                  value={formExtraName}
+                  onChange={(e) => setFormExtraName(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-app-border bg-app-bg text-content-primary font-medium focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+
+              {/* Các ngày học trong tuần */}
+              <div className="space-y-1">
+                <label className="font-bold text-content-primary">Các ngày học trong tuần *</label>
+                <div className="flex flex-wrap gap-1.5 pt-0.5">
+                  {([2, 3, 4, 5, 6, 7, 8] as WeekdayNumber[]).map((day) => {
+                    const isSelected = formExtraWeekdays.includes(day);
+                    return (
+                      <button
+                        type="button"
+                        key={day}
+                        onClick={() => {
+                          if (isSelected) {
+                            if (formExtraWeekdays.length > 1) {
+                              setFormExtraWeekdays(formExtraWeekdays.filter((d) => d !== day));
+                            }
+                          } else {
+                            setFormExtraWeekdays([...formExtraWeekdays, day].sort((a, b) => a - b));
+                          }
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-colors border ${
+                          isSelected
+                            ? 'bg-primary text-primary-foreground border-primary shadow-xs'
+                            : 'bg-app-surface text-content-secondary border-app-border hover:border-primary/40'
+                        }`}
+                      >
+                        {day === 8 ? 'Chủ nhật' : `Thứ ${day}`}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Thời gian */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="font-bold text-content-primary">Giờ bắt đầu</label>
+                  <input
+                    type="time"
+                    required
+                    value={formExtraStartTime}
+                    onChange={(e) => setFormExtraStartTime(e.target.value)}
+                    className="w-full px-3 py-1.5 rounded-lg border border-app-border bg-app-bg text-content-primary focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-bold text-content-primary">Giờ kết thúc</label>
+                  <input
+                    type="time"
+                    required
+                    value={formExtraEndTime}
+                    onChange={(e) => setFormExtraEndTime(e.target.value)}
+                    className="w-full px-3 py-1.5 rounded-lg border border-app-border bg-app-bg text-content-primary focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+              </div>
+
+              {/* Ghi chú / Địa điểm */}
+              <div className="space-y-1">
+                <label className="font-bold text-content-primary">Ghi chú / Địa điểm / Giáo viên</label>
+                <input
+                  type="text"
+                  placeholder="VD: Cô Mai, Phòng 204, Trung tâm..."
+                  value={formExtraNote}
+                  onChange={(e) => setFormExtraNote(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-app-border bg-app-bg text-content-primary focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-between pt-3 border-t border-app-border">
+                {editingExtra ? (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteExtra(editingExtra.id)}
+                    className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Xoá lớp</span>
+                  </button>
+                ) : (
+                  <div />
+                )}
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setEditingExtra(null);
+                      setIsNewExtraModalOpen(false);
+                    }}
+                  >
+                    Huỷ
+                  </Button>
+                  <Button type="submit" variant="primary" size="sm" className="font-bold">
+                    {editingExtra ? 'Lưu thay đổi' : 'Thêm lớp học'}
+                  </Button>
+                </div>
+              </div>
+            </form>
           </div>
         </div>
       )}

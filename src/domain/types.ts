@@ -244,6 +244,13 @@ export interface SubjectItem {
   icon?: string;
   category?: 'core' | 'science' | 'social' | 'arts_sports' | 'other';
   is_custom?: boolean;
+  note?: string; // Ghi chú giải thích viết tắt, diễn giải tên môn
+}
+
+export interface TimetableLegendItem {
+  id: string;
+  code: string;
+  note: string;
 }
 
 export interface ExtraClassSessionLog {

@@ -11,6 +11,7 @@ import {
   SchoolYearRecord,
   TeacherContact,
   SubjectItem,
+  TimetableLegendItem,
   ExtraClassSessionLog,
   HomeworkTask,
   DailyTeacherComment,
@@ -579,21 +580,30 @@ export const SEED_TEACHERS: TeacherContact[] = [
 ];
 
 export const SEED_SUBJECTS: SubjectItem[] = [
-  { id: 'sub-toan', name: 'Toán', code: 'TOAN', color: '#2563EB', icon: '📐', category: 'core' },
-  { id: 'sub-van', name: 'Ngữ văn', code: 'VAN', color: '#E11D48', icon: '📖', category: 'core' },
-  { id: 'sub-anh', name: 'Tiếng Anh', code: 'TANN', color: '#EC4899', icon: '🌍', category: 'core' },
-  { id: 'sub-khtn', name: 'KHTN', code: 'KHTN', color: '#059669', icon: '🔬', category: 'science' },
-  { id: 'sub-lsdl', name: 'Lịch sử & Địa lí', code: 'LSDL', color: '#D97706', icon: '🗺️', category: 'social' },
-  { id: 'sub-tin', name: 'Tin học', code: 'TIN', color: '#0891B2', icon: '💻', category: 'science' },
-  { id: 'sub-cn', name: 'Công nghệ', code: 'CN', color: '#6366F1', icon: '⚙️', category: 'science' },
-  { id: 'sub-gdcd', name: 'GDCD', code: 'GDCD', color: '#10B981', icon: '⚖️', category: 'social' },
-  { id: 'sub-td', name: 'Thể dục', code: 'TD', color: '#EA580C', icon: '🏃', category: 'arts_sports' },
-  { id: 'sub-an', name: 'Âm nhạc', code: 'AN', color: '#8B5CF6', icon: '🎵', category: 'arts_sports' },
-  { id: 'sub-mt', name: 'Mỹ thuật', code: 'MT', color: '#F43F5E', icon: '🎨', category: 'arts_sports' },
-  { id: 'sub-hdtn', name: 'HĐTN', code: 'HDTN', color: '#F59E0B', icon: '🌱', category: 'other' },
-  { id: 'sub-kns', name: 'KNS', code: 'KNS', color: '#14B8A6', icon: '💡', category: 'other' },
-  { id: 'sub-shl', name: 'SHL', code: 'SHL', color: '#64748B', icon: '👥', category: 'other' },
-  { id: 'sub-cc', name: 'Chào cờ', code: 'CC', color: '#DC2626', icon: '🚩', category: 'other' },
+  { id: 'sub-toan', name: 'Toán', code: 'TOAN', color: '#2563EB', icon: '📐', category: 'core', note: 'Toán học' },
+  { id: 'sub-van', name: 'Ngữ văn', code: 'VAN', color: '#E11D48', icon: '📖', category: 'core', note: 'Văn học & Tiếng Việt' },
+  { id: 'sub-anh', name: 'Tiếng Anh', code: 'TANN', color: '#EC4899', icon: '🌍', category: 'core', note: 'Tiếng Anh, nói chung' },
+  { id: 'sub-khtn', name: 'KHTN', code: 'KHTN', color: '#059669', icon: '🔬', category: 'science', note: '(S): Sinh học | (Lí): Vật lí' },
+  { id: 'sub-lsdl', name: 'Lịch sử & Địa lí', code: 'LSDL', color: '#D97706', icon: '🗺️', category: 'social', note: 'Lịch sử & Địa lí' },
+  { id: 'sub-tin', name: 'Tin học', code: 'TIN', color: '#0891B2', icon: '💻', category: 'science', note: 'Tin học' },
+  { id: 'sub-cn', name: 'Công nghệ', code: 'CN', color: '#6366F1', icon: '⚙️', category: 'science', note: 'Công nghệ' },
+  { id: 'sub-gdcd', name: 'GDCD', code: 'GDCD', color: '#10B981', icon: '⚖️', category: 'social', note: 'Giáo dục công dân' },
+  { id: 'sub-td', name: 'Thể dục', code: 'TD', color: '#EA580C', icon: '🏃', category: 'arts_sports', note: 'Giáo dục thể chất' },
+  { id: 'sub-an', name: 'Âm nhạc', code: 'AN', color: '#8B5CF6', icon: '🎵', category: 'arts_sports', note: 'Âm nhạc' },
+  { id: 'sub-mt', name: 'Mỹ thuật', code: 'MT', color: '#F43F5E', icon: '🎨', category: 'arts_sports', note: 'Mỹ thuật' },
+  { id: 'sub-hdtn', name: 'HĐTN', code: 'HDTN', color: '#F59E0B', icon: '🌱', category: 'other', note: 'Hoạt động trải nghiệm hướng nghiệp' },
+  { id: 'sub-kns', name: 'KNS', code: 'KNS', color: '#14B8A6', icon: '💡', category: 'other', note: 'Kỹ năng sống' },
+  { id: 'sub-shl', name: 'SHL', code: 'SHL', color: '#64748B', icon: '👥', category: 'other', note: 'Sinh hoạt lớp' },
+  { id: 'sub-cc', name: 'Chào cờ', code: 'CC', color: '#DC2626', icon: '🚩', category: 'other', note: 'Chào cờ đầu tuần' },
+];
+
+export const SEED_TIMETABLE_LEGEND: TimetableLegendItem[] = [
+  { id: 'leg-1', code: 'TANN', note: 'Tiếng Anh, nói chung' },
+  { id: 'leg-2', code: 'KNS', note: 'Kỹ năng sống' },
+  { id: 'leg-3', code: 'SHL', note: 'Sinh hoạt lớp' },
+  { id: 'leg-4', code: 'HĐTN', note: 'Hoạt động trải nghiệm hướng nghiệp' },
+  { id: 'leg-5', code: 'CN', note: 'Công nghệ' },
+  { id: 'leg-6', code: '(S) | (Lí)', note: 'Sinh học | Vật lí' },
 ];
 
 export const SEED_SESSION_LOGS: ExtraClassSessionLog[] = [
