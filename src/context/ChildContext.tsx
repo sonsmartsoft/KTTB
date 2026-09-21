@@ -14,8 +14,10 @@ interface ChildContextType {
 const ChildContext = createContext<ChildContextType | undefined>(undefined);
 
 export const ChildProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  storage.init();
-  const [childrenList, setChildrenList] = useState<Child[]>(() => storage.getChildren());
+  const [childrenList, setChildrenList] = useState<Child[]>(() => {
+    storage.init();
+    return storage.getChildren();
+  });
   const [activeChildId, setActiveChildIdState] = useState<string>(() => {
     return storage.getSettings().activeChildId || childrenList[0]?.id || 'child-trung-quan';
   });

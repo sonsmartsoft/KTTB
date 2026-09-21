@@ -99,10 +99,12 @@ export const storage = {
     setItem(KEYS.SESSION_LOGS, SEED_SESSION_LOGS);
     setItem(KEYS.HOMEWORK, SEED_HOMEWORK_TASKS);
     setItem(KEYS.DAILY_COMMENTS, SEED_DAILY_TEACHER_COMMENTS);
+    const existingTheme = (localStorage.getItem('ktt_theme') as any) || 'cute';
+    const existingChild = localStorage.getItem('ktt_active_child_id') || 'child-trung-quan';
     setItem(KEYS.SETTINGS, {
-      theme: 'cute',
+      theme: existingTheme,
       density: 'comfortable',
-      activeChildId: 'child-trung-quan',
+      activeChildId: existingChild,
     } as AppearanceSettings);
   },
 
@@ -298,14 +300,34 @@ export const storage = {
 
   // Settings
   getSettings(): AppearanceSettings {
-    return getItem(KEYS.SETTINGS, {
+    const defaultSettings: AppearanceSettings = {
       theme: 'cute',
       density: 'comfortable',
       activeChildId: 'child-trung-quan',
-    });
+    };
+    const settings = getItem(KEYS.SETTINGS, defaultSettings);
+    try {
+      const directTheme = localStorage.getItem('ktt_theme') as any;
+      if (directTheme && ['cute', 'modern', 'pastel', 'colorful'].includes(directTheme)) {
+        settings.theme = directTheme;
+      }
+      const directChild = localStorage.getItem('ktt_active_child_id');
+      if (directChild) {
+        settings.activeChildId = directChild;
+      }
+    } catch {}
+    return settings;
   },
   saveSettings(settings: AppearanceSettings): void {
     setItem(KEYS.SETTINGS, settings);
+    try {
+      if (settings.theme) {
+        localStorage.setItem('ktt_theme', settings.theme);
+      }
+      if (settings.activeChildId) {
+        localStorage.setItem('ktt_active_child_id', settings.activeChildId);
+      }
+    } catch {}
   },
 
   // School Years (Lịch sử học bạ các năm)

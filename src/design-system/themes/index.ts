@@ -182,4 +182,8 @@ export function applyTheme(themeId: AppTheme): void {
   Object.entries(theme.variables).forEach(([key, value]) => {
     root.style.setProperty(key, value);
   });
+
+  try {
+    localStorage.setItem('ktt_theme', theme.id);
+  } catch {}
 }

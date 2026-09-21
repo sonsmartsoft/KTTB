@@ -14,7 +14,11 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<AppTheme>(() => {
-    storage.init();
+    // Read directly from localStorage (already initialized/applied in main.tsx)
+    const saved = localStorage.getItem('ktt_theme') as AppTheme;
+    if (saved && ['cute', 'modern', 'pastel', 'colorful'].includes(saved)) {
+      return saved;
+    }
     return storage.getSettings().theme || 'cute';
   });
 
