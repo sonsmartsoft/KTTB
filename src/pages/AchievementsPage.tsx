@@ -16,6 +16,9 @@ import {
   Sparkles,
   ShieldCheck,
   CheckCircle2,
+  Upload,
+  Image as ImageIcon,
+  Eye,
 } from 'lucide-react';
 import { AchievementRecord } from '@/domain/types';
 
@@ -35,6 +38,7 @@ export const AchievementsPage: React.FC = () => {
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [viewingAchievement, setViewingAchievement] = useState<AchievementRecord | null>(null);
 
   // Form State
   const [title, setTitle] = useState('');
@@ -44,6 +48,7 @@ export const AchievementsPage: React.FC = () => {
   const [organization, setOrganization] = useState('Phòng Giáo Dục & Đào Tạo');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [description, setDescription] = useState('');
+  const [imageUrl, setImageUrl] = useState<string>('');
 
   const childAchievements = achievements.filter((a) => a.child_id === activeChild.id);
 
@@ -51,6 +56,21 @@ export const AchievementsPage: React.FC = () => {
     activeCategory === 'all'
       ? childAchievements
       : childAchievements.filter((a) => a.category === activeCategory);
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 3 * 1024 * 1024) {
+      alert('Vui lòng chọn ảnh dung lượng dưới 3MB');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (uploadEvent) => {
+      const res = uploadEvent.target?.result as string;
+      setImageUrl(res);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSaveAchievement = (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,12 +86,14 @@ export const AchievementsPage: React.FC = () => {
       school_year: '2026-2027',
       date,
       description: description.trim() || undefined,
+      image_url: imageUrl || undefined,
     });
 
     setAchievements(storage.getAchievements());
     setIsModalOpen(false);
     setTitle('');
     setDescription('');
+    setImageUrl('');
   };
 
   const handleDeleteAchievement = (id: string) => {
@@ -119,6 +141,93 @@ export const AchievementsPage: React.FC = () => {
         </Button>
       </div>
 
+      {/* ================= TROPHY SHOWCASE SHELF ================= */}
+      {(() => {
+        const goldCount = childAchievements.filter(
+          (a) =>
+            a.result?.toLowerCase().includes('nhất') ||
+            a.result?.toLowerCase().includes('vàng') ||
+            a.result?.toLowerCase().includes('xuất sắc')
+        ).length;
+
+        const silverCount = childAchievements.filter(
+          (a) =>
+            a.result?.toLowerCase().includes('nhì') ||
+            a.result?.toLowerCase().includes('bạc')
+        ).length;
+
+        const bronzeCount = childAchievements.filter(
+          (a) =>
+            a.result?.toLowerCase().includes('ba') ||
+            a.result?.toLowerCase().includes('đồng') ||
+            a.result?.toLowerCase().includes('khuyến khích')
+        ).length;
+
+        const certCount = childAchievements.filter(
+          (a) => a.category === 'certificate' || a.category === 'academic'
+        ).length;
+
+        return (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+            {/* Gold Trophy */}
+            <div className="relative overflow-hidden rounded-2xl p-4 bg-gradient-to-br from-amber-500/15 via-yellow-400/10 to-amber-600/5 border-2 border-amber-300 dark:border-amber-700 shadow-sm flex flex-col justify-between group hover:scale-[1.02] transition-transform">
+              <div className="flex items-center justify-between">
+                <span className="text-2xl drop-shadow-sm">🏆</span>
+                <span className="text-2xl font-extrabold text-amber-600 dark:text-amber-400 font-mono">
+                  {goldCount}
+                </span>
+              </div>
+              <div className="mt-2">
+                <h4 className="text-xs font-bold text-content-primary">Cúp Vàng &amp; Giải Nhất</h4>
+                <p className="text-[10px] text-content-muted mt-0.5">Danh hiệu cao nhất</p>
+              </div>
+            </div>
+
+            {/* Silver Trophy */}
+            <div className="relative overflow-hidden rounded-2xl p-4 bg-gradient-to-br from-slate-400/15 via-zinc-300/10 to-slate-500/5 border-2 border-slate-300 dark:border-slate-700 shadow-sm flex flex-col justify-between group hover:scale-[1.02] transition-transform">
+              <div className="flex items-center justify-between">
+                <span className="text-2xl drop-shadow-sm">🥈</span>
+                <span className="text-2xl font-extrabold text-slate-600 dark:text-slate-300 font-mono">
+                  {silverCount}
+                </span>
+              </div>
+              <div className="mt-2">
+                <h4 className="text-xs font-bold text-content-primary">Cúp Bạc &amp; Giải Nhì</h4>
+                <p className="text-[10px] text-content-muted mt-0.5">Thành tích xuất sắc</p>
+              </div>
+            </div>
+
+            {/* Bronze Medal */}
+            <div className="relative overflow-hidden rounded-2xl p-4 bg-gradient-to-br from-orange-400/15 via-amber-600/10 to-yellow-700/5 border-2 border-orange-300 dark:border-orange-800 shadow-sm flex flex-col justify-between group hover:scale-[1.02] transition-transform">
+              <div className="flex items-center justify-between">
+                <span className="text-2xl drop-shadow-sm">🥉</span>
+                <span className="text-2xl font-extrabold text-orange-600 dark:text-orange-400 font-mono">
+                  {bronzeCount}
+                </span>
+              </div>
+              <div className="mt-2">
+                <h4 className="text-xs font-bold text-content-primary">Giải Ba &amp; Khuyến Khích</h4>
+                <p className="text-[10px] text-content-muted mt-0.5">Huy chương đồng</p>
+              </div>
+            </div>
+
+            {/* Certificate / Scholastic */}
+            <div className="relative overflow-hidden rounded-2xl p-4 bg-gradient-to-br from-blue-500/15 via-indigo-400/10 to-blue-600/5 border-2 border-blue-300 dark:border-blue-700 shadow-sm flex flex-col justify-between group hover:scale-[1.02] transition-transform">
+              <div className="flex items-center justify-between">
+                <span className="text-2xl drop-shadow-sm">📜</span>
+                <span className="text-2xl font-extrabold text-blue-600 dark:text-blue-400 font-mono">
+                  {certCount}
+                </span>
+              </div>
+              <div className="mt-2">
+                <h4 className="text-xs font-bold text-content-primary">Chứng Chỉ &amp; Bằng Khen</h4>
+                <p className="text-[10px] text-content-muted mt-0.5">Chứng nhận học thuật</p>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Category Filter Tabs */}
       <div className="flex flex-wrap gap-2 pb-1">
         {CATEGORIES.map((tab) => (
@@ -143,15 +252,21 @@ export const AchievementsPage: React.FC = () => {
             key={ach.id}
             className="p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 hover:shadow-theme-md transition-shadow group relative"
           >
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-2xl shrink-0 shadow-sm">
+            <div className="flex items-start gap-4 flex-1">
+              <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center justify-center text-2xl shrink-0 shadow-sm">
                 {getCategoryIcon(ach.category)}
               </div>
-              <div>
+              <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="text-base font-bold text-content-primary">{ach.title}</h3>
                   <Badge variant="secondary">{ach.result || 'Khen thưởng'}</Badge>
                   {ach.level && <Badge variant="outline">{ach.level}</Badge>}
+                  {ach.image_url && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                      <ImageIcon className="w-3 h-3" />
+                      <span>Có ảnh đính kèm</span>
+                    </span>
+                  )}
                 </div>
                 {ach.description && (
                   <p className="text-xs text-content-secondary mt-1 max-w-2xl leading-relaxed">
@@ -175,14 +290,25 @@ export const AchievementsPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Delete button */}
-            <button
-              onClick={() => handleDeleteAchievement(ach.id)}
-              className="p-1.5 rounded-lg text-content-muted hover:text-rose-600 hover:bg-rose-50 transition-colors opacity-0 group-hover:opacity-100"
-              title="Xoá thành tích"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+            {/* Actions: View Certificate & Delete */}
+            <div className="flex items-center gap-2 self-end md:self-center">
+              <Button
+                variant="outline"
+                size="sm"
+                icon={<Eye className="w-3.5 h-3.5" />}
+                onClick={() => setViewingAchievement(ach)}
+              >
+                {ach.image_url ? 'Xem ảnh' : 'Xem chứng chỉ'}
+              </Button>
+
+              <button
+                onClick={() => handleDeleteAchievement(ach.id)}
+                className="p-2 rounded-lg text-content-muted hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                title="Xoá thành tích"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
           </Card>
         ))}
       </div>
@@ -311,6 +437,34 @@ export const AchievementsPage: React.FC = () => {
                 />
               </div>
 
+              {/* Real Certificate Photo Upload */}
+              <div className="space-y-1.5">
+                <label className="font-bold text-content-primary flex items-center justify-between">
+                  <span>Ảnh chụp bằng khen / Cúp / Huy chương</span>
+                  {imageUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setImageUrl('')}
+                      className="text-rose-500 hover:underline text-[11px]"
+                    >
+                      Xoá ảnh
+                    </button>
+                  )}
+                </label>
+                {imageUrl ? (
+                  <div className="relative rounded-xl border border-app-border overflow-hidden max-h-36 flex items-center justify-center bg-black/5">
+                    <img src={imageUrl} alt="Bằng khen preview" className="max-h-36 w-auto object-contain" />
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center border-2 border-dashed border-app-border hover:border-primary/50 rounded-xl p-3 cursor-pointer bg-app-bg/50 hover:bg-primary/5 transition-colors">
+                    <Upload className="w-5 h-5 text-content-muted mb-1" />
+                    <span className="text-xs text-content-secondary font-medium">Bấm để tải ảnh chụp từ máy</span>
+                    <span className="text-[10px] text-content-muted">Hỗ trợ JPG, PNG, WEBP (Tối đa 3MB)</span>
+                    <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
+                  </label>
+                )}
+              </div>
+
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-app-border">
                 <Button type="button" variant="outline" size="sm" onClick={() => setIsModalOpen(false)}>
                   Huỷ
@@ -320,6 +474,83 @@ export const AchievementsPage: React.FC = () => {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= CERTIFICATE & AWARD VIEWER MODAL ================= */}
+      {viewingAchievement && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-app-surface border border-app-border rounded-2xl p-6 shadow-2xl w-full max-w-lg space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-2 border-b border-app-border">
+              <div className="flex items-center gap-2">
+                <Award className="w-5 h-5 text-amber-500" />
+                <h3 className="text-base font-bold text-content-primary">Chứng Nhận Thành Tích</h3>
+              </div>
+              <button
+                onClick={() => setViewingAchievement(null)}
+                className="p-1.5 rounded-lg text-content-muted hover:text-content-primary hover:bg-black/5"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Certificate Display Card */}
+            {viewingAchievement.image_url ? (
+              <div className="space-y-3">
+                <div className="rounded-xl overflow-hidden border border-app-border bg-black/5 flex items-center justify-center max-h-[380px]">
+                  <img
+                    src={viewingAchievement.image_url}
+                    alt={viewingAchievement.title}
+                    className="max-h-[380px] w-full object-contain"
+                  />
+                </div>
+                <div className="text-center">
+                  <h4 className="font-bold text-sm text-content-primary">{viewingAchievement.title}</h4>
+                  <p className="text-xs text-content-muted mt-0.5">
+                    {viewingAchievement.result} • {viewingAchievement.level || 'Chính thức'} •{' '}
+                    {viewingAchievement.date.split('-').reverse().join('/')}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              /* Digital Certificate Template with Gilded Borders */
+              <div className="relative p-6 rounded-2xl border-4 border-amber-300 dark:border-amber-700 bg-gradient-to-b from-amber-50/70 via-white to-amber-50/50 dark:from-zinc-900 dark:via-zinc-800 dark:to-zinc-900 text-center space-y-3 shadow-inner">
+                <div className="text-4xl">🏆</div>
+                <span className="text-[10px] font-extrabold uppercase tracking-widest text-amber-600 dark:text-amber-400">
+                  GIẤY CHỨNG NHẬN VINH DANH
+                </span>
+
+                <h3 className="text-lg font-extrabold text-content-primary font-display">
+                  {viewingAchievement.title}
+                </h3>
+
+                <p className="text-xs text-content-secondary">
+                  Trao tặng cho bé: <strong className="text-primary text-sm">{activeChild.name}</strong>
+                </p>
+
+                <div className="inline-block px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 font-bold text-xs">
+                  {viewingAchievement.result || 'Thành tích Xuất sắc'}
+                </div>
+
+                {viewingAchievement.description && (
+                  <p className="text-xs italic text-content-secondary max-w-sm mx-auto pt-1">
+                    "{viewingAchievement.description}"
+                  </p>
+                )}
+
+                <div className="pt-3 border-t border-amber-200 dark:border-amber-800/60 flex items-center justify-between text-[11px] text-content-muted px-2">
+                  <span>Đơn vị: {viewingAchievement.organization || 'Hội đồng Khảo thí'}</span>
+                  <span>Ngày: {viewingAchievement.date.split('-').reverse().join('/')}</span>
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end pt-2 border-t border-app-border">
+              <Button variant="primary" size="sm" onClick={() => setViewingAchievement(null)}>
+                Đóng
+              </Button>
+            </div>
           </div>
         </div>
       )}

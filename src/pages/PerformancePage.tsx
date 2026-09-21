@@ -20,6 +20,8 @@ import {
   User,
   ChevronDown,
   ChevronUp,
+  BarChart3,
+  ArrowUpRight,
 } from 'lucide-react';
 import {
   Assessment,
@@ -353,6 +355,106 @@ export const PerformancePage: React.FC = () => {
             </Card>
           )}
 
+          {/* Visual Subject Score Comparison Chart */}
+          {currentAssessment && currentAssessment.results.length > 0 && (
+            <Card className="p-6 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-app-border">
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-primary" />
+                  <div>
+                    <h3 className="text-base font-bold text-content-primary">
+                      Biểu Đồ So Sánh Điểm Số Từng Môn (Thực Tế vs Mục Tiêu)
+                    </h3>
+                    <p className="text-xs text-content-muted">
+                      Đối chiếu trực quan mức độ hoàn thành chỉ tiêu điểm số trên thang điểm 10
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4 text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded bg-primary" />
+                    <span className="text-content-secondary">Điểm thực tế</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded bg-amber-400" />
+                    <span className="text-content-secondary">Mục tiêu đề ra</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bar Chart Columns */}
+              <div className="pt-4 pb-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                  {currentAssessment.results.map((res) => {
+                    const scoreHeight = Math.min(Math.max((res.score / 10) * 100, 10), 100);
+                    const targetScore = res.target_score || 9.0;
+                    const targetHeight = Math.min(Math.max((targetScore / 10) * 100, 10), 100);
+                    const isMet = res.score >= targetScore;
+                    const diff = (res.score - targetScore).toFixed(1);
+
+                    return (
+                      <div
+                        key={res.id}
+                        className="bg-app-bg/50 rounded-xl p-3 border border-app-border flex flex-col items-center justify-between space-y-2 hover:border-primary/40 transition-colors"
+                      >
+                        <div className="flex items-center justify-between w-full text-[11px]">
+                          <span className="font-bold text-content-primary truncate">{res.subject}</span>
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                              isMet
+                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
+                                : 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400'
+                            }`}
+                          >
+                            {Number(diff) >= 0 ? `+${diff}` : diff}
+                          </span>
+                        </div>
+
+                        {/* Chart Column Bars */}
+                        <div className="w-full h-28 flex items-end justify-center gap-2 relative pt-3 pb-1">
+                          {/* 9.0 Benchmark Guide Line */}
+                          <div
+                            className="absolute left-0 right-0 border-b border-dashed border-primary/20 z-0"
+                            style={{ bottom: '90%' }}
+                            title="Ngưỡng Xuất Sắc (9.0)"
+                          />
+
+                          {/* Actual Score Bar */}
+                          <div className="w-6 flex flex-col items-center h-full justify-end z-10">
+                            <span className="text-[11px] font-extrabold text-primary font-mono mb-1">
+                              {res.score}
+                            </span>
+                            <div
+                              className="w-full rounded-t-lg bg-gradient-to-t from-primary to-blue-400 transition-all duration-700 shadow-sm"
+                              style={{ height: `${scoreHeight}%` }}
+                            />
+                          </div>
+
+                          {/* Target Score Bar */}
+                          <div className="w-6 flex flex-col items-center h-full justify-end z-10">
+                            <span className="text-[10px] font-medium text-amber-600 dark:text-amber-400 font-mono mb-1">
+                              {targetScore}
+                            </span>
+                            <div
+                              className="w-full rounded-t-lg bg-amber-400/80 dark:bg-amber-500/60 transition-all duration-700"
+                              style={{ height: `${targetHeight}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="w-full pt-1 border-t border-app-border text-center">
+                          <span className="text-[10px] text-content-muted">
+                            {isMet ? '✓ Đạt chỉ tiêu' : 'Cần cố gắng thêm'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </Card>
+          )}
+
           {/* Current Assessment Results Breakdown */}
           {currentAssessment && (
             <Card className="p-6 space-y-4">
@@ -434,6 +536,214 @@ export const PerformancePage: React.FC = () => {
               Lên lớp mới / Thêm năm học
             </Button>
           </div>
+
+          {/* Historical GPA Progression SVG Chart */}
+          {childSchoolYears.length > 0 && (
+            <Card className="p-6 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-app-border">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-primary" />
+                  <div>
+                    <h3 className="text-base font-bold text-content-primary">
+                      Biểu Đồ Xu Hướng Điểm Tổng Kết GPA Qua Các Năm (Lớp 1 → Hiện Tại)
+                    </h3>
+                    <p className="text-xs text-content-muted">
+                      Theo dõi sự phát triển học lực và phong độ ổn định của {activeChild.name} qua từng bậc lớp
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Duy trì Học sinh Xuất sắc liên tục {childSchoolYears.length} năm</span>
+                </div>
+              </div>
+
+              {/* Responsive SVG Chart */}
+              <div className="w-full overflow-x-auto py-2">
+                <div className="min-w-[550px] relative">
+                  {(() => {
+                    const width = 620;
+                    const height = 160;
+                    const padding = { top: 30, bottom: 40, left: 45, right: 35 };
+                    const chartWidth = width - padding.left - padding.right;
+                    const chartHeight = height - padding.top - padding.bottom;
+
+                    const minScore = 8.5;
+                    const maxScore = 10.0;
+
+                    const points = childSchoolYears.map((sy, idx) => {
+                      const x =
+                        padding.left +
+                        (childSchoolYears.length > 1
+                          ? (idx / (childSchoolYears.length - 1)) * chartWidth
+                          : chartWidth / 2);
+                      const normalizedY = (sy.overall_score - minScore) / (maxScore - minScore);
+                      const y = padding.top + chartHeight - normalizedY * chartHeight;
+                      return { x, y, sy };
+                    });
+
+                    const pathD = points.reduce((acc, pt, idx) => {
+                      return idx === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`;
+                    }, '');
+
+                    const areaD =
+                      points.length > 0
+                        ? `${pathD} L ${points[points.length - 1].x} ${padding.top + chartHeight} L ${
+                            points[0].x
+                          } ${padding.top + chartHeight} Z`
+                        : '';
+
+                    return (
+                      <svg
+                        viewBox={`0 0 ${width} ${height}`}
+                        className="w-full h-auto drop-shadow-sm overflow-visible select-none"
+                      >
+                        <defs>
+                          <linearGradient id="gpaGradientArea" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#2563EB" stopOpacity="0.25" />
+                            <stop offset="100%" stopColor="#2563EB" stopOpacity="0.0" />
+                          </linearGradient>
+                        </defs>
+
+                        {/* Benchmark Lines (9.0 and 9.5) */}
+                        <line
+                          x1={padding.left}
+                          y1={padding.top + chartHeight - ((9.0 - minScore) / (maxScore - minScore)) * chartHeight}
+                          x2={width - padding.right}
+                          y2={padding.top + chartHeight - ((9.0 - minScore) / (maxScore - minScore)) * chartHeight}
+                          stroke="#94A3B8"
+                          strokeDasharray="4 4"
+                          strokeWidth="1"
+                          strokeOpacity="0.4"
+                        />
+                        <text
+                          x={padding.left - 6}
+                          y={padding.top + chartHeight - ((9.0 - minScore) / (maxScore - minScore)) * chartHeight + 4}
+                          textAnchor="end"
+                          className="text-[10px] fill-content-muted font-mono"
+                        >
+                          9.0
+                        </text>
+
+                        <line
+                          x1={padding.left}
+                          y1={padding.top}
+                          x2={width - padding.right}
+                          y2={padding.top}
+                          stroke="#94A3B8"
+                          strokeDasharray="4 4"
+                          strokeWidth="1"
+                          strokeOpacity="0.4"
+                        />
+                        <text
+                          x={padding.left - 6}
+                          y={padding.top + 4}
+                          textAnchor="end"
+                          className="text-[10px] fill-content-muted font-mono"
+                        >
+                          10.0
+                        </text>
+
+                        {/* Area Fill Under Curve */}
+                        {areaD && <path d={areaD} fill="url(#gpaGradientArea)" />}
+
+                        {/* Trend Line Path */}
+                        {pathD && (
+                          <path
+                            d={pathD}
+                            fill="none"
+                            stroke="#2563EB"
+                            strokeWidth="3.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        )}
+
+                        {/* Data Points with Pulse and Score Labels */}
+                        {points.map((pt, i) => (
+                          <g key={i}>
+                            {/* Outer Glow Ring */}
+                            <circle
+                              cx={pt.x}
+                              cy={pt.y}
+                              r="7"
+                              fill="#2563EB"
+                              fillOpacity="0.2"
+                              className="animate-pulse"
+                            />
+                            {/* Inner Circle */}
+                            <circle
+                              cx={pt.x}
+                              cy={pt.y}
+                              r="4.5"
+                              fill="#FFFFFF"
+                              stroke="#2563EB"
+                              strokeWidth="2.5"
+                            />
+                            {/* Score Text above point */}
+                            <text
+                              x={pt.x}
+                              y={pt.y - 11}
+                              textAnchor="middle"
+                              className="text-[11px] font-extrabold fill-blue-600 dark:fill-blue-400 font-mono"
+                            >
+                              {pt.sy.overall_score}
+                            </text>
+                            {/* Grade & Year below X-Axis */}
+                            <text
+                              x={pt.x}
+                              y={height - 22}
+                              textAnchor="middle"
+                              className="text-[11px] font-bold fill-content-primary"
+                            >
+                              {pt.sy.grade}
+                            </text>
+                            <text
+                              x={pt.x}
+                              y={height - 8}
+                              textAnchor="middle"
+                              className="text-[9px] fill-content-muted"
+                            >
+                              {pt.sy.school_year}
+                            </text>
+                          </g>
+                        ))}
+                      </svg>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {/* Milestone & Rank Summary Footer */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-app-border text-center">
+                <div className="bg-app-bg/60 p-2.5 rounded-xl">
+                  <span className="text-[10px] uppercase font-bold text-content-muted">Điểm ĐTB Cao Nhất</span>
+                  <div className="text-base font-extrabold text-primary font-mono mt-0.5">
+                    {Math.max(...childSchoolYears.map((s) => s.overall_score))} / 10
+                  </div>
+                </div>
+                <div className="bg-app-bg/60 p-2.5 rounded-xl">
+                  <span className="text-[10px] uppercase font-bold text-content-muted">Năm Học Hiện Tại</span>
+                  <div className="text-base font-extrabold text-secondary font-display mt-0.5">
+                    {childSchoolYears[childSchoolYears.length - 1]?.grade || 'Lớp 6'}
+                  </div>
+                </div>
+                <div className="bg-app-bg/60 p-2.5 rounded-xl">
+                  <span className="text-[10px] uppercase font-bold text-content-muted">Vị Trí Xếp Hạng</span>
+                  <div className="text-base font-extrabold text-emerald-600 font-mono mt-0.5">
+                    Top 1 - 2 Toàn Khối
+                  </div>
+                </div>
+                <div className="bg-app-bg/60 p-2.5 rounded-xl">
+                  <span className="text-[10px] uppercase font-bold text-content-muted">Xếp Loại Tổng Thể</span>
+                  <div className="text-base font-extrabold text-indigo-600 font-display mt-0.5">
+                    Xuất Sắc
+                  </div>
+                </div>
+              </div>
+            </Card>
+          )}
 
           {/* School Years Accordion / Timeline */}
           <div className="space-y-4">

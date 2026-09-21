@@ -181,6 +181,15 @@ export const CalendarPage: React.FC = () => {
               const isSelected = dateStr === selectedDate;
               const hasException = exceptions.some((e) => e.child_id === activeChild.id && e.date === dateStr);
               const isToday = isSameDay(day, new Date());
+              const dayOfWeek = ((day.getDay() + 6) % 7) + 2; // T2=2 .. CN=8
+              const isWeekday = day.getDay() >= 1 && day.getDay() <= 5;
+              const hasSchool = isWeekday;
+              const hasExtra = extraSchedules.some(
+                (es) => es.child_id === activeChild.id && es.active && es.weekdays.includes(dayOfWeek as any)
+              );
+              const isCancelled = exceptions.some(
+                (e) => e.child_id === activeChild.id && e.date === dateStr && e.type === 'cancel'
+              );
 
               return (
                 <button
@@ -224,14 +233,26 @@ export const CalendarPage: React.FC = () => {
                     );
                   })()}
 
+                  {/* Color-Coded Session Dots */}
                   <div className="flex items-center gap-1">
-                    <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white' : 'bg-blue-500'}`} />
+                    {hasSchool && !isCancelled && (
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white' : 'bg-blue-500'}`}
+                        title="Chính khóa"
+                      />
+                    )}
+                    {hasExtra && !isCancelled && (
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-purple-200' : 'bg-purple-500'}`}
+                        title="Học thêm"
+                      />
+                    )}
                     {hasException && (
                       <span
-                        className={`w-2 h-2 rounded-full ring-1 ring-white ${
+                        className={`w-1.5 h-1.5 rounded-full ring-1 ring-white ${
                           isSelected ? 'bg-amber-300' : 'bg-rose-500'
                         }`}
-                        title="Có ngoại lệ / Thay đổi"
+                        title="Có ngoại lệ / Nghỉ học"
                       />
                     )}
                   </div>
@@ -243,15 +264,21 @@ export const CalendarPage: React.FC = () => {
           <div className="flex flex-wrap items-center gap-4 pt-3 border-t border-app-subtle text-xs text-content-muted">
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-blue-500" />
-              <span>Lịch học chính khóa</span>
+              <span>Chính khóa</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-purple-500" />
+              <span>Học thêm</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-rose-500" />
-              <span>Có ngoại lệ (nghỉ học / đổi môn / sự kiện)</span>
+              <span>Ngoại lệ / Nghỉ học</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="px-1 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold">Mùng 1 / Rằm</span>
-              <span>Lịch Âm Việt Nam</span>
+              <span className="px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-400 text-[10px] font-bold">
+                Rằm / Mùng 1
+              </span>
+              <span>Lịch Âm</span>
             </div>
           </div>
         </Card>
