@@ -14,6 +14,7 @@ import {
   SubjectItem,
   ExtraClassSessionLog,
   HomeworkTask,
+  DailyTeacherComment,
 } from '@/domain/types';
 import {
   SEED_CHILDREN,
@@ -30,6 +31,7 @@ import {
   SEED_SUBJECTS,
   SEED_SESSION_LOGS,
   SEED_HOMEWORK_TASKS,
+  SEED_DAILY_TEACHER_COMMENTS,
 } from './seedData';
 
 const KEYS = {
@@ -48,6 +50,7 @@ const KEYS = {
   SUBJECTS: 'ktt_subjects',
   SESSION_LOGS: 'ktt_session_logs',
   HOMEWORK: 'ktt_homework',
+  DAILY_COMMENTS: 'ktt_daily_teacher_comments',
 };
 
 function getItem<T>(key: string, defaultValue: T): T {
@@ -91,6 +94,7 @@ export const storage = {
     setItem(KEYS.SUBJECTS, SEED_SUBJECTS);
     setItem(KEYS.SESSION_LOGS, SEED_SESSION_LOGS);
     setItem(KEYS.HOMEWORK, SEED_HOMEWORK_TASKS);
+    setItem(KEYS.DAILY_COMMENTS, SEED_DAILY_TEACHER_COMMENTS);
     setItem(KEYS.SETTINGS, {
       theme: 'cute',
       density: 'comfortable',
@@ -421,5 +425,37 @@ export const storage = {
   deleteHomeworkTask(id: string): void {
     const list = this.getHomeworkTasks().filter((t) => t.id !== id);
     this.saveHomeworkTasks(list);
+  },
+
+  // Daily Teacher Comments (Sổ liên lạc & Lời nhắn Thầy Cô hàng ngày)
+  getDailyComments(): DailyTeacherComment[] {
+    return getItem(KEYS.DAILY_COMMENTS, SEED_DAILY_TEACHER_COMMENTS);
+  },
+  saveDailyComments(comments: DailyTeacherComment[]): void {
+    setItem(KEYS.DAILY_COMMENTS, comments);
+  },
+  addDailyComment(comment: Omit<DailyTeacherComment, 'id' | 'created_at'>): DailyTeacherComment {
+    const list = this.getDailyComments();
+    const newComment: DailyTeacherComment = {
+      ...comment,
+      id: `dtc-${Date.now()}`,
+      created_at: new Date().toISOString(),
+    };
+    this.saveDailyComments([newComment, ...list]);
+    return newComment;
+  },
+  updateDailyComment(id: string, updates: Partial<DailyTeacherComment>): void {
+    const list = this.getDailyComments().map((c) => (c.id === id ? { ...c, ...updates } : c));
+    this.saveDailyComments(list);
+  },
+  toggleDailyCommentAcknowledged(id: string): void {
+    const list = this.getDailyComments().map((c) =>
+      c.id === id ? { ...c, parent_acknowledged: !c.parent_acknowledged } : c
+    );
+    this.saveDailyComments(list);
+  },
+  deleteDailyComment(id: string): void {
+    const list = this.getDailyComments().filter((c) => c.id !== id);
+    this.saveDailyComments(list);
   },
 };

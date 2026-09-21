@@ -12,12 +12,13 @@ import { BookStack } from '@/design-system/illustrations/BookStack';
 import {
   Sun, Cloud, Moon, Calendar as CalendarIcon, ArrowRight, Sparkles, Bell,
   BookMarked, Plus, Check, Trash2, ClipboardList, X, AlertCircle,
+  MessageSquareQuote, CheckCheck, History, Filter, UserCheck,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getSubjectMeta } from '@/design-system/tokens/colors';
 import { format, addDays, parseISO } from 'date-fns';
 import { getLunarDateInfo } from '@/utils/lunarCalendar';
-import { HomeworkTask } from '@/domain/types';
+import { HomeworkTask, DailyTeacherComment, TeacherContact } from '@/domain/types';
 
 const SUBJECT_OPTIONS = [
   'Toán', 'Ngữ văn', 'Tiếng Anh', 'Khoa học', 'Lịch sử', 'Địa lý',
@@ -42,6 +43,32 @@ export const DashboardPage: React.FC = () => {
   const [hwDesc, setHwDesc] = useState('');
   const [hwDueDate, setHwDueDate] = useState(selectedDate);
   const [hwPriority, setHwPriority] = useState<'normal' | 'high'>('normal');
+
+  // Daily teacher comments state
+  const [dailyComments, setDailyComments] = useState<DailyTeacherComment[]>(() =>
+    storage.getDailyComments()
+  );
+  const teachers = storage.getTeachers();
+
+  // Modals for Teacher Comments
+  const [isAddCommentOpen, setIsAddCommentOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
+  // Form state for adding comment
+  const [tcTeacherId, setTcTeacherId] = useState('');
+  const [tcTeacherName, setTcTeacherName] = useState('Cô Trần Thu Hà');
+  const [tcTeacherRole, setTcTeacherRole] = useState<'homeroom' | 'subject' | 'tutor'>('homeroom');
+  const [tcSourceType, setTcSourceType] = useState<'school' | 'extra'>('school');
+  const [tcSubject, setTcSubject] = useState('GVCN & Ngữ văn');
+  const [tcCategory, setTcCategory] = useState<DailyTeacherComment['category']>('praise');
+  const [tcContent, setTcContent] = useState('');
+  const [tcScore, setTcScore] = useState<string>('');
+  const [tcDate, setTcDate] = useState(selectedDate);
+
+  // Filter state for history modal
+  const [historyTeacherFilter, setHistoryTeacherFilter] = useState('all');
+  const [historySourceFilter, setHistorySourceFilter] = useState('all');
+  const [historyCategoryFilter, setHistoryCategoryFilter] = useState('all');
 
   // Resolve schedule for active child on selected date
   const templates = storage.getTemplates();
@@ -111,6 +138,57 @@ export const DashboardPage: React.FC = () => {
     setHwPriority('normal');
     setIsAddHWOpen(false);
   };
+
+  // Teacher comments handlers
+  const handleSelectTeacherProfile = (t: TeacherContact) => {
+    setTcTeacherId(t.id);
+    setTcTeacherName(t.name);
+    setTcTeacherRole(t.role);
+    setTcSourceType(t.role === 'tutor' ? 'extra' : 'school');
+    setTcSubject(t.subject || '');
+  };
+
+  const handleSaveComment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tcContent.trim()) return;
+
+    storage.addDailyComment({
+      child_id: activeChild.id,
+      date: tcDate,
+      teacher_id: tcTeacherId || undefined,
+      teacher_name: tcTeacherName.trim(),
+      teacher_role: tcTeacherRole,
+      source_type: tcSourceType,
+      subject: tcSubject.trim() || undefined,
+      category: tcCategory,
+      content: tcContent.trim(),
+      score: tcScore ? parseFloat(tcScore) : undefined,
+      parent_acknowledged: true,
+    });
+
+    setDailyComments(storage.getDailyComments());
+    setIsAddCommentOpen(false);
+    setTcContent('');
+    setTcScore('');
+  };
+
+  const handleToggleCommentAck = (id: string) => {
+    storage.toggleDailyCommentAcknowledged(id);
+    setDailyComments(storage.getDailyComments());
+  };
+
+  const handleDeleteComment = (id: string) => {
+    if (window.confirm('Bạn có chắc muốn xoá lời nhắn này?')) {
+      storage.deleteDailyComment(id);
+      setDailyComments(storage.getDailyComments());
+    }
+  };
+
+  // Filter comments for active child on selected date
+  const childComments = dailyComments.filter((c) => c.child_id === activeChild.id);
+  const selectedDateComments = childComments.filter((c) => c.date === selectedDate);
+  const schoolComments = selectedDateComments.filter((c) => c.source_type === 'school');
+  const extraComments = selectedDateComments.filter((c) => c.source_type === 'extra');
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
@@ -407,6 +485,278 @@ export const DashboardPage: React.FC = () => {
         )}
       </Card>
 
+      {/* ===== TEACHER COMMENTS (daily parallel view) ===== */}
+      <Card className="p-5 space-y-4">
+        <div className="flex items-center justify-between pb-2 border-b border-app-border">
+          <div className="flex items-center gap-2">
+            <MessageSquareQuote className="w-5 h-5 text-primary" />
+            <h3 className="text-sm font-bold text-content-primary">Nhận Xét Của Thầy / Cô</h3>
+            <Badge variant="outline" size="sm">
+              {selectedDate.split('-').reverse().join('/')}
+            </Badge>
+            {selectedDateComments.length > 0 && (
+              <Badge variant="primary" size="sm">{selectedDateComments.length} nhận xét</Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              icon={<History className="w-3.5 h-3.5" />}
+              onClick={() => setIsHistoryOpen(true)}
+            >
+              Lịch sử
+            </Button>
+            <Button
+              size="sm"
+              variant="primary"
+              icon={<Plus className="w-3.5 h-3.5" />}
+              onClick={() => { setTcDate(selectedDate); setIsAddCommentOpen(true); }}
+            >
+              Ghi nhận xét
+            </Button>
+          </div>
+        </div>
+
+        {/* Parallel two-column: School vs Extra */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Column 1: School */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-sky-700 pb-1 border-b border-sky-100">
+              <UserCheck className="w-4 h-4" />
+              <span>🏫 Trên Lớp (Chính Khóa)</span>
+              <span className="ml-auto font-normal text-content-muted">{schoolComments.length} nhận xét</span>
+            </div>
+            {schoolComments.length === 0 ? (
+              <div className="py-5 text-center text-xs text-content-muted italic">Chưa có nhận xét từ giáo viên chính khóa</div>
+            ) : (
+              schoolComments.map((c) => (
+                <CommentCard key={c.id} comment={c}
+                  onAck={() => handleToggleCommentAck(c.id)}
+                  onDelete={() => handleDeleteComment(c.id)} />
+              ))
+            )}
+          </div>
+          {/* Column 2: Extra */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-purple-700 pb-1 border-b border-purple-100">
+              <MessageSquareQuote className="w-4 h-4" />
+              <span>📚 Học Thêm / Gia Sư</span>
+              <span className="ml-auto font-normal text-content-muted">{extraComments.length} nhận xét</span>
+            </div>
+            {extraComments.length === 0 ? (
+              <div className="py-5 text-center text-xs text-content-muted italic">Chưa có nhận xét từ giáo viên học thêm</div>
+            ) : (
+              extraComments.map((c) => (
+                <CommentCard key={c.id} comment={c}
+                  onAck={() => handleToggleCommentAck(c.id)}
+                  onDelete={() => handleDeleteComment(c.id)} />
+              ))
+            )}
+          </div>
+        </div>
+      </Card>
+
+      {/* ===== ADD COMMENT MODAL ===== */}
+      {isAddCommentOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-app-surface rounded-theme-lg shadow-theme-lg border border-app-border w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 border-b border-app-border">
+              <div className="flex items-center gap-2 text-primary font-bold">
+                <MessageSquareQuote className="w-5 h-5" />
+                <span className="text-sm">Ghi nhận xét của thầy / cô</span>
+              </div>
+              <button onClick={() => setIsAddCommentOpen(false)}
+                className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-black/10 transition-colors">
+                <X className="w-4 h-4 text-content-muted" />
+              </button>
+            </div>
+            <form onSubmit={handleSaveComment} className="p-4 space-y-4">
+              {/* Quick-select teacher profile */}
+              <div>
+                <label className="text-[11px] font-bold text-content-secondary mb-1.5 block">
+                  Chọn nhanh hồ sơ giáo viên
+                </label>
+                <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1">
+                  {teachers.map((t) => (
+                    <button key={t.id} type="button"
+                      onClick={() => handleSelectTeacherProfile(t)}
+                      className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all ${
+                        tcTeacherId === t.id
+                          ? 'bg-primary text-white border-primary shadow-sm'
+                          : 'bg-app-surface border-app-border text-content-secondary hover:border-primary/50 hover:bg-primary/5'
+                      }`}>
+                      {t.role === 'tutor' ? '📚' : t.role === 'homeroom' ? '🏫' : '📖'} {t.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Teacher name & source type */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-bold text-content-secondary mb-1 block">Tên giáo viên</label>
+                  <input value={tcTeacherName} onChange={(e) => setTcTeacherName(e.target.value)}
+                    placeholder="Cô Nguyễn Thị A"
+                    className="w-full px-2.5 py-1.5 text-xs border border-app-border rounded-theme-sm bg-app-surface text-content-primary focus:outline-none focus:ring-1 focus:ring-primary" />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-content-secondary mb-1 block">Loại</label>
+                  <select value={tcSourceType} onChange={(e) => setTcSourceType(e.target.value as 'school' | 'extra')}
+                    className="w-full px-2.5 py-1.5 text-xs border border-app-border rounded-theme-sm bg-app-surface text-content-primary focus:outline-none focus:ring-1 focus:ring-primary">
+                    <option value="school">🏫 Chính khóa</option>
+                    <option value="extra">📚 Học thêm / GS</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Subject & Date */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-bold text-content-secondary mb-1 block">Môn / vai trò</label>
+                  <input value={tcSubject} onChange={(e) => setTcSubject(e.target.value)}
+                    placeholder="GVCN, Toán, Tiếng Anh..."
+                    className="w-full px-2.5 py-1.5 text-xs border border-app-border rounded-theme-sm bg-app-surface text-content-primary focus:outline-none focus:ring-1 focus:ring-primary" />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-content-secondary mb-1 block">Ngày</label>
+                  <input type="date" value={tcDate} onChange={(e) => setTcDate(e.target.value)}
+                    className="w-full px-2.5 py-1.5 text-xs border border-app-border rounded-theme-sm bg-app-surface text-content-primary focus:outline-none focus:ring-1 focus:ring-primary" />
+                </div>
+              </div>
+
+              {/* Category & Score */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-bold text-content-secondary mb-1 block">Phân loại</label>
+                  <select value={tcCategory} onChange={(e) => setTcCategory(e.target.value as DailyTeacherComment['category'])}
+                    className="w-full px-2.5 py-1.5 text-xs border border-app-border rounded-theme-sm bg-app-surface text-content-primary focus:outline-none focus:ring-1 focus:ring-primary">
+                    <option value="praise">⭐ Khen ngợi</option>
+                    <option value="reminder">🔔 Nhắc nhở</option>
+                    <option value="homework">📝 Bài tập</option>
+                    <option value="behavior">🧠 Thái độ / Hành vi</option>
+                    <option value="boarding">🚌 Ăn ở / Bán trú</option>
+                    <option value="general">💬 Chung</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-content-secondary mb-1 block">Điểm (nếu có)</label>
+                  <input type="number" min="0" max="10" step="0.25"
+                    value={tcScore} onChange={(e) => setTcScore(e.target.value)}
+                    placeholder="8.5"
+                    className="w-full px-2.5 py-1.5 text-xs border border-app-border rounded-theme-sm bg-app-surface text-content-primary focus:outline-none focus:ring-1 focus:ring-primary" />
+                </div>
+              </div>
+
+              {/* Content */}
+              <div>
+                <label className="text-[11px] font-bold text-content-secondary mb-1 block">Nội dung nhận xét *</label>
+                <textarea value={tcContent} onChange={(e) => setTcContent(e.target.value)}
+                  placeholder="Cô giáo nhận xét hôm nay bé..."
+                  rows={3} required
+                  className="w-full px-2.5 py-1.5 text-xs border border-app-border rounded-theme-sm bg-app-surface text-content-primary focus:outline-none focus:ring-1 focus:ring-primary resize-none" />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-1">
+                <Button type="button" size="sm" variant="outline" onClick={() => setIsAddCommentOpen(false)}>Huỷ</Button>
+                <Button type="submit" size="sm" variant="primary" icon={<Check className="w-3.5 h-3.5" />}>Lưu nhận xét</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ===== HISTORY MODAL ===== */}
+      {isHistoryOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-app-surface rounded-theme-lg shadow-theme-lg border border-app-border w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-app-border flex-shrink-0">
+              <div className="flex items-center gap-2 text-primary font-bold">
+                <History className="w-5 h-5" />
+                <span className="text-sm">Lịch Sử Nhận Xét Của Thầy / Cô</span>
+                <Badge variant="primary" size="sm">{childComments.length} tổng</Badge>
+              </div>
+              <button onClick={() => setIsHistoryOpen(false)}
+                className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-black/10 transition-colors">
+                <X className="w-4 h-4 text-content-muted" />
+              </button>
+            </div>
+            {/* Filters */}
+            <div className="p-3 border-b border-app-border bg-app-surface/50 flex flex-wrap gap-2 flex-shrink-0">
+              <div className="flex items-center gap-1.5">
+                <Filter className="w-3.5 h-3.5 text-content-muted" />
+                <span className="text-[11px] font-bold text-content-secondary">Lọc:</span>
+              </div>
+              <select value={historySourceFilter} onChange={(e) => setHistorySourceFilter(e.target.value)}
+                className="px-2 py-1 text-[11px] border border-app-border rounded-full bg-app-surface text-content-primary focus:outline-none focus:ring-1 focus:ring-primary">
+                <option value="all">Tất cả loại</option>
+                <option value="school">🏫 Chính khóa</option>
+                <option value="extra">📚 Học thêm</option>
+              </select>
+              <select value={historyTeacherFilter} onChange={(e) => setHistoryTeacherFilter(e.target.value)}
+                className="px-2 py-1 text-[11px] border border-app-border rounded-full bg-app-surface text-content-primary focus:outline-none focus:ring-1 focus:ring-primary">
+                <option value="all">Tất cả giáo viên</option>
+                {[...new Set(childComments.map((c) => c.teacher_name))].map((name) => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
+              </select>
+              <select value={historyCategoryFilter} onChange={(e) => setHistoryCategoryFilter(e.target.value)}
+                className="px-2 py-1 text-[11px] border border-app-border rounded-full bg-app-surface text-content-primary focus:outline-none focus:ring-1 focus:ring-primary">
+                <option value="all">Tất cả loại NX</option>
+                <option value="praise">⭐ Khen ngợi</option>
+                <option value="reminder">🔔 Nhắc nhở</option>
+                <option value="homework">📝 Bài tập</option>
+                <option value="behavior">🧠 Thái độ</option>
+                <option value="boarding">🚌 Ăn ở</option>
+                <option value="general">💬 Chung</option>
+              </select>
+            </div>
+            {/* Comment list */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {(() => {
+                const filtered = childComments
+                  .filter((c) => historySourceFilter === 'all' || c.source_type === historySourceFilter)
+                  .filter((c) => historyTeacherFilter === 'all' || c.teacher_name === historyTeacherFilter)
+                  .filter((c) => historyCategoryFilter === 'all' || c.category === historyCategoryFilter)
+                  .sort((a, b) => b.date.localeCompare(a.date));
+
+                if (filtered.length === 0) {
+                  return (
+                    <div className="py-16 text-center text-xs text-content-muted space-y-2">
+                      <div className="text-4xl">💬</div>
+                      <div>Không có nhận xét nào phù hợp bộ lọc</div>
+                    </div>
+                  );
+                }
+
+                // Group by date
+                const byDate: Record<string, DailyTeacherComment[]> = {};
+                filtered.forEach((c) => {
+                  if (!byDate[c.date]) byDate[c.date] = [];
+                  byDate[c.date].push(c);
+                });
+
+                return Object.entries(byDate).map(([date, comments]) => (
+                  <div key={date} className="space-y-2">
+                    <div className="flex items-center gap-2 text-[11px] font-bold text-content-muted uppercase tracking-wide">
+                      <span className="px-2 py-0.5 bg-app-bg rounded-full border border-app-border">
+                        📅 {date.split('-').reverse().join('/')}
+                      </span>
+                      <div className="flex-1 h-px bg-app-border" />
+                    </div>
+                    {comments.map((c) => (
+                      <CommentCard key={c.id} comment={c}
+                        onAck={() => { storage.toggleDailyCommentAcknowledged(c.id); setDailyComments(storage.getDailyComments()); }}
+                        onDelete={() => { if(window.confirm('Xoá nhận xét này?')) { storage.deleteDailyComment(c.id); setDailyComments(storage.getDailyComments()); }}} />
+                    ))}
+                  </div>
+                ));
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Upcoming 3 Days Panel */}
       <Card className="p-5 space-y-4">
         <div className="flex items-center gap-2 pb-2 border-b border-app-border">
@@ -451,6 +801,69 @@ export const DashboardPage: React.FC = () => {
           })}
         </div>
       </Card>
+    </div>
+  );
+};
+
+// ─── CommentCard sub-component ─────────────────────────────────────────────
+
+const CATEGORY_META: Record<DailyTeacherComment['category'], { emoji: string; label: string; bg: string; text: string; border: string }> = {
+  praise:   { emoji: '⭐', label: 'Khen ngợi',    bg: 'bg-yellow-50',  text: 'text-yellow-700',  border: 'border-yellow-200' },
+  reminder: { emoji: '🔔', label: 'Nhắc nhở',     bg: 'bg-orange-50',  text: 'text-orange-700',  border: 'border-orange-200' },
+  homework: { emoji: '📝', label: 'Bài tập',      bg: 'bg-blue-50',    text: 'text-blue-700',    border: 'border-blue-200' },
+  behavior: { emoji: '🧠', label: 'Thái độ',      bg: 'bg-purple-50',  text: 'text-purple-700',  border: 'border-purple-200' },
+  boarding: { emoji: '🚌', label: 'Ăn ở/Bán trú', bg: 'bg-green-50',   text: 'text-green-700',   border: 'border-green-200' },
+  general:  { emoji: '💬', label: 'Chung',         bg: 'bg-gray-50',    text: 'text-gray-600',    border: 'border-gray-200' },
+};
+
+interface CommentCardProps {
+  comment: DailyTeacherComment;
+  onAck: () => void;
+  onDelete: () => void;
+}
+
+const CommentCard: React.FC<CommentCardProps> = ({ comment: c, onAck, onDelete }) => {
+  const cm = CATEGORY_META[c.category];
+  return (
+    <div className={`p-3 rounded-theme-md border ${c.parent_acknowledged ? 'border-emerald-200 bg-emerald-50/50' : `${cm.border} ${cm.bg}`} transition-all space-y-2`}>
+      {/* Header row */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-1.5 flex-1 min-w-0">
+          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${cm.bg} ${cm.text} border ${cm.border}`}>
+            {cm.emoji} {cm.label}
+          </span>
+          <span className="text-xs font-semibold text-content-primary truncate">{c.teacher_name}</span>
+          {c.subject && (
+            <span className="text-[11px] text-content-muted">· {c.subject}</span>
+          )}
+          {c.score !== undefined && (
+            <span className="ml-auto text-[11px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+              🎯 {c.score}đ
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <button onClick={onAck}
+            title={c.parent_acknowledged ? 'Bỏ xác nhận' : 'Đánh dấu đã đọc'}
+            className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${
+              c.parent_acknowledged ? 'text-emerald-600 hover:bg-emerald-100' : 'text-content-muted hover:bg-black/10'
+            }`}>
+            <CheckCheck className="w-3.5 h-3.5" />
+          </button>
+          <button onClick={onDelete}
+            className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-red-100 text-content-muted hover:text-red-500 transition-colors">
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+      {/* Content */}
+      <p className="text-xs leading-relaxed text-content-primary">{c.content}</p>
+      {/* Acknowledged badge */}
+      {c.parent_acknowledged && (
+        <div className="flex items-center gap-1 text-[10px] text-emerald-600 font-medium">
+          <Check className="w-3 h-3" /> Phụ huynh đã đọc
+        </div>
+      )}
     </div>
   );
 };

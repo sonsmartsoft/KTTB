@@ -269,4 +269,19 @@ export interface HomeworkTask {
   priority: 'normal' | 'high';
 }
 
-
+export interface DailyTeacherComment {
+  id: string;
+  child_id: string;
+  date: string; // YYYY-MM-DD
+  teacher_id?: string;
+  teacher_name: string;
+  teacher_role: 'homeroom' | 'subject' | 'tutor'; // GVCN, GV Bộ môn, Học thêm / Gia sư
+  source_type: 'school' | 'extra'; // school = Chính khóa, extra = Học thêm
+  subject?: string;
+  category: 'praise' | 'reminder' | 'homework' | 'behavior' | 'boarding' | 'general';
+  content: string;
+  score?: number; // e.g. 9.5
+  parent_acknowledged?: boolean;
+  parent_reply?: string;
+  created_at: string;
+}
