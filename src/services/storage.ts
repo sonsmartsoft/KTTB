@@ -17,6 +17,7 @@ import {
   HomeworkTask,
   DailyTeacherComment,
 } from '@/domain/types';
+import { upsertToTable, syncOnStart, STORAGE_TO_TABLE } from '@/lib/supabaseSync';
 import {
   SEED_CHILDREN,
   SEED_TIMETABLE_TEMPLATES,
@@ -69,6 +70,11 @@ function getItem<T>(key: string, defaultValue: T): T {
 function setItem<T>(key: string, value: T): void {
   try {
     localStorage.setItem(key, JSON.stringify(value));
+    // Auto-sync to Supabase (fire-and-forget) for all data tables
+    const tableName = STORAGE_TO_TABLE[key];
+    if (tableName && Array.isArray(value)) {
+      upsertToTable(tableName, value as unknown[]);
+    }
   } catch (err) {
     console.error(`Failed to save to localStorage [${key}]:`, err);
   }
@@ -80,6 +86,11 @@ export const storage = {
     if (!localStorage.getItem(KEYS.CHILDREN)) {
       this.resetToSeed();
     }
+  },
+
+  // Sync from Supabase cloud → localStorage on app start
+  async syncFromCloud(): Promise<boolean> {
+    return syncOnStart();
   },
 
   resetToSeed() {

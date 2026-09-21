@@ -9,6 +9,7 @@ interface ChildContextType {
   refreshChildren: () => void;
   addChild: (child: Omit<Child, 'id'>) => void;
   updateChild: (child: Child) => void;
+  isSyncing: boolean;
 }
 
 const ChildContext = createContext<ChildContextType | undefined>(undefined);
@@ -21,10 +22,24 @@ export const ChildProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [activeChildId, setActiveChildIdState] = useState<string>(() => {
     return storage.getSettings().activeChildId || childrenList[0]?.id || 'child-trung-quan';
   });
+  const [isSyncing, setIsSyncing] = useState(true);
+
+  // Sync from Supabase cloud on mount (non-blocking — app still usable during sync)
+  useEffect(() => {
+    let cancelled = false;
+    storage.syncFromCloud().then(() => {
+      if (cancelled) return;
+      // Refresh lists from localStorage (now populated with cloud data)
+      setChildrenList(storage.getChildren());
+      setIsSyncing(false);
+    }).catch(() => {
+      if (!cancelled) setIsSyncing(false);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   const refreshChildren = () => {
-    const list = storage.getChildren();
-    setChildrenList(list);
+    setChildrenList(storage.getChildren());
   };
 
   const setActiveChildId = (id: string) => {
@@ -72,8 +87,39 @@ export const ChildProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         refreshChildren,
         addChild,
         updateChild,
+        isSyncing,
       }}
     >
+      {/* Subtle sync banner — non-blocking, shows only ~1-2 seconds on load */}
+      {isSyncing && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 9999,
+            background: 'linear-gradient(90deg, #2563EB 0%, #7C3AED 100%)',
+            color: '#fff',
+            fontSize: '11px',
+            fontWeight: 600,
+            padding: '5px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            letterSpacing: '0.02em',
+          }}
+        >
+          <svg
+            width="12" height="12" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2.5"
+            style={{ animation: 'spin 0.9s linear infinite', flexShrink: 0 }}
+          >
+            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+          </svg>
+          Đang đồng bộ dữ liệu từ cloud…
+        </div>
+      )}
       {children}
     </ChildContext.Provider>
   );
