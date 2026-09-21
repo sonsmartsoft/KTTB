@@ -1,0 +1,54 @@
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ThemeProvider } from './context/ThemeContext';
+import { ChildProvider } from './context/ChildContext';
+import { DateProvider } from './context/DateContext';
+import { AppShell } from './components/layout/AppShell';
+import { DashboardPage } from './pages/DashboardPage';
+import { TimetablePage } from './pages/TimetablePage';
+import { CalendarPage } from './pages/CalendarPage';
+import { ExtraClassesPage } from './pages/ExtraClassesPage';
+import { PerformancePage } from './pages/PerformancePage';
+import { AchievementsPage } from './pages/AchievementsPage';
+import { ChildrenPage } from './pages/ChildrenPage';
+import { SettingsPage } from './pages/SettingsPage';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      staleTime: 1000 * 60 * 5,
+    },
+  },
+});
+
+export const App: React.FC = () => {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <ChildProvider>
+          <DateProvider>
+            <BrowserRouter>
+              <Routes>
+                <Route path="/" element={<AppShell />}>
+                  <Route index element={<DashboardPage />} />
+                  <Route path="timetable" element={<TimetablePage />} />
+                  <Route path="calendar" element={<CalendarPage />} />
+                  <Route path="extra-classes" element={<ExtraClassesPage />} />
+                  <Route path="performance" element={<PerformancePage />} />
+                  <Route path="achievements" element={<AchievementsPage />} />
+                  <Route path="children" element={<ChildrenPage />} />
+                  <Route path="settings" element={<SettingsPage />} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Route>
+              </Routes>
+            </BrowserRouter>
+          </DateProvider>
+        </ChildProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
+  );
+};
+
+export default App;

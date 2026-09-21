@@ -1,0 +1,281 @@
+// Subject standard tokens matching Vietnamese curriculum and sample.png
+export interface SubjectColorMeta {
+  code: string;
+  name: string;
+  category: 'literature' | 'math' | 'english' | 'science' | 'art_pe' | 'social' | 'skills' | 'general';
+  bgClass: string;
+  textClass: string;
+  borderClass: string;
+  hexBg: string;
+  hexText: string;
+  hexBorder: string;
+}
+
+export const SUBJECT_METAS: Record<string, SubjectColorMeta> = {
+  'Ngữ văn': {
+    code: 'VAN',
+    name: 'Ngữ văn',
+    category: 'literature',
+    bgClass: 'bg-indigo-50 dark:bg-indigo-950/30',
+    textClass: 'text-indigo-700 dark:text-indigo-300',
+    borderClass: 'border-indigo-200 dark:border-indigo-800',
+    hexBg: '#EEF2FF',
+    hexText: '#4338CA',
+    hexBorder: '#C7D2FE',
+  },
+  'Toán': {
+    code: 'TOAN',
+    name: 'Toán',
+    category: 'math',
+    bgClass: 'bg-emerald-50 dark:bg-emerald-950/30',
+    textClass: 'text-emerald-700 dark:text-emerald-300',
+    borderClass: 'border-emerald-200 dark:border-emerald-800',
+    hexBg: '#ECFDF5',
+    hexText: '#047857',
+    hexBorder: '#A7F3D0',
+  },
+  'Tiếng Anh': {
+    code: 'ANH',
+    name: 'Tiếng Anh',
+    category: 'english',
+    bgClass: 'bg-pink-50 dark:bg-pink-950/30',
+    textClass: 'text-pink-700 dark:text-pink-300',
+    borderClass: 'border-pink-200 dark:border-pink-800',
+    hexBg: '#FDF2F8',
+    hexText: '#BE185D',
+    hexBorder: '#FBCFE8',
+  },
+  'Anh': {
+    code: 'ANH',
+    name: 'Anh',
+    category: 'english',
+    bgClass: 'bg-pink-50 dark:bg-pink-950/30',
+    textClass: 'text-pink-700 dark:text-pink-300',
+    borderClass: 'border-pink-200 dark:border-pink-800',
+    hexBg: '#FDF2F8',
+    hexText: '#BE185D',
+    hexBorder: '#FBCFE8',
+  },
+  'TANN': {
+    code: 'TANN',
+    name: 'TANN',
+    category: 'english',
+    bgClass: 'bg-rose-50 dark:bg-rose-950/30',
+    textClass: 'text-rose-700 dark:text-rose-300',
+    borderClass: 'border-rose-200 dark:border-rose-800',
+    hexBg: '#FFF1F2',
+    hexText: '#BE123C',
+    hexBorder: '#FECDD3',
+  },
+  'KHTN': {
+    code: 'KHTN',
+    name: 'KHTN',
+    category: 'science',
+    bgClass: 'bg-sky-50 dark:bg-sky-950/30',
+    textClass: 'text-sky-700 dark:text-sky-300',
+    borderClass: 'border-sky-200 dark:border-sky-800',
+    hexBg: '#F0F9FF',
+    hexText: '#0369A1',
+    hexBorder: '#BAE6FD',
+  },
+  'KHTN (S)': {
+    code: 'KHTN_S',
+    name: 'KHTN (Sinh)',
+    category: 'science',
+    bgClass: 'bg-cyan-50 dark:bg-cyan-950/30',
+    textClass: 'text-cyan-700 dark:text-cyan-300',
+    borderClass: 'border-cyan-200 dark:border-cyan-800',
+    hexBg: '#ECFEFF',
+    hexText: '#0E7490',
+    hexBorder: '#A5F3FC',
+  },
+  'KHTN (Lí)': {
+    code: 'KHTN_L',
+    name: 'KHTN (Vật lí)',
+    category: 'science',
+    bgClass: 'bg-blue-50 dark:bg-blue-950/30',
+    textClass: 'text-blue-700 dark:text-blue-300',
+    borderClass: 'border-blue-200 dark:border-blue-800',
+    hexBg: '#EFF6FF',
+    hexText: '#1D4ED8',
+    hexBorder: '#BFDBFE',
+  },
+  'GDTC': {
+    code: 'GDTC',
+    name: 'GDTC (Thể dục)',
+    category: 'art_pe',
+    bgClass: 'bg-green-50 dark:bg-green-950/30',
+    textClass: 'text-green-700 dark:text-green-300',
+    borderClass: 'border-green-200 dark:border-green-800',
+    hexBg: '#F0FDF4',
+    hexText: '#15803D',
+    hexBorder: '#BBF7D0',
+  },
+  'Âm nhạc': {
+    code: 'AN',
+    name: 'Âm nhạc',
+    category: 'art_pe',
+    bgClass: 'bg-amber-50 dark:bg-amber-950/30',
+    textClass: 'text-amber-700 dark:text-amber-300',
+    borderClass: 'border-amber-200 dark:border-amber-800',
+    hexBg: '#FFFBEB',
+    hexText: '#B45309',
+    hexBorder: '#FDE68A',
+  },
+  'Mĩ thuật': {
+    code: 'MT',
+    name: 'Mĩ thuật',
+    category: 'art_pe',
+    bgClass: 'bg-violet-50 dark:bg-violet-950/30',
+    textClass: 'text-violet-700 dark:text-violet-300',
+    borderClass: 'border-violet-200 dark:border-violet-800',
+    hexBg: '#F5F3FF',
+    hexText: '#6D28D9',
+    hexBorder: '#DDD6FE',
+  },
+  'Tin': {
+    code: 'TIN',
+    name: 'Tin học',
+    category: 'science',
+    bgClass: 'bg-teal-50 dark:bg-teal-950/30',
+    textClass: 'text-teal-700 dark:text-teal-300',
+    borderClass: 'border-teal-200 dark:border-teal-800',
+    hexBg: '#F0FDFA',
+    hexText: '#0F766E',
+    hexBorder: '#99F6E4',
+  },
+  'CN': {
+    code: 'CN',
+    name: 'Công nghệ',
+    category: 'science',
+    bgClass: 'bg-slate-50 dark:bg-slate-800/40',
+    textClass: 'text-slate-700 dark:text-slate-300',
+    borderClass: 'border-slate-200 dark:border-slate-700',
+    hexBg: '#F8FAFC',
+    hexText: '#334155',
+    hexBorder: '#E2E8F0',
+  },
+  'GDCD': {
+    code: 'GDCD',
+    name: 'GDCD',
+    category: 'social',
+    bgClass: 'bg-purple-50 dark:bg-purple-950/30',
+    textClass: 'text-purple-700 dark:text-purple-300',
+    borderClass: 'border-purple-200 dark:border-purple-800',
+    hexBg: '#FAF5FF',
+    hexText: '#7E22CE',
+    hexBorder: '#E9D5FF',
+  },
+  'GDĐP': {
+    code: 'GDDP',
+    name: 'GD địa phương',
+    category: 'social',
+    bgClass: 'bg-orange-50 dark:bg-orange-950/30',
+    textClass: 'text-orange-700 dark:text-orange-300',
+    borderClass: 'border-orange-200 dark:border-orange-800',
+    hexBg: '#FFF7ED',
+    hexText: '#C2410C',
+    hexBorder: '#FED7AA',
+  },
+  'Địa': {
+    code: 'DIA',
+    name: 'Địa lí',
+    category: 'social',
+    bgClass: 'bg-lime-50 dark:bg-lime-950/30',
+    textClass: 'text-lime-800 dark:text-lime-300',
+    borderClass: 'border-lime-200 dark:border-lime-800',
+    hexBg: '#F7FEE7',
+    hexText: '#4D7C0F',
+    hexBorder: '#D9F99D',
+  },
+  'LS-ĐL (Sử)': {
+    code: 'SU',
+    name: 'Lịch sử - Địa lí (Sử)',
+    category: 'social',
+    bgClass: 'bg-yellow-50 dark:bg-yellow-950/30',
+    textClass: 'text-yellow-800 dark:text-yellow-300',
+    borderClass: 'border-yellow-200 dark:border-yellow-800',
+    hexBg: '#FEFCE8',
+    hexText: '#854D0E',
+    hexBorder: '#FEF08A',
+  },
+  'HĐTN': {
+    code: 'HDTN',
+    name: 'HĐTN Hướng nghiệp',
+    category: 'skills',
+    bgClass: 'bg-fuchsia-50 dark:bg-fuchsia-950/30',
+    textClass: 'text-fuchsia-700 dark:text-fuchsia-300',
+    borderClass: 'border-fuchsia-200 dark:border-fuchsia-800',
+    hexBg: '#FDF4FF',
+    hexText: '#A21CAF',
+    hexBorder: '#F5D0FE',
+  },
+  'KNS': {
+    code: 'KNS',
+    name: 'Kỹ năng sống',
+    category: 'skills',
+    bgClass: 'bg-teal-50 dark:bg-teal-950/30',
+    textClass: 'text-teal-700 dark:text-teal-300',
+    borderClass: 'border-teal-200 dark:border-teal-800',
+    hexBg: '#F0FDFA',
+    hexText: '#0F766E',
+    hexBorder: '#99F6E4',
+  },
+  'Chào cờ': {
+    code: 'CHAO_CO',
+    name: 'Chào cờ',
+    category: 'general',
+    bgClass: 'bg-red-50 dark:bg-red-950/30',
+    textClass: 'text-red-700 dark:text-red-300',
+    borderClass: 'border-red-200 dark:border-red-800',
+    hexBg: '#FEF2F2',
+    hexText: '#B91C1C',
+    hexBorder: '#FECACA',
+  },
+  'SHL': {
+    code: 'SHL',
+    name: 'Sinh hoạt lớp',
+    category: 'general',
+    bgClass: 'bg-sky-50 dark:bg-sky-950/30',
+    textClass: 'text-sky-700 dark:text-sky-300',
+    borderClass: 'border-sky-200 dark:border-sky-800',
+    hexBg: '#F0F9FF',
+    hexText: '#0369A1',
+    hexBorder: '#BAE6FD',
+  },
+};
+
+export function getSubjectMeta(subjectName: string): SubjectColorMeta {
+  const cleanName = subjectName.trim();
+  if (SUBJECT_METAS[cleanName]) {
+    return SUBJECT_METAS[cleanName];
+  }
+  // Case-insensitive / partial match
+  for (const [key, meta] of Object.entries(SUBJECT_METAS)) {
+    if (cleanName.toLowerCase().includes(key.toLowerCase()) || key.toLowerCase().includes(cleanName.toLowerCase())) {
+      return meta;
+    }
+  }
+  // Default fallback
+  return {
+    code: 'GEN',
+    name: subjectName,
+    category: 'general',
+    bgClass: 'bg-amber-50 dark:bg-amber-950/30',
+    textClass: 'text-amber-800 dark:text-amber-300',
+    borderClass: 'border-amber-200 dark:border-amber-800',
+    hexBg: '#FFFBEB',
+    hexText: '#92400E',
+    hexBorder: '#FDE68A',
+  };
+}
+
+export const DAY_HEADER_COLORS: Record<number, { bg: string; text: string; label: string }> = {
+  2: { bg: '#2563EB', text: '#FFFFFF', label: 'Thứ 2' },
+  3: { bg: '#16A34A', text: '#FFFFFF', label: 'Thứ 3' },
+  4: { bg: '#EA580C', text: '#FFFFFF', label: 'Thứ 4' },
+  5: { bg: '#7C3AED', text: '#FFFFFF', label: 'Thứ 5' },
+  6: { bg: '#DB2777', text: '#FFFFFF', label: 'Thứ 6' },
+  7: { bg: '#0D9488', text: '#FFFFFF', label: 'Thứ 7' },
+  8: { bg: '#DC2626', text: '#FFFFFF', label: 'Chủ nhật' },
+};
