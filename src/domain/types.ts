@@ -191,3 +191,48 @@ export interface AppearanceSettings {
   density: 'comfortable' | 'compact';
   activeChildId: string;
 }
+
+export interface YearlySubjectScore {
+  subject: string;
+  term1_score?: number;
+  term2_score?: number;
+  final_score: number;
+  comment?: string;
+}
+
+export interface SchoolYearRecord {
+  id: string;
+  child_id: string;
+  school_year: string; // e.g. "2021-2022", "2026-2027"
+  grade: string;       // e.g. "Lớp 1", "Lớp 6"
+  class_name: string;  // e.g. "1A1", "6A5"
+  school_name: string; // e.g. "Tiểu học Tô Hiệu", "THCS Tô Hiệu"
+  homeroom_teacher: {
+    name: string;
+    phone?: string;
+    email?: string;
+  };
+  overall_score: number; // ĐTB cả năm (e.g. 9.8)
+  rank?: number;         // Hạng trong lớp (e.g. 1)
+  rank_total?: number;   // Sĩ số lớp (e.g. 40)
+  classification: 'Xuất sắc' | 'Giỏi' | 'Khá' | 'Hoàn thành tốt' | 'Đang học';
+  teacher_feedback?: string; // Lời phê / nhận xét của GVCN cuối năm
+  status: 'completed' | 'current';
+  subject_scores: YearlySubjectScore[];
+}
+
+export interface TeacherContact {
+  id: string;
+  child_id: string;
+  school_year: string; // "2026-2027"
+  class_name: string;  // "6A5"
+  name: string;        // "Cô Trần Thu Hà"
+  role: 'homeroom' | 'subject' | 'tutor'; // GVCN, GV Bộ Môn, Gia sư/Trung tâm
+  subject?: string;    // "Ngữ văn & Chủ nhiệm", "Toán"...
+  phone: string;       // "0912.345.678"
+  email?: string;
+  zalo_phone?: string;
+  notes?: string;      // Dặn dò của giáo viên
+  parent_notes?: string; // Ghi chú riêng của phụ huynh
+}
+

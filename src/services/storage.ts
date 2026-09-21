@@ -9,6 +9,8 @@ import {
   PerformanceTarget,
   AchievementRecord,
   AppearanceSettings,
+  SchoolYearRecord,
+  TeacherContact,
 } from '@/domain/types';
 import {
   SEED_CHILDREN,
@@ -20,6 +22,8 @@ import {
   SEED_ASSESSMENTS,
   SEED_PERFORMANCE_TARGETS,
   SEED_ACHIEVEMENT_RECORDS,
+  SEED_SCHOOL_YEARS,
+  SEED_TEACHERS,
 } from './seedData';
 
 const KEYS = {
@@ -33,6 +37,8 @@ const KEYS = {
   TARGETS: 'ktt_targets',
   ACHIEVEMENTS: 'ktt_achievements',
   SETTINGS: 'ktt_settings',
+  SCHOOL_YEARS: 'ktt_school_years',
+  TEACHERS: 'ktt_teachers',
 };
 
 function getItem<T>(key: string, defaultValue: T): T {
@@ -71,6 +77,8 @@ export const storage = {
     setItem(KEYS.ASSESSMENTS, SEED_ASSESSMENTS);
     setItem(KEYS.TARGETS, SEED_PERFORMANCE_TARGETS);
     setItem(KEYS.ACHIEVEMENTS, SEED_ACHIEVEMENT_RECORDS);
+    setItem(KEYS.SCHOOL_YEARS, SEED_SCHOOL_YEARS);
+    setItem(KEYS.TEACHERS, SEED_TEACHERS);
     setItem(KEYS.SETTINGS, {
       theme: 'cute',
       density: 'comfortable',
@@ -278,5 +286,51 @@ export const storage = {
   },
   saveSettings(settings: AppearanceSettings): void {
     setItem(KEYS.SETTINGS, settings);
+  },
+
+  // School Years (Lịch sử học bạ các năm)
+  getSchoolYears(): SchoolYearRecord[] {
+    return getItem(KEYS.SCHOOL_YEARS, SEED_SCHOOL_YEARS);
+  },
+  saveSchoolYears(years: SchoolYearRecord[]): void {
+    setItem(KEYS.SCHOOL_YEARS, years);
+  },
+  addSchoolYear(record: Omit<SchoolYearRecord, 'id'>): SchoolYearRecord {
+    const list = this.getSchoolYears();
+    const newItem: SchoolYearRecord = {
+      ...record,
+      id: `sy-${Date.now()}`,
+    };
+    this.saveSchoolYears([...list, newItem]);
+    return newItem;
+  },
+  updateSchoolYear(id: string, updates: Partial<SchoolYearRecord>): void {
+    const list = this.getSchoolYears().map((y) => (y.id === id ? { ...y, ...updates } : y));
+    this.saveSchoolYears(list);
+  },
+
+  // Teachers (Sổ liên lạc & Danh bạ Thầy Cô)
+  getTeachers(): TeacherContact[] {
+    return getItem(KEYS.TEACHERS, SEED_TEACHERS);
+  },
+  saveTeachers(teachers: TeacherContact[]): void {
+    setItem(KEYS.TEACHERS, teachers);
+  },
+  addTeacher(teacher: Omit<TeacherContact, 'id'>): TeacherContact {
+    const list = this.getTeachers();
+    const newItem: TeacherContact = {
+      ...teacher,
+      id: `teacher-${Date.now()}`,
+    };
+    this.saveTeachers([...list, newItem]);
+    return newItem;
+  },
+  updateTeacher(id: string, updates: Partial<TeacherContact>): void {
+    const list = this.getTeachers().map((t) => (t.id === id ? { ...t, ...updates } : t));
+    this.saveTeachers(list);
+  },
+  deleteTeacher(id: string): void {
+    const list = this.getTeachers().filter((t) => t.id !== id);
+    this.saveTeachers(list);
   },
 };

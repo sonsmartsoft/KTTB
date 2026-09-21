@@ -13,6 +13,7 @@ import { PerformancePage } from './pages/PerformancePage';
 import { AchievementsPage } from './pages/AchievementsPage';
 import { ChildrenPage } from './pages/ChildrenPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { TeachersPage } from './pages/TeachersPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -38,6 +39,7 @@ export const App: React.FC = () => {
                   <Route path="extra-classes" element={<ExtraClassesPage />} />
                   <Route path="performance" element={<PerformancePage />} />
                   <Route path="achievements" element={<AchievementsPage />} />
+                  <Route path="teachers" element={<TeachersPage />} />
                   <Route path="children" element={<ChildrenPage />} />
                   <Route path="settings" element={<SettingsPage />} />
                   <Route path="*" element={<Navigate to="/" replace />} />

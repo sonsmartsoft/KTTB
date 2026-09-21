@@ -9,6 +9,7 @@ import {
   BookOpen,
   Users,
   Settings,
+  UserCheck,
 } from 'lucide-react';
 import { useChild } from '@/context/ChildContext';
 
@@ -23,8 +24,9 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/timetable', label: 'Thời khóa biểu', icon: <TableProperties className="w-5 h-5" /> },
   { to: '/calendar', label: 'Lịch học & Sự kiện', icon: <CalendarDays className="w-5 h-5" /> },
   { to: '/extra-classes', label: 'Lịch học thêm', icon: <BookOpen className="w-5 h-5" /> },
-  { to: '/performance', label: 'Điểm & Khảo sát', icon: <Sparkles className="w-5 h-5" /> },
+  { to: '/performance', label: 'Điểm & Học bạ', icon: <Sparkles className="w-5 h-5" /> },
   { to: '/achievements', label: 'Thành tích & Khen thưởng', icon: <Award className="w-5 h-5" /> },
+  { to: '/teachers', label: 'Sổ liên lạc thầy cô', icon: <UserCheck className="w-5 h-5" /> },
   { to: '/children', label: 'Hồ sơ các bé', icon: <Users className="w-5 h-5" /> },
   { to: '/settings', label: 'Giao diện & Cài đặt', icon: <Settings className="w-5 h-5" /> },
 ];
