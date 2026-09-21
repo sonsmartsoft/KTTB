@@ -3,7 +3,7 @@ import { useChild } from '@/context/ChildContext';
 import { Card } from '@/design-system/components/Card';
 import { Badge } from '@/design-system/components/Badge';
 import { Button } from '@/design-system/components/Button';
-import { Users, Plus, Check, School, Calendar, Edit2, X, Sparkles, UserPlus } from 'lucide-react';
+import { Users, Plus, Check, School, Calendar, Edit2, X, Sparkles, UserPlus, Camera, Upload, Trash2 } from 'lucide-react';
 import { Child } from '@/domain/types';
 
 export const ChildrenPage: React.FC = () => {
@@ -21,6 +21,23 @@ export const ChildrenPage: React.FC = () => {
   const [grade, setGrade] = useState('6');
   const [avatarUrl, setAvatarUrl] = useState('boy');
   const [color, setColor] = useState('#2563EB');
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 3 * 1024 * 1024) {
+        alert('Vui lòng chọn ảnh dung lượng dưới 3MB để tải nhanh.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          setAvatarUrl(reader.result);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const openAddModal = () => {
     setEditingChild(null);
@@ -111,10 +128,14 @@ export const ChildrenPage: React.FC = () => {
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3.5">
                   <div
-                    className="w-14 h-14 rounded-2xl flex items-center justify-center text-white text-2xl font-bold shadow-md"
+                    className="w-14 h-14 rounded-2xl flex items-center justify-center text-white text-2xl font-bold shadow-md overflow-hidden relative shrink-0"
                     style={{ backgroundColor: c.color }}
                   >
-                    {c.avatar_url.includes('girl') || c.nickname === 'Bé Băng' ? '👧' : '👦'}
+                    {c.avatar_url?.startsWith('data:') || c.avatar_url?.startsWith('http') ? (
+                      <img src={c.avatar_url} alt={c.name} className="w-full h-full object-cover" />
+                    ) : (
+                      c.avatar_url?.includes('girl') || c.nickname === 'Bé Băng' ? '👧' : '👦'
+                    )}
                   </div>
                   <div>
                     <h3 className="text-lg font-bold text-content-primary">{c.name}</h3>
@@ -231,15 +252,62 @@ export const ChildrenPage: React.FC = () => {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="font-bold text-content-primary">Giới tính / Mascot</label>
+                  <label className="font-bold text-content-primary">Giới tính / Biểu tượng</label>
                   <select
-                    value={avatarUrl}
-                    onChange={(e) => setAvatarUrl(e.target.value)}
+                    value={avatarUrl.startsWith('data:') || avatarUrl.startsWith('http') ? 'custom' : avatarUrl}
+                    onChange={(e) => {
+                      if (e.target.value !== 'custom') {
+                        setAvatarUrl(e.target.value);
+                      }
+                    }}
                     className="w-full px-3 py-2 rounded-lg border border-app-border bg-app-bg text-content-primary focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     <option value="boy">👦 Bé Trai (Mascot Boy)</option>
                     <option value="girl">👧 Bé Gái (Mascot Girl)</option>
+                    {(avatarUrl.startsWith('data:') || avatarUrl.startsWith('http')) && (
+                      <option value="custom">🖼️ Ảnh thực tế đã tải lên</option>
+                    )}
                   </select>
+                </div>
+              </div>
+
+              {/* UPLOAD REAL PHOTO OF CHILD */}
+              <div className="p-3 rounded-xl border border-app-border bg-app-card/60 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-content-primary flex items-center gap-1.5">
+                    <Camera className="w-3.5 h-3.5 text-primary" />
+                    <span>Ảnh đại diện thực tế của con</span>
+                  </label>
+                  {(avatarUrl.startsWith('data:') || avatarUrl.startsWith('http')) && (
+                    <button
+                      type="button"
+                      onClick={() => setAvatarUrl('boy')}
+                      className="text-[11px] text-red-500 hover:underline flex items-center gap-1"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      Xoá ảnh
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl overflow-hidden border border-app-border bg-black/5 flex items-center justify-center shrink-0">
+                    {avatarUrl.startsWith('data:') || avatarUrl.startsWith('http') ? (
+                      <img src={avatarUrl} alt="Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-xl">{avatarUrl === 'girl' ? '👧' : '👦'}</span>
+                    )}
+                  </div>
+                  <label className="flex-1 cursor-pointer flex items-center justify-center gap-2 px-3 py-2 border border-dashed border-primary/50 hover:border-primary rounded-lg text-primary font-medium hover:bg-primary/5 transition-colors">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Tải ảnh từ máy (JPG, PNG)</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                  </label>
                 </div>
               </div>
 

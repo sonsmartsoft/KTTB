@@ -23,10 +23,14 @@ export const Header: React.FC = () => {
           className="flex items-center gap-2.5 px-3 py-1.5 rounded-theme-md bg-app-card border border-app-border hover:bg-black/5 dark:hover:bg-white/5 transition-all shadow-theme-sm text-left"
         >
           <div
-            className="w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-xs shrink-0"
+            className="w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-xs shrink-0 overflow-hidden"
             style={{ backgroundColor: activeChild.color || '#2563EB' }}
           >
-            {activeChild.avatar_url === 'boy' ? '👦' : '👧'}
+            {activeChild.avatar_url?.startsWith('data:') || activeChild.avatar_url?.startsWith('http') ? (
+              <img src={activeChild.avatar_url} alt={activeChild.name} className="w-full h-full object-cover" />
+            ) : (
+              activeChild.avatar_url === 'girl' ? '👧' : '👦'
+            )}
           </div>
           <div>
             <div className="text-xs font-bold text-content-primary flex items-center gap-1">
@@ -65,10 +69,14 @@ export const Header: React.FC = () => {
                   >
                     <div className="flex items-center gap-2.5">
                       <div
-                        className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[11px]"
+                        className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[11px] overflow-hidden"
                         style={{ backgroundColor: c.color }}
                       >
-                        {c.avatar_url === 'boy' ? '👦' : '👧'}
+                        {c.avatar_url?.startsWith('data:') || c.avatar_url?.startsWith('http') ? (
+                          <img src={c.avatar_url} alt={c.name} className="w-full h-full object-cover" />
+                        ) : (
+                          c.avatar_url === 'girl' ? '👧' : '👦'
+                        )}
                       </div>
                       <div>
                         <div>{c.name}</div>

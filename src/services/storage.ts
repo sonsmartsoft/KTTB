@@ -11,6 +11,9 @@ import {
   AppearanceSettings,
   SchoolYearRecord,
   TeacherContact,
+  SubjectItem,
+  ExtraClassSessionLog,
+  HomeworkTask,
 } from '@/domain/types';
 import {
   SEED_CHILDREN,
@@ -24,6 +27,9 @@ import {
   SEED_ACHIEVEMENT_RECORDS,
   SEED_SCHOOL_YEARS,
   SEED_TEACHERS,
+  SEED_SUBJECTS,
+  SEED_SESSION_LOGS,
+  SEED_HOMEWORK_TASKS,
 } from './seedData';
 
 const KEYS = {
@@ -39,6 +45,9 @@ const KEYS = {
   SETTINGS: 'ktt_settings',
   SCHOOL_YEARS: 'ktt_school_years',
   TEACHERS: 'ktt_teachers',
+  SUBJECTS: 'ktt_subjects',
+  SESSION_LOGS: 'ktt_session_logs',
+  HOMEWORK: 'ktt_homework',
 };
 
 function getItem<T>(key: string, defaultValue: T): T {
@@ -79,6 +88,9 @@ export const storage = {
     setItem(KEYS.ACHIEVEMENTS, SEED_ACHIEVEMENT_RECORDS);
     setItem(KEYS.SCHOOL_YEARS, SEED_SCHOOL_YEARS);
     setItem(KEYS.TEACHERS, SEED_TEACHERS);
+    setItem(KEYS.SUBJECTS, SEED_SUBJECTS);
+    setItem(KEYS.SESSION_LOGS, SEED_SESSION_LOGS);
+    setItem(KEYS.HOMEWORK, SEED_HOMEWORK_TASKS);
     setItem(KEYS.SETTINGS, {
       theme: 'cute',
       density: 'comfortable',
@@ -332,5 +344,82 @@ export const storage = {
   deleteTeacher(id: string): void {
     const list = this.getTeachers().filter((t) => t.id !== id);
     this.saveTeachers(list);
+  },
+
+  // Subjects (Cấu hình danh mục môn học)
+  getSubjects(): SubjectItem[] {
+    return getItem(KEYS.SUBJECTS, SEED_SUBJECTS);
+  },
+  saveSubjects(subjects: SubjectItem[]): void {
+    setItem(KEYS.SUBJECTS, subjects);
+  },
+  addSubject(subject: Omit<SubjectItem, 'id'>): SubjectItem {
+    const list = this.getSubjects();
+    const newItem: SubjectItem = {
+      ...subject,
+      id: `subj-${Date.now()}`,
+    };
+    this.saveSubjects([...list, newItem]);
+    return newItem;
+  },
+  updateSubject(id: string, updates: Partial<SubjectItem>): void {
+    const list = this.getSubjects().map((s) => (s.id === id ? { ...s, ...updates } : s));
+    this.saveSubjects(list);
+  },
+  deleteSubject(id: string): void {
+    const list = this.getSubjects().filter((s) => s.id !== id);
+    this.saveSubjects(list);
+  },
+
+  // Extra Class Session Logs (Nhật ký từng buổi & Đánh giá)
+  getSessionLogs(): ExtraClassSessionLog[] {
+    return getItem(KEYS.SESSION_LOGS, SEED_SESSION_LOGS);
+  },
+  saveSessionLogs(logs: ExtraClassSessionLog[]): void {
+    setItem(KEYS.SESSION_LOGS, logs);
+  },
+  addSessionLog(log: Omit<ExtraClassSessionLog, 'id'>): ExtraClassSessionLog {
+    const list = this.getSessionLogs();
+    const newItem: ExtraClassSessionLog = {
+      ...log,
+      id: `log-${Date.now()}`,
+    };
+    this.saveSessionLogs([newItem, ...list]);
+    return newItem;
+  },
+  updateSessionLog(id: string, updates: Partial<ExtraClassSessionLog>): void {
+    const list = this.getSessionLogs().map((l) => (l.id === id ? { ...l, ...updates } : l));
+    this.saveSessionLogs(list);
+  },
+  deleteSessionLog(id: string): void {
+    const list = this.getSessionLogs().filter((l) => l.id !== id);
+    this.saveSessionLogs(list);
+  },
+
+  // Homework Tasks (Sổ dặn dò & Bài tập về nhà)
+  getHomeworkTasks(): HomeworkTask[] {
+    return getItem(KEYS.HOMEWORK, SEED_HOMEWORK_TASKS);
+  },
+  saveHomeworkTasks(tasks: HomeworkTask[]): void {
+    setItem(KEYS.HOMEWORK, tasks);
+  },
+  addHomeworkTask(task: Omit<HomeworkTask, 'id'>): HomeworkTask {
+    const list = this.getHomeworkTasks();
+    const newItem: HomeworkTask = {
+      ...task,
+      id: `hw-${Date.now()}`,
+    };
+    this.saveHomeworkTasks([newItem, ...list]);
+    return newItem;
+  },
+  toggleHomework(id: string): void {
+    const list = this.getHomeworkTasks().map((t) =>
+      t.id === id ? { ...t, is_completed: !t.is_completed } : t
+    );
+    this.saveHomeworkTasks(list);
+  },
+  deleteHomeworkTask(id: string): void {
+    const list = this.getHomeworkTasks().filter((t) => t.id !== id);
+    this.saveHomeworkTasks(list);
   },
 };

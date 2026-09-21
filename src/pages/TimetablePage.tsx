@@ -18,36 +18,16 @@ import {
   GripVertical,
   RotateCcw,
   Sparkles,
+  Settings2,
+  Tag,
+  Layers,
 } from 'lucide-react';
 import { DAY_HEADER_COLORS, getSubjectMeta } from '@/design-system/tokens/colors';
 import { MascotBoy } from '@/design-system/illustrations/MascotBoy';
 import { MascotGirl } from '@/design-system/illustrations/MascotGirl';
 import { BookStack } from '@/design-system/illustrations/BookStack';
 import { PushPin, SpeechBubble, MotivationalRibbon } from '@/design-system/illustrations/DecorativeBadges';
-import { TimetableEntry, TimetableTemplate, WeekdayNumber, SessionType } from '@/domain/types';
-
-const COMMON_SUBJECTS = [
-  'Toán',
-  'Ngữ văn',
-  'Tiếng Anh',
-  'Vật lí',
-  'Hóa học',
-  'Sinh học',
-  'Lịch sử',
-  'Địa lí',
-  'GDCD',
-  'Tin học',
-  'Công nghệ',
-  'Thể dục',
-  'Âm nhạc',
-  'Mỹ thuật',
-  'KHTN',
-  'Lịch sử & Địa lí',
-  'HĐTN',
-  'KNS',
-  'SHL',
-  'Chào cờ',
-];
+import { TimetableEntry, TimetableTemplate, WeekdayNumber, SessionType, SubjectItem } from '@/domain/types';
 
 const MORNING_TIMES = ['7:00 – 7:45', '8:45 – 9:30', '9:50 – 10:35', '10:55 – 11:40'];
 const AFTERNOON_TIMES = ['13:30 – 14:15', '14:35 – 15:20', '15:40 – 16:25'];
@@ -56,6 +36,13 @@ export const TimetablePage: React.FC = () => {
   const { activeChild } = useChild();
 
   const isGirl = activeChild.avatar_url?.includes('girl') || activeChild.nickname === 'Bé Băng';
+
+  // Dynamic Subjects state from storage
+  const [subjectList, setSubjectList] = useState<SubjectItem[]>(() => storage.getSubjects());
+  const [isSubjectModalOpen, setIsSubjectModalOpen] = useState(false);
+  const [newSubjName, setNewSubjName] = useState('');
+  const [newSubjCode, setNewSubjCode] = useState('');
+  const [newSubjColor, setNewSubjColor] = useState('#2563EB');
 
   // Templates of active child
   const templates = storage.getTemplates().filter((t) => t.child_id === activeChild.id);
@@ -167,26 +154,48 @@ export const TimetablePage: React.FC = () => {
     setFormNote(existingEntry?.note || '');
   };
 
+  const handleAddNewSubject = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSubjName.trim()) return;
+    const added = storage.addSubject({
+      name: newSubjName.trim(),
+      code: newSubjCode.trim() || undefined,
+      color: newSubjColor,
+      is_custom: true,
+      category: 'core',
+    });
+    setSubjectList(storage.getSubjects());
+    setNewSubjName('');
+    setNewSubjCode('');
+    if (editingSlot) {
+      setFormSubject(added.name);
+    }
+  };
+
+  const handleDeleteCustomSubject = (id: string) => {
+    storage.deleteSubject(id);
+    setSubjectList(storage.getSubjects());
+  };
+
   const handleSaveSlot = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingSlot || !activeTemplate || !formSubject.trim()) return;
 
     const [startTime, endTime] = editingSlot.defaultTimes.split(' – ').map((s) => s.trim());
 
+    let updatedList: TimetableEntry[] = [];
     if (editingSlot.entry) {
       // Update existing entry
-      setDraftEntries((prev) =>
-        prev.map((item) =>
-          item.id === editingSlot.entry!.id
-            ? {
-                ...item,
-                subject: formSubject.trim(),
-                teacher: formTeacher.trim() || undefined,
-                room: formRoom.trim() || undefined,
-                note: formNote.trim() || undefined,
-              }
-            : item
-        )
+      updatedList = draftEntries.map((item) =>
+        item.id === editingSlot.entry!.id
+          ? {
+              ...item,
+              subject: formSubject.trim(),
+              teacher: formTeacher.trim() || undefined,
+              room: formRoom.trim() || undefined,
+              note: formNote.trim() || undefined,
+            }
+          : item
       );
     } else {
       // Add new entry
@@ -203,10 +212,16 @@ export const TimetablePage: React.FC = () => {
         room: formRoom.trim() || undefined,
         note: formNote.trim() || undefined,
       };
-      setDraftEntries((prev) => [...prev, newEntry]);
+      updatedList = [...draftEntries, newEntry];
     }
 
-    setHasUnsavedChanges(true);
+    setDraftEntries(updatedList);
+    if (!isEditMode) {
+      // Direct quick edit mode saved directly!
+      storage.setEntriesForTimetable(activeTemplate.id, updatedList);
+    } else {
+      setHasUnsavedChanges(true);
+    }
     setEditingSlot(null);
   };
 
@@ -396,6 +411,19 @@ export const TimetablePage: React.FC = () => {
             </Button>
           )}
 
+          {/* Subject Manager Button */}
+          {!isEditMode && (
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<Settings2 className="w-4 h-4" />}
+              onClick={() => setIsSubjectModalOpen(true)}
+              title="Cấu hình danh mục môn học"
+            >
+              Môn học
+            </Button>
+          )}
+
           {/* EDIT MODE TOGGLE BUTTON */}
           {!isEditMode ? (
             <Button
@@ -458,6 +486,57 @@ export const TimetablePage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Weekly Stats KPI Bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 no-print">
+        <div className="bg-app-card border border-app-border rounded-xl p-3 flex items-center gap-3 shadow-theme-sm">
+          <div className="w-9 h-9 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center font-bold text-lg">
+            📚
+          </div>
+          <div>
+            <div className="text-[11px] text-content-muted font-medium">Tổng tiết học</div>
+            <div className="text-sm md:text-base font-extrabold text-content-primary">
+              {activeEntries.length} tiết / tuần
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-app-card border border-app-border rounded-xl p-3 flex items-center gap-3 shadow-theme-sm">
+          <div className="w-9 h-9 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold text-lg">
+            ☀️
+          </div>
+          <div>
+            <div className="text-[11px] text-content-muted font-medium">Buổi sáng</div>
+            <div className="text-sm md:text-base font-extrabold text-content-primary">
+              {activeEntries.filter((e) => e.session === 'morning').length} tiết
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-app-card border border-app-border rounded-xl p-3 flex items-center gap-3 shadow-theme-sm">
+          <div className="w-9 h-9 rounded-lg bg-sky-500/10 text-sky-600 flex items-center justify-center font-bold text-lg">
+            🌤️
+          </div>
+          <div>
+            <div className="text-[11px] text-content-muted font-medium">Buổi chiều</div>
+            <div className="text-sm md:text-base font-extrabold text-content-primary">
+              {activeEntries.filter((e) => e.session === 'afternoon').length} tiết
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-app-card border border-app-border rounded-xl p-3 flex items-center gap-3 shadow-theme-sm">
+          <div className="w-9 h-9 rounded-lg bg-purple-500/10 text-purple-600 flex items-center justify-center font-bold text-lg">
+            🌙
+          </div>
+          <div>
+            <div className="text-[11px] text-content-muted font-medium">Lớp học thêm</div>
+            <div className="text-sm md:text-base font-extrabold text-content-primary">
+              {extraSchedules.length} lớp học
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Hero A4 Infographic Layout matching sample.png */}
       <div className="timetable-print-container bg-white border border-app-border rounded-theme-card p-4 md:p-6 shadow-theme-md overflow-x-auto">
@@ -562,10 +641,12 @@ export const TimetablePage: React.FC = () => {
                             onDragLeave={isEditMode ? handleDragLeave : undefined}
                             onDrop={isEditMode ? (e) => handleDrop(e, weekday, 'morning', period) : undefined}
                             onClick={isEditMode ? () => openSlotEditor(weekday, 'morning', period) : undefined}
+                            onDoubleClick={() => openSlotEditor(weekday, 'morning', period)}
+                            title={isEditMode ? 'Nhấp để thêm môn' : 'Nhấp đúp để chỉnh sửa nhanh'}
                             className={`p-1.5 text-center border border-slate-200 transition-colors ${
                               isEditMode
                                 ? 'cursor-pointer hover:bg-blue-50/70 border-dashed border-blue-200'
-                                : 'text-slate-300'
+                                : 'text-slate-300 hover:bg-slate-50 cursor-pointer'
                             } ${isDropTarget ? 'bg-blue-100 border-2 border-primary' : ''}`}
                           >
                             {isEditMode ? (
@@ -586,6 +667,8 @@ export const TimetablePage: React.FC = () => {
                           onDragOver={isEditMode ? (e) => handleDragOver(e, slotKey) : undefined}
                           onDragLeave={isEditMode ? handleDragLeave : undefined}
                           onDrop={isEditMode ? (e) => handleDrop(e, weekday, 'morning', period) : undefined}
+                          onDoubleClick={() => openSlotEditor(weekday, 'morning', period, entry)}
+                          title={isEditMode ? 'Kéo thả hoặc nhấp để sửa' : 'Nhấp đúp để chỉnh sửa nhanh'}
                           className={`p-1 border border-slate-200 relative group transition-all ${
                             isDropTarget ? 'ring-2 ring-primary ring-inset bg-blue-50' : ''
                           }`}
@@ -597,7 +680,7 @@ export const TimetablePage: React.FC = () => {
                             className={`p-1.5 rounded-lg border ${meta.bgClass} ${meta.borderClass} text-center min-h-[46px] flex flex-col justify-center transition-all ${
                               isEditMode
                                 ? 'cursor-grab active:cursor-grabbing hover:shadow-md ring-1 ring-black/5 hover:scale-[1.02]'
-                                : ''
+                                : 'hover:shadow-sm cursor-pointer'
                             }`}
                           >
                             {/* Grip handle indicator in edit mode */}
@@ -675,10 +758,12 @@ export const TimetablePage: React.FC = () => {
                             onDragLeave={isEditMode ? handleDragLeave : undefined}
                             onDrop={isEditMode ? (e) => handleDrop(e, weekday, 'afternoon', period) : undefined}
                             onClick={isEditMode ? () => openSlotEditor(weekday, 'afternoon', period) : undefined}
+                            onDoubleClick={() => openSlotEditor(weekday, 'afternoon', period)}
+                            title={isEditMode ? 'Nhấp để thêm môn' : 'Nhấp đúp để chỉnh sửa nhanh'}
                             className={`p-1.5 text-center border border-slate-200 transition-colors ${
                               isEditMode
                                 ? 'cursor-pointer hover:bg-blue-50/70 border-dashed border-blue-200'
-                                : 'text-slate-300'
+                                : 'text-slate-300 hover:bg-slate-50 cursor-pointer'
                             } ${isDropTarget ? 'bg-blue-100 border-2 border-primary' : ''}`}
                           >
                             {isEditMode ? (
@@ -699,6 +784,8 @@ export const TimetablePage: React.FC = () => {
                           onDragOver={isEditMode ? (e) => handleDragOver(e, slotKey) : undefined}
                           onDragLeave={isEditMode ? handleDragLeave : undefined}
                           onDrop={isEditMode ? (e) => handleDrop(e, weekday, 'afternoon', period) : undefined}
+                          onDoubleClick={() => openSlotEditor(weekday, 'afternoon', period, entry)}
+                          title={isEditMode ? 'Kéo thả hoặc nhấp để sửa' : 'Nhấp đúp để chỉnh sửa nhanh'}
                           className={`p-1 border border-slate-200 relative group transition-all ${
                             isDropTarget ? 'ring-2 ring-primary ring-inset bg-blue-50' : ''
                           }`}
@@ -710,7 +797,7 @@ export const TimetablePage: React.FC = () => {
                             className={`p-1.5 rounded-lg border ${meta.bgClass} ${meta.borderClass} text-center min-h-[46px] flex flex-col justify-center transition-all ${
                               isEditMode
                                 ? 'cursor-grab active:cursor-grabbing hover:shadow-md ring-1 ring-black/5 hover:scale-[1.02]'
-                                : ''
+                                : 'hover:shadow-sm cursor-pointer'
                             }`}
                           >
                             {isEditMode && (
@@ -897,22 +984,30 @@ export const TimetablePage: React.FC = () => {
                   onChange={(e) => setFormSubject(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg border border-app-border bg-app-bg text-content-primary focus:outline-none focus:ring-2 focus:ring-primary"
                 />
-                {/* Popular Subject Quick Pills */}
+                {/* Dynamic Subject Quick Pills */}
                 <div className="flex flex-wrap gap-1 mt-1 max-h-24 overflow-y-auto pt-1">
-                  {COMMON_SUBJECTS.map((sub) => (
+                  {subjectList.map((sub) => (
                     <button
                       type="button"
-                      key={sub}
-                      onClick={() => setFormSubject(sub)}
+                      key={sub.id}
+                      onClick={() => setFormSubject(sub.name)}
                       className={`px-2 py-0.5 rounded text-[11px] font-medium border transition-colors ${
-                        formSubject === sub
+                        formSubject === sub.name
                           ? 'bg-primary text-primary-foreground border-primary'
                           : 'bg-app-surface text-content-secondary border-app-border hover:border-primary/40'
                       }`}
                     >
-                      {sub}
+                      {sub.name}
                     </button>
                   ))}
+                  <button
+                    type="button"
+                    onClick={() => setIsSubjectModalOpen(true)}
+                    className="px-2 py-0.5 rounded text-[11px] font-bold border border-dashed border-primary text-primary hover:bg-primary/5 flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" />
+                    Thêm môn mới...
+                  </button>
                 </div>
               </div>
 
@@ -1047,6 +1142,111 @@ export const TimetablePage: React.FC = () => {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* SUBJECT CONFIGURATION MODAL */}
+      {isSubjectModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-app-surface border border-app-border rounded-2xl p-6 shadow-theme-pop w-full max-w-lg space-y-4 animate-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between pb-2 border-b border-app-border">
+              <h3 className="text-base font-bold text-content-primary flex items-center gap-2">
+                <Settings2 className="w-5 h-5 text-primary" />
+                <span>Cấu Hình Danh Mục Môn Học</span>
+              </h3>
+              <button
+                onClick={() => setIsSubjectModalOpen(false)}
+                className="p-1 rounded-lg text-content-muted hover:text-content-primary hover:bg-black/5"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-content-secondary">
+              Danh sách các môn học dùng trong Thời Khóa Biểu. Bạn có thể thêm các môn học đặc thù, câu lạc bộ hoặc môn ngoại khóa mới bất kỳ lúc nào.
+            </p>
+
+            {/* Quick Add Form */}
+            <form onSubmit={handleAddNewSubject} className="p-3 bg-app-card/60 rounded-xl border border-app-border space-y-2 text-xs">
+              <div className="font-bold text-content-primary flex items-center gap-1.5">
+                <Plus className="w-3.5 h-3.5 text-primary" />
+                <span>Thêm môn học mới</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  required
+                  placeholder="Tên môn (VD: STEM Robotics)"
+                  value={newSubjName}
+                  onChange={(e) => setNewSubjName(e.target.value)}
+                  className="px-2.5 py-1.5 rounded-lg border border-app-border bg-app-bg text-content-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                <input
+                  type="text"
+                  placeholder="Mã viết tắt (VD: STEM)"
+                  value={newSubjCode}
+                  onChange={(e) => setNewSubjCode(e.target.value)}
+                  className="px-2.5 py-1.5 rounded-lg border border-app-border bg-app-bg text-content-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-content-muted text-[11px]">Màu thẻ:</span>
+                  {['#2563EB', '#EC4899', '#10B981', '#F59E0B', '#8B5CF6', '#06B6D4', '#64748B'].map((clr) => (
+                    <button
+                      type="button"
+                      key={clr}
+                      onClick={() => setNewSubjColor(clr)}
+                      className={`w-5 h-5 rounded-full border ${newSubjColor === clr ? 'ring-2 ring-primary scale-110' : 'border-transparent'}`}
+                      style={{ backgroundColor: clr }}
+                    />
+                  ))}
+                </div>
+                <Button type="submit" variant="primary" size="sm" className="text-xs py-1">
+                  Thêm môn
+                </Button>
+              </div>
+            </form>
+
+            {/* Subject List */}
+            <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 max-h-64">
+              <div className="text-[11px] font-bold text-content-muted uppercase tracking-wider">
+                Môn học hiện có ({subjectList.length})
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {subjectList.map((s) => (
+                  <div
+                    key={s.id}
+                    className="p-2 rounded-lg border border-app-border bg-app-card flex items-center justify-between text-xs"
+                  >
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                      <div className="truncate">
+                        <span className="font-bold text-content-primary">{s.name}</span>
+                        {s.code && <span className="text-[10px] text-content-muted ml-1">({s.code})</span>}
+                      </div>
+                    </div>
+                    {s.is_custom && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteCustomSubject(s.id)}
+                        className="p-1 text-content-muted hover:text-red-500 rounded"
+                        title="Xóa môn này"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-3 border-t border-app-border">
+              <Button type="button" variant="primary" size="sm" onClick={() => setIsSubjectModalOpen(false)}>
+                Hoàn tất
+              </Button>
+            </div>
           </div>
         </div>
       )}

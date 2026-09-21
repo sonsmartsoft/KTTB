@@ -236,3 +236,37 @@ export interface TeacherContact {
   parent_notes?: string; // Ghi chú riêng của phụ huynh
 }
 
+export interface SubjectItem {
+  id: string;
+  name: string;
+  code?: string;
+  color: string;
+  icon?: string;
+  category?: 'core' | 'science' | 'social' | 'arts_sports' | 'other';
+  is_custom?: boolean;
+}
+
+export interface ExtraClassSessionLog {
+  id: string;
+  extra_schedule_id: string;
+  child_id: string;
+  date: string; // YYYY-MM-DD
+  score?: number;
+  max_score?: number;
+  status: 'attended' | 'absent' | 'makeup';
+  teacher_comment?: string;
+  parent_note?: string;
+}
+
+export interface HomeworkTask {
+  id: string;
+  child_id: string;
+  date: string; // YYYY-MM-DD
+  due_date?: string; // YYYY-MM-DD
+  subject: string;
+  description: string;
+  is_completed: boolean;
+  priority: 'normal' | 'high';
+}
+
+

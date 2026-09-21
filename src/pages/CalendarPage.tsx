@@ -23,6 +23,7 @@ import { vi } from 'date-fns/locale';
 import { storage } from '@/services/storage';
 import { resolveSchedule } from '@/domain/schedule-resolution/resolveSchedule';
 import { ScheduleException, ExceptionType } from '@/domain/types';
+import { getLunarDateInfo } from '@/utils/lunarCalendar';
 
 export const CalendarPage: React.FC = () => {
   const { activeChild } = useChild();
@@ -185,21 +186,45 @@ export const CalendarPage: React.FC = () => {
                 <button
                   key={dateStr}
                   onClick={() => setSelectedDate(dateStr)}
-                  className={`min-h-[58px] p-1.5 rounded-theme-md flex flex-col items-center justify-between border transition-all ${
+                  className={`min-h-[64px] p-1.5 rounded-theme-md flex flex-col items-center justify-between border transition-all ${
                     isSelected
                       ? 'bg-primary text-primary-foreground font-bold shadow-theme-sm border-primary scale-[1.02]'
                       : 'bg-app-surface text-content-primary border-app-subtle hover:border-primary/40 hover:bg-black/5'
                   }`}
                 >
                   <div className="flex items-center justify-between w-full">
-                    <span className="text-xs">{format(day, 'd')}</span>
+                    <span className="text-xs font-semibold">{format(day, 'd')}</span>
                     {isToday && (
-                      <span className={`text-[9px] px-1 rounded font-bold ${isSelected ? 'bg-white/20' : 'bg-primary/10 text-primary'}`}>
+                      <span className={`text-[8px] px-1 rounded font-bold ${isSelected ? 'bg-white/20 text-white' : 'bg-primary/10 text-primary'}`}>
                         Nay
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-1 mt-1">
+
+                  {/* Vietnamese Lunar Date Subtext */}
+                  {(() => {
+                    const lunar = getLunarDateInfo(day);
+                    return (
+                      <div className="w-full flex items-center justify-center my-0.5">
+                        <span
+                          className={`text-[9px] leading-tight px-1 py-0.2 rounded ${
+                            (lunar.isFirstDay || lunar.isFullMoon)
+                              ? isSelected
+                                ? 'bg-amber-400/30 text-amber-200 font-bold'
+                                : 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 font-bold'
+                              : isSelected
+                              ? 'text-white/80 font-normal'
+                              : 'text-content-muted font-normal'
+                          }`}
+                          title={`Âm lịch: ${lunar.fullText}${lunar.specialEvent ? ` (${lunar.specialEvent})` : ''}`}
+                        >
+                          {lunar.specialEvent || lunar.shortText}
+                        </span>
+                      </div>
+                    );
+                  })()}
+
+                  <div className="flex items-center gap-1">
                     <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white' : 'bg-blue-500'}`} />
                     {hasException && (
                       <span
@@ -224,6 +249,10 @@ export const CalendarPage: React.FC = () => {
               <span className="w-2 h-2 rounded-full bg-rose-500" />
               <span>Có ngoại lệ (nghỉ học / đổi môn / sự kiện)</span>
             </div>
+            <div className="flex items-center gap-1.5">
+              <span className="px-1 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold">Mùng 1 / Rằm</span>
+              <span>Lịch Âm Việt Nam</span>
+            </div>
           </div>
         </Card>
 
@@ -231,9 +260,20 @@ export const CalendarPage: React.FC = () => {
         <Card className="p-5 space-y-4">
           <div className="pb-3 border-b border-app-border flex items-start justify-between">
             <div>
-              <span className="text-xs font-bold text-primary">CHI TIẾT LỊCH TRÌNH</span>
-              <h3 className="text-lg font-bold text-content-primary mt-0.5">
-                Ngày {format(selectedDateObj, 'dd/MM/yyyy')}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-primary uppercase">CHI TIẾT LỊCH TRÌNH</span>
+                {(() => {
+                  const selLunar = getLunarDateInfo(selectedDateObj);
+                  return (
+                    <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-medium">
+                      <span>🏮 Âm lịch: {selLunar.fullText}</span>
+                      {selLunar.specialEvent && <strong>({selLunar.specialEvent})</strong>}
+                    </span>
+                  );
+                })()}
+              </div>
+              <h3 className="text-lg font-bold text-content-primary mt-1">
+                Ngày {format(selectedDateObj, 'dd/MM/yyyy')} ({format(selectedDateObj, 'EEEE', { locale: vi })})
               </h3>
               <p className="text-xs text-content-muted">
                 {activeChild.name} • {resolved.timetableTemplate?.name || 'Không có TKB hiệu lực'}
