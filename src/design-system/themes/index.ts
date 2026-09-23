@@ -171,19 +171,44 @@ export const THEMES: Record<AppTheme, ThemeConfig> = {
   },
 };
 
-export function applyTheme(themeId: AppTheme): void {
+export type ColorMode = 'light' | 'dark' | 'system';
+
+export function applyTheme(themeId: AppTheme, colorMode?: ColorMode): void {
   const theme = THEMES[themeId] || THEMES.cute;
   const root = document.documentElement;
   
-  // Set theme data attribute for CSS targeting
+  // Resolve dark mode
+  const mode = colorMode || (localStorage.getItem('ktt_color_mode') as ColorMode) || 'light';
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const isDark = mode === 'dark' || (mode === 'system' && prefersDark);
+  
+  root.classList.toggle('dark', isDark);
   root.setAttribute('data-theme', theme.id);
   
-  // Apply all CSS custom variables
+  // Apply base theme variables
   Object.entries(theme.variables).forEach(([key, value]) => {
     root.style.setProperty(key, value);
   });
 
+  // If dark mode is active, override background, surface, card, borders, and text colors
+  if (isDark) {
+    root.style.setProperty('--bg-app', '#0B1120'); // deep slate-950
+    root.style.setProperty('--bg-surface', '#131D31'); // slate-900 header/sidebar
+    root.style.setProperty('--bg-card', '#1A263D'); // slate-800 card
+    root.style.setProperty('--border-app', '#2A3B53'); // dark border
+    root.style.setProperty('--border-subtle', '#1E2D44');
+    root.style.setProperty('--text-primary', '#F8FAFC'); // crisp readable white
+    root.style.setProperty('--text-secondary', '#94A3B8');
+    root.style.setProperty('--text-muted', '#64748B');
+    root.style.setProperty('--shadow-sm', '0 2px 4px rgba(0, 0, 0, 0.4)');
+    root.style.setProperty('--shadow-md', '0 4px 12px rgba(0, 0, 0, 0.5)');
+    root.style.setProperty('--shadow-lg', '0 10px 24px rgba(0, 0, 0, 0.6)');
+    root.style.setProperty('--shadow-pop', '0 4px 0 rgba(0, 0, 0, 0.6)');
+  }
+
   try {
     localStorage.setItem('ktt_theme', theme.id);
+    localStorage.setItem('ktt_color_mode', mode);
   } catch {}
 }
+

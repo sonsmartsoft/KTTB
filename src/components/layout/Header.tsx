@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
 import { useChild } from '@/context/ChildContext';
 import { useTheme } from '@/context/ThemeContext';
-import { ChevronDown, Palette, Check } from 'lucide-react';
+import { ChevronDown, Palette, Check, Sun, Moon } from 'lucide-react';
 import { AppTheme } from '@/domain/types';
 import { formatChildDisplayName } from '@/lib/childNameHelper';
 
 export const Header: React.FC = () => {
   const { childrenList, activeChild, setActiveChildId } = useChild();
-  const { theme, setTheme, availableThemes } = useTheme();
+  const { theme, setTheme, availableThemes, colorMode, setColorMode } = useTheme();
   
   const [isChildMenuOpen, setIsChildMenuOpen] = useState(false);
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
+
 
   return (
     <header className="sticky top-0 z-30 bg-app-surface/90 backdrop-blur-md border-b border-app-border px-4 py-2.5 flex items-center justify-between no-print">
@@ -150,6 +151,23 @@ export const Header: React.FC = () => {
             </>
           )}
         </div>
+
+        {/* Quick Light / Dark Mode Toggle */}
+        <button
+          onClick={() => {
+            const nextMode = colorMode === 'dark' ? 'light' : 'dark';
+            setColorMode(nextMode);
+          }}
+          className="flex items-center justify-center w-8 h-8 rounded-theme-md bg-app-card border border-app-border hover:bg-black/5 dark:hover:bg-white/5 text-content-primary shadow-theme-sm transition-colors"
+          title={colorMode === 'dark' ? 'Chuyển sang chế độ Sáng' : 'Chuyển sang chế độ Tối'}
+          aria-label="Toggle light/dark mode"
+        >
+          {colorMode === 'dark' ? (
+            <Sun className="w-4 h-4 text-amber-400 animate-in spin-in-180 duration-200" />
+          ) : (
+            <Moon className="w-4 h-4 text-slate-600 animate-in spin-in-180 duration-200" />
+          )}
+        </button>
       </div>
     </header>
   );

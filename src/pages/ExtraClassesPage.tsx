@@ -31,6 +31,10 @@ import {
   CreditCard,
   Receipt,
   RotateCcw,
+  Copy,
+  QrCode,
+  Banknote,
+  Check,
 } from 'lucide-react';
 import { DAY_HEADER_COLORS } from '@/design-system/tokens/colors';
 import { ExtraSchedule, WeekdayNumber, SessionType, ExtraClassSessionLog, MonthlyTuitionPayment } from '@/domain/types';
@@ -106,6 +110,18 @@ export const ExtraClassesPage: React.FC = () => {
   const [endTime, setEndTime] = useState('21:15');
   const [feePerSession, setFeePerSession] = useState<number>(150000);
   const [note, setNote] = useState('');
+  // Teacher & Bank Info (for modal)
+  const [teacherName, setTeacherName] = useState('');
+  const [bankAccount, setBankAccount] = useState('');
+  const [bankName, setBankName] = useState('VCB');
+  const [bankOwner, setBankOwner] = useState('');
+  // Copy-to-clipboard state
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  // Payment detail editing state
+  const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
+  const [paymentDate, setPaymentDate] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'bank_transfer' | 'cash'>('bank_transfer');
+  const [transactionRef, setTransactionRef] = useState('');
 
   const childSchedules = extraSchedules.filter((e) => e.child_id === activeChild.id);
 
@@ -119,6 +135,10 @@ export const ExtraClassesPage: React.FC = () => {
     setEndTime('21:15');
     setFeePerSession(150000);
     setNote('');
+    setTeacherName('');
+    setBankAccount('');
+    setBankName('VCB');
+    setBankOwner('');
     setIsModalOpen(true);
   };
 
@@ -132,6 +152,10 @@ export const ExtraClassesPage: React.FC = () => {
     setEndTime(item.end_time);
     setFeePerSession(item.fee_per_session || 150000);
     setNote(item.note || '');
+    setTeacherName(item.teacher_name || '');
+    setBankAccount(item.bank_account || '');
+    setBankName(item.bank_name || 'VCB');
+    setBankOwner(item.bank_owner || '');
     setIsModalOpen(true);
   };
 
@@ -145,6 +169,13 @@ export const ExtraClassesPage: React.FC = () => {
     e.preventDefault();
     if (!name.trim() || weekdays.length === 0) return;
 
+    const bankFields = {
+      teacher_name: teacherName.trim() || undefined,
+      bank_account: bankAccount.trim() || undefined,
+      bank_name: bankAccount.trim() ? bankName : undefined,
+      bank_owner: bankOwner.trim() || undefined,
+    };
+
     if (editingId) {
       storage.updateExtraSchedule(editingId, {
         name: name.trim(),
@@ -155,6 +186,7 @@ export const ExtraClassesPage: React.FC = () => {
         end_time: endTime,
         fee_per_session: feePerSession,
         note: note.trim() || undefined,
+        ...bankFields,
       });
     } else {
       storage.addExtraSchedule({
@@ -168,6 +200,7 @@ export const ExtraClassesPage: React.FC = () => {
         fee_per_session: feePerSession,
         note: note.trim() || undefined,
         active: true,
+        ...bankFields,
       });
     }
 
@@ -190,9 +223,33 @@ export const ExtraClassesPage: React.FC = () => {
       total_amount: attendedCount * fee,
       is_paid: newIsPaid,
       paid_at: newIsPaid ? new Date().toISOString().split('T')[0] : undefined,
+      payment_method: newIsPaid ? 'bank_transfer' : undefined,
     };
     storage.upsertTuitionPayment(payment);
     setTuitionPayments(storage.getTuitionPayments());
+  };
+
+  const handleSavePaymentDetail = (scheduleId: string, attendedCount: number, fee: number) => {
+    const existing = tuitionPayments.find(
+      (p) => p.child_id === activeChild.id && p.extra_schedule_id === scheduleId && p.month === tuitionMonth
+    );
+    if (!existing) return;
+    const updated: MonthlyTuitionPayment = {
+      ...existing,
+      paid_at: paymentDate || existing.paid_at,
+      payment_method: paymentMethod,
+      transaction_ref: transactionRef.trim() || undefined,
+    };
+    storage.upsertTuitionPayment(updated);
+    setTuitionPayments(storage.getTuitionPayments());
+    setEditingPaymentId(null);
+  };
+
+  const handleCopyAccountNumber = (account: string, id: string) => {
+    navigator.clipboard.writeText(account).then(() => {
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    });
   };
 
   const handleSaveInlineFee = (scheduleId: string) => {
@@ -912,13 +969,155 @@ export const ExtraClassesPage: React.FC = () => {
                                     </>
                                   )}
                                 </button>
-                                {payment?.paid_at && (
-                                  <div className="text-[10px] text-emerald-600 dark:text-emerald-400 text-center mt-1">
-                                    Ngày {payment.paid_at.split('-').reverse().join('/')}
+                              </div>
+                            </div>
+
+                            {/* Bank Info Section */}
+                            {(extra.bank_account || extra.teacher_name) && (
+                              <div className="mt-3 pt-3 border-t border-app-subtle">
+                                <div className="text-[10px] font-bold text-content-muted uppercase tracking-wider mb-2 flex items-center gap-1">
+                                  <Banknote className="w-3 h-3" />
+                                  Thông tin thanh toán cho thầy/cô
+                                </div>
+                                <div className="flex flex-wrap items-center gap-3">
+                                  {extra.teacher_name && (
+                                    <div className="flex items-center gap-1.5 text-xs">
+                                      <span className="text-content-muted">Thầy/Cô:</span>
+                                      <span className="font-bold text-content-primary">{extra.teacher_name}</span>
+                                    </div>
+                                  )}
+                                  {extra.bank_account && (
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <div className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg bg-app-bg border border-app-border">
+                                        <span className="font-bold text-[10px] text-content-muted uppercase">{extra.bank_name}</span>
+                                        <span className="font-mono font-bold text-content-primary">{extra.bank_account}</span>
+                                        {extra.bank_owner && (
+                                          <span className="text-[10px] text-content-secondary">— {extra.bank_owner}</span>
+                                        )}
+                                      </div>
+                                      {/* Copy button */}
+                                      <button
+                                        onClick={() => handleCopyAccountNumber(extra.bank_account!, extra.id)}
+                                        title="Copy số tài khoản"
+                                        className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
+                                          copiedId === extra.id
+                                            ? 'bg-emerald-500 text-white'
+                                            : 'bg-app-bg border border-app-border text-content-secondary hover:border-primary/50 hover:text-primary'
+                                        }`}
+                                      >
+                                        {copiedId === extra.id ? (
+                                          <><Check className="w-3 h-3" /><span>Đã copy!</span></>
+                                        ) : (
+                                          <><Copy className="w-3 h-3" /><span>Copy STK</span></>
+                                        )}
+                                      </button>
+                                      {/* VietQR Link */}
+                                      {extra.bank_name && (
+                                        <a
+                                          href={`https://img.vietqr.io/image/${extra.bank_name.toLowerCase()}-${extra.bank_account}-compact2.jpg?amount=${totalFee}&addInfo=${encodeURIComponent(`Hoc phi ${extra.name} T${tuitionMonth}`)}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          title="Xem QR VietQR chuyển khoản"
+                                          className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-bold bg-app-bg border border-app-border text-content-secondary hover:border-blue-500/50 hover:text-blue-600 transition-all"
+                                        >
+                                          <QrCode className="w-3 h-3" />
+                                          <span>QR</span>
+                                        </a>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Payment Detail Section (only when paid) */}
+                            {isPaid && (
+                              <div className="mt-3 pt-3 border-t border-emerald-200 dark:border-emerald-900/40">
+                                {editingPaymentId === extra.id ? (
+                                  <div className="space-y-2 p-3 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40">
+                                    <div className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">
+                                      Chi tiết giao dịch thanh toán
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                      <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-content-muted">Ngày chuyển</label>
+                                        <input
+                                          type="date"
+                                          value={paymentDate || payment?.paid_at || ''}
+                                          onChange={(e) => setPaymentDate(e.target.value)}
+                                          className="w-full px-2 py-1.5 rounded-lg border border-app-border bg-white dark:bg-slate-900 text-content-primary text-xs font-mono focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                        />
+                                      </div>
+                                      <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-content-muted">Hình thức</label>
+                                        <select
+                                          value={paymentMethod}
+                                          onChange={(e) => setPaymentMethod(e.target.value as 'bank_transfer' | 'cash')}
+                                          className="w-full px-2 py-1.5 rounded-lg border border-app-border bg-white dark:bg-slate-900 text-content-primary text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                        >
+                                          <option value="bank_transfer">💳 Chuyển khoản</option>
+                                          <option value="cash">💵 Tiền mặt</option>
+                                        </select>
+                                      </div>
+                                    </div>
+                                    <div className="space-y-1">
+                                      <label className="text-[10px] font-bold text-content-muted">Nội dung/mã giao dịch</label>
+                                      <input
+                                        type="text"
+                                        placeholder={`Hoc phi ${extra.name} T${tuitionMonth}`}
+                                        value={transactionRef}
+                                        onChange={(e) => setTransactionRef(e.target.value)}
+                                        className="w-full px-2 py-1.5 rounded-lg border border-app-border bg-white dark:bg-slate-900 text-content-primary text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                      />
+                                    </div>
+                                    <div className="flex items-center gap-2 pt-1">
+                                      <button
+                                        onClick={() => handleSavePaymentDetail(extra.id, sessionsCount, fee)}
+                                        className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-[10px] font-bold hover:bg-emerald-700 transition-colors"
+                                      >
+                                        Lưu chi tiết
+                                      </button>
+                                      <button
+                                        onClick={() => setEditingPaymentId(null)}
+                                        className="px-3 py-1.5 rounded-lg border border-app-border text-[10px] font-bold text-content-muted hover:text-content-primary transition-colors"
+                                      >
+                                        Huỷ
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                                    <div className="flex flex-wrap items-center gap-3 text-[11px]">
+                                      {payment?.paid_at && (
+                                        <span className="flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-semibold">
+                                          <CheckCircle2 className="w-3.5 h-3.5" />
+                                          Đã TT ngày {payment.paid_at.split('-').reverse().join('/')}
+                                        </span>
+                                      )}
+                                      {payment?.payment_method && (
+                                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 font-bold text-[10px]">
+                                          {payment.payment_method === 'bank_transfer' ? '💳 Chuyển khoản' : '💵 Tiền mặt'}
+                                        </span>
+                                      )}
+                                      {payment?.transaction_ref && (
+                                        <span className="text-content-muted font-mono">#{payment.transaction_ref}</span>
+                                      )}
+                                    </div>
+                                    <button
+                                      onClick={() => {
+                                        setEditingPaymentId(extra.id);
+                                        setPaymentDate(payment?.paid_at || new Date().toISOString().split('T')[0]);
+                                        setPaymentMethod(payment?.payment_method || 'bank_transfer');
+                                        setTransactionRef(payment?.transaction_ref || '');
+                                      }}
+                                      className="text-[10px] text-content-muted hover:text-primary flex items-center gap-1 px-2 py-1 rounded hover:bg-black/5"
+                                    >
+                                      <Edit2 className="w-3 h-3" /> Chỉnh sửa giao dịch
+                                    </button>
                                   </div>
                                 )}
                               </div>
-                            </div>
+                            )}
                           </div>
                         </Card>
                       );
@@ -1054,7 +1253,8 @@ export const ExtraClassesPage: React.FC = () => {
       {/* ADD / EDIT CLASS MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-app-surface border border-app-border rounded-2xl p-6 shadow-theme-pop w-full max-w-md space-y-4 animate-in zoom-in-95 duration-150">
+          <div className="bg-app-surface border border-app-border rounded-2xl shadow-theme-pop w-full max-w-md animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
+            <div className="p-6 space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-app-border">
               <h3 className="text-base font-bold text-content-primary flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-primary" />
@@ -1189,17 +1389,83 @@ export const ExtraClassesPage: React.FC = () => {
                 </p>
               </div>
 
+              {/* Teacher & Bank Info (parent-only, hidden from children's view) */}
+              <div className="space-y-3 p-3 rounded-xl bg-blue-50/40 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/40">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-blue-800 dark:text-blue-300 flex items-center gap-1.5 text-xs">
+                    <Banknote className="w-3.5 h-3.5" />
+                    <span>Thông tin Thầy/Cô & Tài khoản thanh toán</span>
+                  </label>
+                  <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold">Chỉ phụ huynh thấy</span>
+                </div>
+                <div className="space-y-2">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-content-muted">Tên Thầy/Cô phụ trách</label>
+                    <input
+                      type="text"
+                      placeholder="Ví dụ: Thầy Nguyễn Văn Nam, Cô Thu Hà..."
+                      value={teacherName}
+                      onChange={(e) => setTeacherName(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-app-border bg-app-bg text-content-primary focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-content-muted">Ngân hàng</label>
+                      <select
+                        value={bankName}
+                        onChange={(e) => setBankName(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-app-border bg-app-bg text-content-primary focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="VCB">VCB — Vietcombank</option>
+                        <option value="TPB">TPBank</option>
+                        <option value="MB">MB Bank</option>
+                        <option value="VTB">Vietinbank</option>
+                        <option value="BIDV">BIDV</option>
+                        <option value="TCB">Techcombank</option>
+                        <option value="ACB">ACB</option>
+                        <option value="VPB">VPBank</option>
+                        <option value="MSB">MSBank</option>
+                        <option value="SHB">SHB</option>
+                        <option value="other">Khác</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-content-muted">Số tài khoản</label>
+                      <input
+                        type="text"
+                        placeholder="Ví dụ: 0123456789"
+                        value={bankAccount}
+                        onChange={(e) => setBankAccount(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-app-border bg-app-bg text-content-primary font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-content-muted">Tên chủ tài khoản</label>
+                    <input
+                      type="text"
+                      placeholder="Ví dụ: NGUYEN VAN NAM"
+                      value={bankOwner}
+                      onChange={(e) => setBankOwner(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-app-border bg-app-bg text-content-primary font-mono uppercase focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* Note */}
               <div className="space-y-1">
-                <label className="font-bold text-content-primary">Ghi chú / Địa điểm / Giáo viên</label>
+                <label className="font-bold text-content-primary">Ghi chú / Địa điểm / Lưu ý</label>
                 <textarea
                   rows={2}
-                  placeholder="Ví dụ: Thầy Nam dạy tại Trung tâm, mang sách bài tập..."
+                  placeholder="Ví dụ: Học tại Trung tâm ABC, mang sách bài tập..."
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg border border-app-border bg-app-bg text-content-primary focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
+
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-app-border">
                 <Button type="button" variant="outline" size="sm" onClick={() => setIsModalOpen(false)}>
@@ -1210,6 +1476,7 @@ export const ExtraClassesPage: React.FC = () => {
                 </Button>
               </div>
             </form>
+            </div>
           </div>
         </div>
       )}

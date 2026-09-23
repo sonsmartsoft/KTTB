@@ -68,6 +68,11 @@ export interface ExtraSchedule {
   color?: string;
   fee_per_session?: number; // Học phí mỗi buổi (VNĐ) riêng cho từng lớp
   active: boolean;
+  // Thông tin thầy/cô & thanh toán (chỉ phụ huynh thấy)
+  teacher_name?: string;    // Tên thầy/cô phụ trách lớp này
+  bank_account?: string;    // Số tài khoản ngân hàng
+  bank_name?: string;       // Tên ngân hàng viết tắt (VCB, TPB, MB...)
+  bank_owner?: string;      // Tên chủ tài khoản (có thể khác tên thầy/cô)
 }
 
 export interface ScheduleException {
@@ -303,8 +308,9 @@ export interface MonthlyTuitionPayment {
   fee_per_session: number;
   total_amount: number;
   is_paid: boolean;
-  paid_at?: string;
+  paid_at?: string;          // YYYY-MM-DD
   payment_method?: 'bank_transfer' | 'cash';
+  transaction_ref?: string;  // Mã/nội dung chuyển khoản
   note?: string;
 }
 
