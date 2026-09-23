@@ -13,8 +13,8 @@ interface DateContextType {
 const DateContext = createContext<DateContextType | undefined>(undefined);
 
 export const DateProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Default to 2026-09-21 matching sample.png reference
-  const [selectedDate, setSelectedDate] = useState<string>('2026-09-21');
+  // Default to today's real date
+  const [selectedDate, setSelectedDate] = useState<string>(() => format(new Date(), 'yyyy-MM-dd'));
 
   const goToNextDay = () => {
     const next = addDays(parseISO(selectedDate), 1);
