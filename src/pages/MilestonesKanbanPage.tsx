@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { useChild } from '@/context/ChildContext';
 import { storage } from '@/services/storage';
 import { Card } from '@/design-system/components/Card';
@@ -7,7 +8,7 @@ import { Button } from '@/design-system/components/Button';
 import {
   Target, Plus, Calendar, Edit2, Trash2, Sparkles, X,
   ClipboardList, BarChart2, CheckCircle2, ChevronLeft, ChevronRight,
-  ZoomIn, ZoomOut,
+  ZoomIn, ZoomOut, TrendingUp,
 } from 'lucide-react';
 import { AcademicMilestone, MilestoneCategory, MilestoneStatus } from '@/domain/types';
 import { formatChildDisplayName } from '@/lib/childNameHelper';
@@ -466,7 +467,7 @@ export const MilestonesKanbanPage: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
           {/* View mode */}
-          <div className="flex items-center bg-app-card border border-app-border rounded-xl p-1 shadow-theme-sm">
+          <div className="flex items-center bg-app-card border border-app-border rounded-xl p-1 shadow-theme-sm gap-0.5">
             <button onClick={() => setViewMode('gantt')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${viewMode === 'gantt' ? 'bg-primary text-primary-foreground shadow-theme-sm' : 'text-content-secondary hover:text-content-primary'}`}>
               <BarChart2 className="w-3.5 h-3.5" /><span>Gantt</span>
@@ -475,6 +476,10 @@ export const MilestonesKanbanPage: React.FC = () => {
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${viewMode === 'kanban' ? 'bg-primary text-primary-foreground shadow-theme-sm' : 'text-content-secondary hover:text-content-primary'}`}>
               <ClipboardList className="w-3.5 h-3.5" /><span>Kanban</span>
             </button>
+            <Link to="/milestone-progress"
+              className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 text-content-secondary hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30">
+              <TrendingUp className="w-3.5 h-3.5 text-emerald-500" /><span>Kết quả & Tiến trình</span>
+            </Link>
           </div>
           <Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />} onClick={openAddModal}>
             Thêm cột mốc

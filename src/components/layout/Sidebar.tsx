@@ -11,6 +11,7 @@ import {
   Settings,
   UserCheck,
   Flag,
+  TrendingUp,
 } from 'lucide-react';
 import { useChild } from '@/context/ChildContext';
 
@@ -29,6 +30,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/achievements', label: 'Thành tích & Khen thưởng', icon: <Award className="w-5 h-5" /> },
   { to: '/teachers', label: 'Sổ liên lạc thầy cô', icon: <UserCheck className="w-5 h-5" /> },
   { to: '/milestones', label: 'Cột mốc & Lộ trình', icon: <Flag className="w-5 h-5" /> },
+  { to: '/milestone-progress', label: 'Kết quả & Tiến trình', icon: <TrendingUp className="w-5 h-5" /> },
   { to: '/children', label: 'Hồ sơ các bé', icon: <Users className="w-5 h-5" /> },
   { to: '/settings', label: 'Giao diện & Cài đặt', icon: <Settings className="w-5 h-5" /> },
 ];
