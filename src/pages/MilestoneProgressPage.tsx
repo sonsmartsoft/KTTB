@@ -308,7 +308,7 @@ export const MilestoneProgressPage: React.FC = () => {
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-app-subtle border-b border-app-border">
-                  <th className="text-left px-4 py-2.5 font-bold text-content-muted">Kỳ thi / Cột mốc</th>
+                  <th className="text-left px-4 py-2.5 font-bold text-content-muted w-36 min-w-[120px] max-w-[160px]">Kỳ thi / Cột mốc</th>
                   <th className="text-left px-3 py-2.5 font-bold text-content-muted">Loại</th>
                   <th className="text-center px-3 py-2.5 font-bold text-content-muted">Ngày</th>
                   <th className="text-center px-3 py-2.5 font-bold text-content-muted">Mục tiêu</th>
@@ -325,8 +325,8 @@ export const MilestoneProgressPage: React.FC = () => {
                   const met    = actual !== null && target !== null ? actual >= target : null;
                   return (
                     <tr key={m.id} className="hover:bg-primary/[0.03] transition-colors group">
-                      <td className="px-4 py-3">
-                        <div className="font-semibold text-content-primary leading-snug">{m.title}</div>
+                      <td className="px-4 py-3 w-36 min-w-[120px] max-w-[160px]">
+                        <div className="font-semibold text-content-primary leading-snug truncate" title={m.title}>{m.title}</div>
                         {m.preparation_notes && (
                           <div className="text-[10px] text-content-muted mt-0.5 italic line-clamp-1">💡 {m.preparation_notes}</div>
                         )}
