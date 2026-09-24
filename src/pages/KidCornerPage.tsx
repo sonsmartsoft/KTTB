@@ -25,6 +25,7 @@ import { resolveSchedule } from '@/domain/schedule-resolution/resolveSchedule';
 import { formatChildDisplayName } from '@/lib/childNameHelper';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { getHolidayInfo } from '@/utils/vietnameseHolidays';
 
 /* ─── Gender theme ─────────────────────────────────────────── */
 function getTheme(gender?: 'male' | 'female', avatarUrl?: string) {
@@ -85,6 +86,7 @@ export const KidCornerPage: React.FC = () => {
   const theme = useMemo(() => getTheme(activeChild.gender, activeChild.avatar_url), [activeChild.gender, activeChild.avatar_url]);
 
   const [todayStr] = useState<string>(() => format(new Date(), 'yyyy-MM-dd'));
+  const todayHoliday = useMemo(() => getHolidayInfo(new Date()), []);
   const [milestones, setMilestones] = useState<AcademicMilestone[]>(() => storage.getMilestones());
   const [prepTasks, setPrepTasks] = useState<ExamPrepTask[]>(() => storage.getExamPrepTasks());
   const [homeworkTasks, setHomeworkTasks] = useState<HomeworkTask[]>(() => storage.getHomeworkTasks());
@@ -253,9 +255,21 @@ export const KidCornerPage: React.FC = () => {
               <h1 className="text-xl md:text-2xl font-black tracking-tight drop-shadow-sm">
                 Xin chào {formatChildDisplayName(activeChild)}! {theme.emoji}
               </h1>
-              <p className="text-white/85 text-xs font-semibold mt-0.5">
-                {activeChild.class_name} • {format(new Date(), 'EEEE, dd/MM/yyyy', { locale: vi })}
-              </p>
+              <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                <p className="text-white/85 text-xs font-semibold">
+                  {activeChild.class_name} • {format(new Date(), 'EEEE, dd/MM/yyyy', { locale: vi })}
+                </p>
+                {todayHoliday.holidayName && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/25 text-white text-[10px] font-black backdrop-blur-sm border border-white/30 animate-pulse">
+                    🎌 {todayHoliday.holidayName}
+                  </span>
+                )}
+                {!todayHoliday.holidayName && todayHoliday.isSunday && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/25 text-white text-[10px] font-black backdrop-blur-sm border border-white/30">
+                    🏖️ Chủ nhật nghỉ xả hơi!
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -312,8 +326,16 @@ export const KidCornerPage: React.FC = () => {
 
             {totalItems === 0 ? (
               <div className="py-8 text-center space-y-2">
-                <div className="text-5xl animate-bounce">🎉</div>
-                <p className="text-sm font-black text-content-primary">Hôm nay được nghỉ học!</p>
+                <div className="text-5xl animate-bounce">
+                  {todayHoliday.holidayName?.includes('Tết') ? '🧧' : todayHoliday.isSunday ? '🏖️' : '🎉'}
+                </div>
+                <p className="text-sm font-black text-content-primary">
+                  {todayHoliday.holidayName
+                    ? `Hôm nay là ${todayHoliday.holidayName}!`
+                    : todayHoliday.isSunday
+                    ? 'Chủ nhật được nghỉ học nè!'
+                    : 'Hôm nay được nghỉ học!'}
+                </p>
                 <p className="text-xs text-content-muted">Nghỉ ngơi vui vẻ cùng gia đình nhé 🏠</p>
               </div>
             ) : (

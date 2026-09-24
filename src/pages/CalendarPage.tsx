@@ -24,6 +24,7 @@ import { storage } from '@/services/storage';
 import { resolveSchedule } from '@/domain/schedule-resolution/resolveSchedule';
 import { ScheduleException, ExceptionType } from '@/domain/types';
 import { getLunarDateInfo } from '@/utils/lunarCalendar';
+import { getHolidayInfo, getDayTextClass, getWeekdayHeaderClass } from '@/utils/vietnameseHolidays';
 
 export const CalendarPage: React.FC = () => {
   const { activeChild } = useChild();
@@ -170,8 +171,8 @@ export const CalendarPage: React.FC = () => {
 
           {/* Calendar Day Matrix */}
           <div className="grid grid-cols-7 gap-1.5 text-center">
-            {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((d) => (
-              <div key={d} className="text-xs font-bold text-content-muted py-1.5 uppercase">
+            {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((d, i) => (
+              <div key={d} className={`text-xs py-1.5 uppercase text-center ${getWeekdayHeaderClass(i)}`}>
                 {d}
               </div>
             ))}
@@ -190,6 +191,7 @@ export const CalendarPage: React.FC = () => {
               const isCancelled = exceptions.some(
                 (e) => e.child_id === activeChild.id && e.date === dateStr && e.type === 'cancel'
               );
+              const holiday = getHolidayInfo(day);
 
               return (
                 <button
@@ -197,18 +199,40 @@ export const CalendarPage: React.FC = () => {
                   onClick={() => setSelectedDate(dateStr)}
                   className={`min-h-[64px] p-1.5 rounded-theme-md flex flex-col items-center justify-between border transition-all ${
                     isSelected
-                      ? 'bg-primary text-primary-foreground font-bold shadow-theme-sm border-primary scale-[1.02]'
+                      ? holiday.isRedDay
+                        ? 'bg-red-500 text-white font-bold shadow-theme-sm border-red-500 scale-[1.02]'
+                        : holiday.isSaturday
+                        ? 'bg-blue-500 text-white font-bold shadow-theme-sm border-blue-500 scale-[1.02]'
+                        : 'bg-primary text-primary-foreground font-bold shadow-theme-sm border-primary scale-[1.02]'
+                      : holiday.isRedDay
+                      ? 'bg-red-50/60 dark:bg-red-950/20 border-red-200/80 dark:border-red-900/40 hover:border-red-400'
+                      : holiday.isSaturday
+                      ? 'bg-blue-50/40 dark:bg-blue-950/10 border-blue-200/60 dark:border-blue-900/30 hover:border-blue-400'
                       : 'bg-app-surface text-content-primary border-app-subtle hover:border-primary/40 hover:bg-black/5'
                   }`}
                 >
                   <div className="flex items-center justify-between w-full">
-                    <span className="text-xs font-semibold">{format(day, 'd')}</span>
+                    <span className={`text-xs ${getDayTextClass(holiday, isSelected)}`}>
+                      {format(day, 'd')}
+                    </span>
                     {isToday && (
-                      <span className={`text-[8px] px-1 rounded font-bold ${isSelected ? 'bg-white/20 text-white' : 'bg-primary/10 text-primary'}`}>
+                      <span className={`text-[8px] px-1 rounded font-bold ${
+                        isSelected ? 'bg-white/20 text-white' : 'bg-primary/10 text-primary'
+                      }`}>
                         Nay
                       </span>
                     )}
                   </div>
+                  {/* Holiday name badge */}
+                  {holiday.holidayName && (
+                    <div className="w-full">
+                      <span className={`text-[7px] leading-tight font-black truncate block text-center px-0.5 rounded ${
+                        isSelected ? 'text-white/90' : 'text-red-600 dark:text-red-400'
+                      }`}>
+                        🎌 {holiday.holidayName}
+                      </span>
+                    </div>
+                  )}
 
                   {/* Vietnamese Lunar Date Subtext */}
                   {(() => {
@@ -275,7 +299,15 @@ export const CalendarPage: React.FC = () => {
               <span>Ngoại lệ / Nghỉ học</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-400 text-[10px] font-bold">
+              <span className="px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-[10px] font-black">CN / Lễ</span>
+              <span>Chủ nhật &amp; Ngày lễ</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 text-[10px] font-black">T7</span>
+              <span>Thứ Bảy</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-400 text-[10px] font-bold">
                 Rằm / Mùng 1
               </span>
               <span>Lịch Âm</span>
@@ -291,17 +323,42 @@ export const CalendarPage: React.FC = () => {
                 <span className="text-xs font-bold text-primary uppercase">CHI TIẾT LỊCH TRÌNH</span>
                 {(() => {
                   const selLunar = getLunarDateInfo(selectedDateObj);
+                  const selHoliday = getHolidayInfo(selectedDateObj);
                   return (
-                    <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-medium">
-                      <span>🏮 Âm lịch: {selLunar.fullText}</span>
-                      {selLunar.specialEvent && <strong>({selLunar.specialEvent})</strong>}
-                    </span>
+                    <>
+                      {selHoliday.holidayName && (
+                        <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300 font-black border border-red-200 dark:border-red-800 animate-pulse">
+                          🎌 {selHoliday.holidayName} (Nghỉ lễ)
+                        </span>
+                      )}
+                      {!selHoliday.holidayName && selHoliday.isSunday && (
+                        <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 font-bold border border-red-200 dark:border-red-900/50">
+                          🔴 Nghỉ Chủ nhật
+                        </span>
+                      )}
+                      {!selHoliday.holidayName && selHoliday.isSaturday && (
+                        <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-bold border border-blue-200 dark:border-blue-900/50">
+                          🔵 Thứ Bảy
+                        </span>
+                      )}
+                      <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-medium">
+                        <span>🏮 Âm lịch: {selLunar.fullText}</span>
+                        {selLunar.specialEvent && <strong>({selLunar.specialEvent})</strong>}
+                      </span>
+                    </>
                   );
                 })()}
               </div>
-              <h3 className="text-lg font-bold text-content-primary mt-1">
-                Ngày {format(selectedDateObj, 'dd/MM/yyyy')} ({format(selectedDateObj, 'EEEE', { locale: vi })})
-              </h3>
+              {(() => {
+                const selHoliday = getHolidayInfo(selectedDateObj);
+                return (
+                  <h3 className={`text-lg font-bold mt-1 ${
+                    selHoliday.isRedDay ? 'text-red-600 dark:text-red-400' : 'text-content-primary'
+                  }`}>
+                    Ngày {format(selectedDateObj, 'dd/MM/yyyy')} ({format(selectedDateObj, 'EEEE', { locale: vi })})
+                  </h3>
+                );
+              })()}
               <p className="text-xs text-content-muted">
                 {activeChild.name} • {resolved.timetableTemplate?.name || 'Không có TKB hiệu lực'}
               </p>

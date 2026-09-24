@@ -276,6 +276,6 @@ export const DAY_HEADER_COLORS: Record<number, { bg: string; text: string; label
   4: { bg: '#EA580C', text: '#FFFFFF', label: 'Thứ 4' },
   5: { bg: '#7C3AED', text: '#FFFFFF', label: 'Thứ 5' },
   6: { bg: '#DB2777', text: '#FFFFFF', label: 'Thứ 6' },
-  7: { bg: '#0D9488', text: '#FFFFFF', label: 'Thứ 7' },
-  8: { bg: '#DC2626', text: '#FFFFFF', label: 'Chủ nhật' },
+  7: { bg: '#1D4ED8', text: '#FFFFFF', label: 'Thứ 7' },   // Xanh dương — ngày bán nghỉ
+  8: { bg: '#DC2626', text: '#FFFFFF', label: 'Chủ nhật' }, // Đỏ — ngày nghỉ
 };

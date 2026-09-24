@@ -18,6 +18,7 @@ import { Link } from 'react-router-dom';
 import { getSubjectMeta } from '@/design-system/tokens/colors';
 import { format, addDays, parseISO } from 'date-fns';
 import { getLunarDateInfo } from '@/utils/lunarCalendar';
+import { getHolidayInfo } from '@/utils/vietnameseHolidays';
 import { HomeworkTask, DailyTeacherComment, TeacherContact } from '@/domain/types';
 import { formatChildDisplayName } from '@/lib/childNameHelper';
 
@@ -230,17 +231,38 @@ export const DashboardPage: React.FC = () => {
       {/* Date Navigation Bar with Lunar Date */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-app-card p-3 rounded-theme-md border border-app-border shadow-theme-sm">
         <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
-          <div className="flex items-center gap-2">
-            <CalendarIcon className="w-5 h-5 text-primary" />
-            <span className="text-sm font-bold text-content-primary">
-              {weekdayLabel}, ngày {selectedDate.split('-').reverse().join('/')}
-            </span>
-            {resolved.timetableTemplate && (
-              <Badge variant="primary" size="sm">
-                {resolved.timetableTemplate.name}
-              </Badge>
-            )}
-          </div>
+          {(() => {
+            const holiday = getHolidayInfo(selectedDate);
+            return (
+              <div className="flex items-center gap-2 flex-wrap">
+                <CalendarIcon className={`w-5 h-5 ${holiday.isRedDay ? 'text-red-500' : holiday.isSaturday ? 'text-blue-500' : 'text-primary'}`} />
+                <span className={`text-sm ${
+                  holiday.isRedDay
+                    ? 'text-red-600 dark:text-red-400 font-black'
+                    : holiday.isSaturday
+                    ? 'text-blue-600 dark:text-blue-400 font-bold'
+                    : 'text-content-primary font-bold'
+                }`}>
+                  {weekdayLabel}, ngày {selectedDate.split('-').reverse().join('/')}
+                </span>
+                {holiday.holidayName && (
+                  <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300 font-black border border-red-200 dark:border-red-800 animate-pulse">
+                    🎌 {holiday.holidayName}
+                  </span>
+                )}
+                {!holiday.holidayName && holiday.isSunday && (
+                  <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 font-bold border border-red-200 dark:border-red-900/50">
+                    🔴 Nghỉ Chủ nhật
+                  </span>
+                )}
+                {resolved.timetableTemplate && (
+                  <Badge variant="primary" size="sm">
+                    {resolved.timetableTemplate.name}
+                  </Badge>
+                )}
+              </div>
+            );
+          })()}
           {/* Lunar date pill */}
           <div className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${
             lunarInfo.isFirstDay || lunarInfo.isFullMoon
@@ -773,13 +795,30 @@ export const DashboardPage: React.FC = () => {
             } as Record<number, string>)[dr.weekday] || '';
             const totalSlots = dr.morning.length + dr.afternoon.length + dr.evening.length;
             const upLunar = getLunarDateInfo(dateStr);
+            const holiday = getHolidayInfo(dateStr);
             return (
               <div key={dateStr}
-                className="p-3.5 rounded-theme-md border border-app-border bg-app-surface hover:border-primary/50 hover:bg-primary/5 transition-all space-y-2">
+                className={`p-3.5 rounded-theme-md border transition-all space-y-2 ${
+                  holiday.isRedDay
+                    ? 'border-red-200 bg-red-50/50 dark:bg-red-950/20 dark:border-red-900/40 hover:border-red-400'
+                    : holiday.isSaturday
+                    ? 'border-blue-200/70 bg-blue-50/30 dark:bg-blue-950/10 dark:border-blue-900/30 hover:border-blue-400'
+                    : 'border-app-border bg-app-surface hover:border-primary/50 hover:bg-primary/5'
+                }`}>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-primary">{dayLabel}</span>
+                  <span className={`text-xs font-bold ${
+                    holiday.isRedDay ? 'text-red-600 dark:text-red-400'
+                    : holiday.isSaturday ? 'text-blue-600 dark:text-blue-400'
+                    : 'text-primary'
+                  }`}>{dayLabel}</span>
                   <span className="text-[11px] font-mono text-content-muted">{dateStr.split('-').reverse().join('/')}</span>
                 </div>
+                {/* Holiday name */}
+                {holiday.holidayName && (
+                  <div className="text-[10px] font-black text-red-600 dark:text-red-400 flex items-center gap-1">
+                    🎌 {holiday.holidayName}
+                  </div>
+                )}
                 <div className={`text-[10px] font-medium ${upLunar.isFirstDay || upLunar.isFullMoon ? 'text-red-500' : 'text-content-muted'}`}>
                   🌙 {upLunar.shortText}/{upLunar.lunarMonth} ÂL
                   {upLunar.specialEvent && <span className="ml-1 font-bold">• {upLunar.specialEvent}</span>}
