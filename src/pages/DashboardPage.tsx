@@ -13,6 +13,7 @@ import {
   Sun, Cloud, Moon, Calendar as CalendarIcon, ArrowRight, Sparkles, Bell,
   BookMarked, Plus, Check, Trash2, ClipboardList, X, AlertCircle,
   MessageSquareQuote, CheckCheck, History, Filter, UserCheck,
+  BookOpen, CheckSquare, Target,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getSubjectMeta } from '@/design-system/tokens/colors';
@@ -21,6 +22,7 @@ import { getLunarDateInfo } from '@/utils/lunarCalendar';
 import { getHolidayInfo } from '@/utils/vietnameseHolidays';
 import { HomeworkTask, DailyTeacherComment, TeacherContact } from '@/domain/types';
 import { formatChildDisplayName } from '@/lib/childNameHelper';
+import { KpiGradientCard } from '@/design-system/components/KpiGradientCard';
 
 const SUBJECT_OPTIONS = [
   'Toán', 'Ngữ văn', 'Tiếng Anh', 'Khoa học', 'Lịch sử', 'Địa lý',
@@ -192,6 +194,21 @@ export const DashboardPage: React.FC = () => {
   const schoolComments = selectedDateComments.filter((c) => c.source_type === 'school');
   const extraComments = selectedDateComments.filter((c) => c.source_type === 'extra');
 
+  // KPI Metrics Data
+  const childMilestones = storage.getMilestones()
+    .filter((m) => m.child_id === activeChild.id && m.status !== 'completed')
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const closestMilestone = childMilestones[0];
+  const closestDaysAway = closestMilestone
+    ? Math.ceil((parseISO(closestMilestone.date).getTime() - parseISO(selectedDate).getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+
+  const totalSlotsToday = resolved.morning.length + resolved.afternoon.length + resolved.evening.length;
+  const childHw = homeworkTasks.filter((t) => t.child_id === activeChild.id);
+  const pendingHw = childHw.filter((t) => !t.is_completed);
+  const hwProgress = childHw.length > 0 ? Math.round(((childHw.length - pendingHw.length) / childHw.length) * 100) : 100;
+  const unackComments = childComments.filter((c) => !c.parent_acknowledged);
+
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Welcome Banner */}
@@ -227,6 +244,50 @@ export const DashboardPage: React.FC = () => {
           </div>
         </div>
       </Card>
+
+      {/* ── KPI METRICS OVERVIEW (Ambient Glassmorphism Cards) ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiGradientCard
+          colorType="cyan"
+          icon={BookOpen}
+          title="LỊCH HỌC HÔM NAY"
+          value={totalSlotsToday}
+          unit="tiết học"
+          badgeText={totalSlotsToday === 0 ? 'Nghỉ học' : `${totalSlotsToday} tiết`}
+          subtitle={`Sáng: ${resolved.morning.length} • Chiều: ${resolved.afternoon.length} • Tối: ${resolved.evening.length}`}
+          href="/timetable"
+        />
+        <KpiGradientCard
+          colorType="amber"
+          icon={CheckSquare}
+          title="BÀI TẬP VỀ NHÀ"
+          value={pendingHw.length}
+          unit="cần nộp"
+          badgeText={pendingHw.length === 0 ? 'Hoàn tất' : `${pendingHw.length} chưa xong`}
+          progressPercent={hwProgress}
+          subtitle={`Đã hoàn thành ${childHw.length - pendingHw.length}/${childHw.length} bài tập`}
+        />
+        <KpiGradientCard
+          colorType="purple"
+          icon={Target}
+          title="KỲ THI GẦN NHẤT"
+          value={closestDaysAway !== null ? (closestDaysAway === 0 ? 'Hôm nay' : closestDaysAway < 0 ? 'Đã qua' : `D-${closestDaysAway}`) : '—'}
+          unit={closestDaysAway !== null && closestDaysAway > 0 ? 'ngày tới' : ''}
+          badgeText={closestMilestone ? 'Cột mốc' : 'An tâm'}
+          subtitle={closestMilestone ? closestMilestone.title : 'Chưa có kỳ thi tiếp theo'}
+          href="/milestones"
+        />
+        <KpiGradientCard
+          colorType="emerald"
+          icon={MessageSquareQuote}
+          title="SỔ LIÊN LẠC"
+          value={childComments.length}
+          unit="nhận xét"
+          badgeText={unackComments.length > 0 ? `${unackComments.length} mới` : 'Đã xem'}
+          subtitle={selectedDateComments.length > 0 ? `Hôm nay: ${selectedDateComments.length} lời nhắn mới` : 'Ghi chú từ giáo viên'}
+          href="/teachers"
+        />
+      </div>
 
       {/* Date Navigation Bar with Lunar Date */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-app-card p-3 rounded-theme-md border border-app-border shadow-theme-sm">

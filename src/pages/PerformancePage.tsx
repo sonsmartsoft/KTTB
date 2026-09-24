@@ -4,6 +4,7 @@ import { storage } from '@/services/storage';
 import { Card } from '@/design-system/components/Card';
 import { Badge } from '@/design-system/components/Badge';
 import { Button } from '@/design-system/components/Button';
+import { KpiGradientCard } from '@/design-system/components/KpiGradientCard';
 import {
   Sparkles,
   Plus,
@@ -254,50 +255,76 @@ export const PerformancePage: React.FC = () => {
       {/* ================= TAB 1: KHẢO SÁT ĐỊNH KỲ ================= */}
       {activeTab === 'current' && (
         <div className="space-y-6 animate-in fade-in duration-150">
-          {/* KPI Overview Cards */}
+          {/* KPI Overview Cards (QMS Ambient Glassmorphism) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="p-4 space-y-1">
-              <span className="text-xs font-bold text-content-muted">Điểm trung bình đợt thi</span>
-              <div className="text-3xl font-extrabold text-primary font-display">
-                {currentAssessment?.overall_score ?? '—'}
-                <span className="text-xs font-normal text-content-muted ml-1">/ 10</span>
-              </div>
-              <p className="text-[11px] text-emerald-600 font-bold flex items-center gap-1">
-                <TrendingUp className="w-3.5 h-3.5" />
-                <span>
-                  {currentAssessment && currentAssessment.overall_score && currentAssessment.overall_score >= 9.0
-                    ? 'Đạt danh hiệu Học sinh Xuất sắc'
-                    : 'Đạt danh hiệu Học sinh Giỏi'}
-                </span>
-              </p>
-            </Card>
+            <KpiGradientCard
+              colorType="cyan"
+              icon={Award}
+              title="ĐIỂM TRUNG BÌNH"
+              value={currentAssessment?.overall_score ?? '—'}
+              unit="/ 10"
+              badgeText={
+                currentAssessment?.overall_score
+                  ? currentAssessment.overall_score >= 9.0
+                    ? 'Xuất sắc'
+                    : 'Học sinh Giỏi'
+                  : 'Chưa có điểm'
+              }
+              trend={
+                currentAssessment?.overall_score
+                  ? { value: '+0.5', isPositive: true, label: 'Tiến bộ đợt này' }
+                  : undefined
+              }
+              subtitle={currentAssessment ? `Kỳ thi: ${plans.find((p) => p.id === currentAssessment.assessment_plan_id)?.name || 'Khảo sát năng lực'}` : 'Đợt khảo sát gần nhất'}
+            />
 
-            <Card className="p-4 space-y-1">
-              <span className="text-xs font-bold text-content-muted">Xếp hạng chính thức</span>
-              <div className="text-3xl font-extrabold text-secondary font-display">
-                {currentAssessment?.rank ? `${currentAssessment.rank} / ${currentAssessment.rank_total}` : '—'}
-              </div>
-              <p className="text-[11px] text-content-muted">
-                Phạm vi: {currentAssessment?.rank_scope || 'Toàn khối/Lớp'}
-              </p>
-            </Card>
+            <KpiGradientCard
+              colorType="purple"
+              icon={GraduationCap}
+              title="XẾP HẠNG CHÍNH THỨC"
+              value={currentAssessment?.rank ? `#${currentAssessment.rank}` : '—'}
+              unit={currentAssessment?.rank_total ? `/ ${currentAssessment.rank_total}` : ''}
+              badgeText={currentAssessment?.rank_scope || 'Toàn khối'}
+              progressPercent={
+                currentAssessment?.rank && currentAssessment?.rank_total
+                  ? Math.round(((currentAssessment.rank_total - currentAssessment.rank + 1) / currentAssessment.rank_total) * 100)
+                  : undefined
+              }
+              subtitle={
+                currentAssessment?.rank && currentAssessment.rank <= 5
+                  ? 'Top 5 dẫn đầu lớp 🏆'
+                  : 'Đang duy trì phong độ tốt'
+              }
+            />
 
-            <Card className="p-4 space-y-1">
-              <span className="text-xs font-bold text-content-muted">Mục tiêu học kỳ</span>
-              <div className="text-3xl font-extrabold text-indigo-600 font-display">
-                {childTargets.length}
-                <span className="text-xs font-normal text-content-muted ml-1">chỉ tiêu môn</span>
-              </div>
-              <p className="text-[11px] text-content-secondary truncate">
-                {childTargets.map((t) => `${t.subject} (≥${t.target_value})`).join(', ')}
-              </p>
-            </Card>
+            <KpiGradientCard
+              colorType="amber"
+              icon={Target}
+              title="MỤC TIÊU HỌC KỲ"
+              value={childTargets.length}
+              unit="chỉ tiêu"
+              badgeText={`${targetWithScores.filter((t) => t.status === 'achieved').length}/${childTargets.length} đạt`}
+              progressPercent={
+                childTargets.length > 0
+                  ? Math.round((targetWithScores.filter((t) => t.status === 'achieved').length / childTargets.length) * 100)
+                  : 0
+              }
+              subtitle={
+                childTargets.length > 0
+                  ? childTargets.map((t) => `${t.subject} (≥${t.target_value})`).slice(0, 2).join(', ')
+                  : 'Chưa thiết lập chỉ tiêu'
+              }
+            />
 
-            <Card className="p-4 space-y-1">
-              <span className="text-xs font-bold text-content-muted">Trạng thái rèn luyện</span>
-              <div className="text-3xl font-extrabold text-emerald-600 font-display">Tốt</div>
-              <p className="text-[11px] text-content-muted">Hạnh kiểm Tốt • Chăm chỉ</p>
-            </Card>
+            <KpiGradientCard
+              colorType="emerald"
+              icon={CheckCircle2}
+              title="TRẠNG THÁI RÈN LUYỆN"
+              value="Tốt"
+              badgeText="Xuất sắc"
+              progressPercent={100}
+              subtitle="Hạnh kiểm Tốt • Chăm chỉ • Tích cực"
+            />
           </div>
 
           {/* Subject Targets with Progress Bars */}

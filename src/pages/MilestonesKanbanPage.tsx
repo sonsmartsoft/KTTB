@@ -5,6 +5,7 @@ import { storage } from '@/services/storage';
 import { Card } from '@/design-system/components/Card';
 import { Badge } from '@/design-system/components/Badge';
 import { Button } from '@/design-system/components/Button';
+import { KpiGradientCard } from '@/design-system/components/KpiGradientCard';
 import {
   Target, Plus, Calendar, Edit2, Trash2, Sparkles, X,
   ClipboardList, BarChart2, CheckCircle2, ChevronLeft, ChevronRight,
@@ -543,6 +544,57 @@ export const MilestonesKanbanPage: React.FC = () => {
           </Button>
         </div>
       </div>
+
+      {/* ── KPI Summary Cards (QMS Ambient Glassmorphism) ── */}
+      {(() => {
+        const upcomingMilestones = childMilestones
+          .filter((m) => m.status !== 'completed' && !getDDay(m.date).isPast)
+          .sort((a, b) => a.date.localeCompare(b.date));
+        const closestUpcoming = upcomingMilestones[0];
+
+        return (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <KpiGradientCard
+              colorType="indigo"
+              icon={Calendar}
+              title="TỔNG SỐ CỘT MỐC"
+              value={allChildMilestones.length}
+              unit="kỳ thi"
+              badgeText="Năm học 26-27"
+              subtitle={`Khảo sát: ${allChildMilestones.filter((m) => m.category === 'survey').length} • Thi kỳ: ${allChildMilestones.filter((m) => m.category === 'midterm' || m.category === 'final').length}`}
+            />
+            <KpiGradientCard
+              colorType="amber"
+              icon={Flame}
+              title="ĐANG MỞ & NƯỚC RÚT"
+              value={activeItems.length}
+              unit="kỳ thi"
+              badgeText={activeItems.length > 0 ? 'Tập trung cao độ' : 'Chưa mở'}
+              subtitle={activeItems.length > 0 ? activeItems[0].title : 'Chưa có kỳ thi đang mở'}
+            />
+            <KpiGradientCard
+              colorType="emerald"
+              icon={CheckCircle2}
+              title="ĐÃ HOÀN THÀNH"
+              value={completedItems.length}
+              unit="cột mốc"
+              badgeText={`${completedItems.length}/${allChildMilestones.length} xong`}
+              progressPercent={allChildMilestones.length > 0 ? Math.round((completedItems.length / allChildMilestones.length) * 100) : 0}
+              subtitle={`Đã vượt qua ${completedItems.length} mục tiêu thi cử`}
+            />
+            <KpiGradientCard
+              colorType="rose"
+              icon={Target}
+              title="KỲ THI GẦN NHẤT"
+              value={closestUpcoming ? getDDay(closestUpcoming.date).label : '—'}
+              unit={closestUpcoming ? '' : 'kỳ thi'}
+              badgeText={closestUpcoming ? CATEGORY_META[closestUpcoming.category]?.label || 'Sắp tới' : 'Thư thả'}
+              subtitle={closestUpcoming ? `${closestUpcoming.title} (${closestUpcoming.date.split('-').reverse().join('/')})` : 'Không có kỳ thi sắp tới'}
+              onClick={closestUpcoming ? () => openEditModal(closestUpcoming) : undefined}
+            />
+          </div>
+        );
+      })()}
 
       {/* ── Filters ── */}
       <div className="flex flex-wrap items-center gap-1.5">
