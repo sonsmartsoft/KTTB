@@ -44,6 +44,10 @@ export const CalendarPage: React.FC = () => {
   const monthStart = startOfMonth(selectedDateObj);
   const monthEnd = endOfMonth(selectedDateObj);
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
+  // JS getDay(): 0 is Sunday, 1 is Monday ... 6 is Saturday
+  // Columns are: T2(0), T3(1), T4(2), T5(3), T6(4), T7(5), CN(6)
+  const startOffset = (monthStart.getDay() + 6) % 7;
+  const trailingOffset = (7 - ((startOffset + days.length) % 7)) % 7;
 
   // Resolve schedule for the selected date
   const templates = storage.getTemplates();
@@ -177,6 +181,14 @@ export const CalendarPage: React.FC = () => {
               </div>
             ))}
 
+            {/* Empty slots before first day of month to align weekdays */}
+            {Array.from({ length: startOffset }).map((_, i) => (
+              <div
+                key={`empty-start-${i}`}
+                className="min-h-[64px] rounded-theme-md bg-app-surface/20 border border-dashed border-app-border/20 opacity-30 pointer-events-none"
+              />
+            ))}
+
             {days.map((day) => {
               const dateStr = format(day, 'yyyy-MM-dd');
               const isSelected = dateStr === selectedDate;
@@ -283,6 +295,14 @@ export const CalendarPage: React.FC = () => {
                 </button>
               );
             })}
+
+            {/* Empty slots after last day of month to complete grid row */}
+            {Array.from({ length: trailingOffset }).map((_, i) => (
+              <div
+                key={`empty-end-${i}`}
+                className="min-h-[64px] rounded-theme-md bg-app-surface/20 border border-dashed border-app-border/20 opacity-30 pointer-events-none"
+              />
+            ))}
           </div>
 
           <div className="flex flex-wrap items-center gap-4 pt-3 border-t border-app-subtle text-xs text-content-muted">
