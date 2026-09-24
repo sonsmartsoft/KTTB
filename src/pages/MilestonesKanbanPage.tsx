@@ -8,10 +8,11 @@ import { Button } from '@/design-system/components/Button';
 import {
   Target, Plus, Calendar, Edit2, Trash2, Sparkles, X,
   ClipboardList, BarChart2, CheckCircle2, ChevronLeft, ChevronRight,
-  ZoomIn, ZoomOut, TrendingUp,
+  ZoomIn, ZoomOut, TrendingUp, Flame,
 } from 'lucide-react';
-import { AcademicMilestone, MilestoneCategory, MilestoneStatus } from '@/domain/types';
+import { AcademicMilestone, MilestoneCategory, MilestoneStatus, ExamPrepTask } from '@/domain/types';
 import { formatChildDisplayName } from '@/lib/childNameHelper';
+import { ExamPrepModal } from '@/components/milestones/ExamPrepModal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type GanttZoom = 'year' | 'month' | 'week';
@@ -174,6 +175,8 @@ function datePct(d: Date, cfg: GanttConfig): number {
 export const MilestonesKanbanPage: React.FC = () => {
   const { activeChild } = useChild();
   const [milestones, setMilestones] = useState<AcademicMilestone[]>(() => storage.getMilestones());
+  const [prepTasks, setPrepTasks] = useState<ExamPrepTask[]>(() => storage.getExamPrepTasks());
+  const [prepModalMilestone, setPrepModalMilestone] = useState<AcademicMilestone | null>(null);
 
   const [viewMode, setViewMode]     = useState<'kanban' | 'gantt'>('gantt');
   const [zoom, setZoom]             = useState<GanttZoom>('year');
@@ -181,6 +184,16 @@ export const MilestonesKanbanPage: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [tooltipItem, setTooltipItem] = useState<AcademicMilestone | null>(null);
   const [tooltipPos, setTooltipPos]   = useState({ x: 0, y: 0 });
+
+  const getPrepStats = (milestoneId: string) => {
+    const tasks = prepTasks.filter((t) => t.milestone_id === milestoneId);
+    const completed = tasks.filter((t) => t.is_completed).length;
+    return {
+      total: tasks.length,
+      completed,
+      pct: tasks.length > 0 ? Math.round((completed / tasks.length) * 100) : 0,
+    };
+  };
 
   // Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -328,6 +341,25 @@ export const MilestonesKanbanPage: React.FC = () => {
             {item.actual_score && <div className="flex justify-between"><span className="text-content-muted">Kết quả</span><span className="font-black text-emerald-600">{item.actual_score}</span></div>}
             {!!item.subjects?.length && <div className="text-content-secondary truncate border-t border-app-subtle pt-1">📚 {item.subjects.join(', ')}</div>}
           </div>
+
+          {/* Exam Prep Checklist Button */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setPrepModalMilestone(item);
+            }}
+            className="w-full py-1.5 px-2.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/25 text-[10px] font-bold flex items-center justify-between transition-colors shadow-sm"
+          >
+            <span className="flex items-center gap-1.5">
+              <Flame className="w-3.5 h-3.5 text-amber-500" />
+              <span>Ôn tập nước rút</span>
+            </span>
+            <span className="bg-amber-500/20 px-1.5 py-0.5 rounded font-black">
+              {getPrepStats(item.id).completed}/{getPrepStats(item.id).total} việc ({getPrepStats(item.id).pct}%)
+            </span>
+          </button>
+
           <div className="flex items-center gap-1 text-[10px] pt-0.5">
             {item.status !== 'planned' && <button onClick={() => handleMoveStatus(item.id,'planned')} className="text-content-muted hover:text-primary px-1.5 py-0.5 rounded hover:bg-black/5">← Kế hoạch</button>}
             {item.status !== 'active' && <button onClick={() => handleMoveStatus(item.id,'active')} className="text-amber-600 font-bold px-1.5 py-0.5 rounded hover:bg-amber-50">🔥 Mở</button>}
@@ -358,6 +390,7 @@ export const MilestonesKanbanPage: React.FC = () => {
     const isRange  = item.end_date && widthPct > 0.5;
     const isCompleted = item.status === 'completed';
     const isActive    = item.status === 'active';
+    const prepStats   = getPrepStats(item.id);
 
     return (
       <div
@@ -370,14 +403,28 @@ export const MilestonesKanbanPage: React.FC = () => {
         onClick={() => openEditModal(item)}
       >
         {/* Sticky name column */}
-        <div className="w-52 shrink-0 flex items-center gap-2.5 px-3 py-2 border-r border-app-border bg-app-surface sticky left-0 z-20">
+        <div className="w-56 shrink-0 flex items-center gap-2 px-3 py-2 border-r border-app-border bg-app-surface sticky left-0 z-20">
           <div className="w-1 self-stretch rounded-full shrink-0" style={{ background: meta.gradient }} />
           <div className="min-w-0 flex-1">
             <div className="text-xs font-bold text-content-primary leading-snug line-clamp-2">{item.title}</div>
-            <div className="flex items-center gap-1.5 mt-0.5">
+            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
               <span className="text-[10px]">{meta.icon}</span>
               <span className="text-[10px] text-content-muted font-mono">{item.date.split('-').reverse().join('/')}</span>
               <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: STATUS_COLOR[item.status] }} />
+              {prepStats.total > 0 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPrepModalMilestone(item);
+                  }}
+                  className="px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 hover:bg-amber-500/25 text-[9px] font-black flex items-center gap-0.5 ml-auto"
+                  title="Mở kế hoạch ôn thi nước rút"
+                >
+                  <Flame className="w-2.5 h-2.5 text-amber-500" />
+                  <span>{prepStats.completed}/{prepStats.total}</span>
+                </button>
+              )}
             </div>
           </div>
           {/* D-Day pill */}
@@ -440,8 +487,18 @@ export const MilestonesKanbanPage: React.FC = () => {
           ))}
         </div>
 
-        {/* Edit action */}
-        <div className="w-8 shrink-0 flex items-center justify-center opacity-0 group-hover/row:opacity-100 transition-opacity border-l border-app-border/50">
+        {/* Action column (Prep & Edit) */}
+        <div className="w-14 shrink-0 flex items-center justify-center gap-1 opacity-0 group-hover/row:opacity-100 transition-opacity border-l border-app-border/50">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setPrepModalMilestone(item);
+            }}
+            className="p-1 text-content-muted hover:text-amber-500 rounded"
+            title="Kế hoạch ôn tập nước rút"
+          >
+            <Flame className="w-3.5 h-3.5 text-amber-500" />
+          </button>
           <button onClick={(e) => { e.stopPropagation(); openEditModal(item); }} className="p-1 text-content-muted hover:text-primary rounded" title="Sửa">
             <Edit2 className="w-3 h-3" />
           </button>
@@ -776,6 +833,16 @@ export const MilestonesKanbanPage: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ══ EXAM PREP CHECKLIST MODAL ══════════════════════════════════════ */}
+      {prepModalMilestone && (
+        <ExamPrepModal
+          milestone={prepModalMilestone}
+          isOpen={!!prepModalMilestone}
+          onClose={() => setPrepModalMilestone(null)}
+          onUpdate={() => setPrepTasks(storage.getExamPrepTasks())}
+        />
       )}
     </div>
   );

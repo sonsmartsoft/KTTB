@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useChild } from '@/context/ChildContext';
+import { useKidMode } from '@/context/KidModeContext';
 import { storage } from '@/services/storage';
 import { Card } from '@/design-system/components/Card';
 import { Badge } from '@/design-system/components/Badge';
@@ -71,11 +72,15 @@ function getSessionsCountInMonth(yearMonth: string, weekdays: WeekdayNumber[]): 
 
 export const ExtraClassesPage: React.FC = () => {
   const { activeChild } = useChild();
+  const { isKidMode } = useKidMode();
   const [extraSchedules, setExtraSchedules] = useState<ExtraSchedule[]>(() => storage.getExtraSchedules());
   const [sessionLogs, setSessionLogs] = useState<ExtraClassSessionLog[]>(() => storage.getSessionLogs());
 
   // Active Tab: 'classes' | 'journal' | 'tuition'
   const [activeTab, setActiveTab] = useState<'classes' | 'journal' | 'tuition'>('classes');
+
+  // Guard: if kid mode is enabled, tuition tab must never be active
+  const currentTab = isKidMode && activeTab === 'tuition' ? 'classes' : activeTab;
 
   // Tuition Management State (Phụ huynh)
   const [tuitionMonth, setTuitionMonth] = useState('2026-09');

@@ -1,16 +1,36 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useChild } from '@/context/ChildContext';
 import { useTheme } from '@/context/ThemeContext';
-import { ChevronDown, Palette, Check, Sun, Moon } from 'lucide-react';
+import { useKidMode } from '@/context/KidModeContext';
+import { ChevronDown, Palette, Check, Sun, Moon, ShieldAlert, AlertCircle } from 'lucide-react';
+import { Button } from '@/design-system/components/Button';
 import { AppTheme } from '@/domain/types';
 import { formatChildDisplayName } from '@/lib/childNameHelper';
 
 export const Header: React.FC = () => {
+  const navigate = useNavigate();
   const { childrenList, activeChild, setActiveChildId } = useChild();
   const { theme, setTheme, availableThemes, colorMode, setColorMode } = useTheme();
+  const { isKidMode, enterKidMode, exitKidMode } = useKidMode();
   
   const [isChildMenuOpen, setIsChildMenuOpen] = useState(false);
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
+  const [showExitModal, setShowExitModal] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState(false);
+
+  const handleConfirmExit = () => {
+    const ok = exitKidMode(pinInput.trim() || undefined);
+    if (ok) {
+      setShowExitModal(false);
+      setPinInput('');
+      setPinError(false);
+      navigate('/');
+    } else {
+      setPinError(true);
+    }
+  };
 
 
   return (
@@ -152,6 +172,30 @@ export const Header: React.FC = () => {
           )}
         </div>
 
+        {/* Kid Mode Toggle Button */}
+        {isKidMode ? (
+          <button
+            onClick={() => setShowExitModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-theme-md bg-amber-500 hover:bg-amber-600 text-white font-black text-xs shadow-theme-sm transition-all animate-pulse"
+            title="Đang ở Góc của Con - Bấm để về chế độ Ba Mẹ"
+          >
+            <span>🎒 Góc của Con</span>
+            <span className="text-[10px] bg-white/25 px-1.5 py-0.2 rounded font-bold">Thoát</span>
+          </button>
+        ) : (
+          <button
+            onClick={() => {
+              enterKidMode();
+              navigate('/kid-corner');
+            }}
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-theme-md bg-gradient-to-r from-amber-400 to-orange-500 text-white font-bold text-xs shadow-theme-sm hover:brightness-105 transition-all"
+            title="Chuyển sang chế độ Góc của Con (ẩn học phí & riêng tư)"
+          >
+            <span>🎒</span>
+            <span className="hidden sm:inline">Góc của Con</span>
+          </button>
+        )}
+
         {/* Quick Light / Dark Mode Toggle */}
         <button
           onClick={() => {
@@ -169,6 +213,54 @@ export const Header: React.FC = () => {
           )}
         </button>
       </div>
+
+      {/* Parent PIN Exit Modal */}
+      {showExitModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-app-surface border border-app-border rounded-2xl shadow-theme-pop w-full max-w-sm p-6 space-y-4 animate-in zoom-in-95">
+            <div className="flex items-center gap-3 text-content-primary">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                <ShieldAlert className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm">Trở lại chế độ Ba Mẹ</h3>
+                <p className="text-xs text-content-muted">Bảo vệ riêng tư tài chính & học phí</p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-content-secondary">
+                Nhập mã PIN ba mẹ (Mặc định: 1234 hoặc bấm xác nhận):
+              </label>
+              <input
+                type="password"
+                maxLength={8}
+                placeholder="1234"
+                value={pinInput}
+                onChange={(e) => {
+                  setPinInput(e.target.value);
+                  setPinError(false);
+                }}
+                className="w-full px-3 py-2 text-center text-lg font-mono tracking-widest rounded-xl border border-app-border bg-app-bg text-content-primary focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              {pinError && (
+                <p className="text-[11px] text-red-500 font-bold flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5" /> Mã PIN không đúng. Vui lòng thử lại!
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-app-border">
+              <Button variant="outline" size="sm" onClick={() => setShowExitModal(false)}>
+                Ở lại góc của con
+              </Button>
+              <Button variant="primary" size="sm" onClick={handleConfirmExit}>
+                Xác nhận
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 };

@@ -18,6 +18,7 @@ import {
   DailyTeacherComment,
   MonthlyTuitionPayment,
   AcademicMilestone,
+  ExamPrepTask,
 } from '@/domain/types';
 import { upsertToTable, syncOnStart, STORAGE_TO_TABLE } from '@/lib/supabaseSync';
 import {
@@ -38,6 +39,7 @@ import {
   SEED_HOMEWORK_TASKS,
   SEED_DAILY_TEACHER_COMMENTS,
   SEED_ACADEMIC_MILESTONES,
+  SEED_EXAM_PREP_TASKS,
 } from './seedData';
 
 const KEYS = {
@@ -60,6 +62,7 @@ const KEYS = {
   DAILY_COMMENTS: 'ktt_daily_teacher_comments',
   TUITION_PAYMENTS: 'ktt_tuition_payments',
   MILESTONES: 'ktt_academic_milestones',
+  EXAM_PREP_TASKS: 'ktt_exam_prep_tasks',
 };
 
 function getItem<T>(key: string, defaultValue: T): T {
@@ -610,4 +613,45 @@ export const storage = {
     const list = this.getMilestones().filter((m) => m.id !== id);
     this.saveMilestones(list);
   },
+
+  // Exam Prep Checklist (Kế hoạch ôn tập nước rút theo cột mốc kỳ thi)
+  getExamPrepTasks(): ExamPrepTask[] {
+    return getItem(KEYS.EXAM_PREP_TASKS, SEED_EXAM_PREP_TASKS);
+  },
+  saveExamPrepTasks(tasks: ExamPrepTask[]): void {
+    setItem(KEYS.EXAM_PREP_TASKS, tasks);
+  },
+  addExamPrepTask(task: Omit<ExamPrepTask, 'id' | 'created_at'>): ExamPrepTask {
+    const list = this.getExamPrepTasks();
+    const newTask: ExamPrepTask = {
+      ...task,
+      id: `prep-${Date.now()}`,
+      created_at: new Date().toISOString().split('T')[0],
+    };
+    this.saveExamPrepTasks([...list, newTask]);
+    return newTask;
+  },
+  updateExamPrepTask(id: string, updates: Partial<ExamPrepTask>): void {
+    const list = this.getExamPrepTasks().map((t) => (t.id === id ? { ...t, ...updates } : t));
+    this.saveExamPrepTasks(list);
+  },
+  toggleExamPrepTask(id: string): void {
+    const list = this.getExamPrepTasks().map((t) => {
+      if (t.id === id) {
+        const nextState = !t.is_completed;
+        return {
+          ...t,
+          is_completed: nextState,
+          completed_at: nextState ? new Date().toISOString().split('T')[0] : undefined,
+        };
+      }
+      return t;
+    });
+    this.saveExamPrepTasks(list);
+  },
+  deleteExamPrepTask(id: string): void {
+    const list = this.getExamPrepTasks().filter((t) => t.id !== id);
+    this.saveExamPrepTasks(list);
+  },
 };
+

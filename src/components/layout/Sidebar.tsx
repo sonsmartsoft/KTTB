@@ -14,6 +14,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { useChild } from '@/context/ChildContext';
+import { useKidMode } from '@/context/KidModeContext';
 
 interface NavItem {
   to: string;
@@ -35,8 +36,19 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/settings', label: 'Giao diện & Cài đặt', icon: <Settings className="w-5 h-5" /> },
 ];
 
+const KID_NAV_ITEMS: NavItem[] = [
+  { to: '/kid-corner', label: 'Góc Của Con', icon: <Sparkles className="w-5 h-5 text-amber-500" /> },
+  { to: '/timetable', label: 'Thời khóa biểu', icon: <TableProperties className="w-5 h-5" /> },
+  { to: '/milestones', label: 'Cột mốc & Ôn thi', icon: <Flag className="w-5 h-5" /> },
+  { to: '/milestone-progress', label: 'Kết quả học tập', icon: <TrendingUp className="w-5 h-5" /> },
+  { to: '/achievements', label: 'Góc khen thưởng', icon: <Award className="w-5 h-5" /> },
+];
+
 export const Sidebar: React.FC = () => {
   const { activeChild } = useChild();
+  const { isKidMode } = useKidMode();
+
+  const currentNavItems = isKidMode ? KID_NAV_ITEMS : NAV_ITEMS;
 
   return (
     <aside className="hidden md:flex flex-col w-64 bg-app-card border-r border-app-border h-screen sticky top-0 shrink-0 z-20">
@@ -73,7 +85,7 @@ export const Sidebar: React.FC = () => {
 
       {/* Navigation Links */}
       <nav className="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
-        {NAV_ITEMS.map((item) => (
+        {currentNavItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}

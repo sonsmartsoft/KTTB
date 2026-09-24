@@ -332,3 +332,18 @@ export interface AcademicMilestone {
   color?: string;
   preparation_notes?: string;
 }
+
+export interface ExamPrepTask {
+  id: string;
+  milestone_id: string; // ID của AcademicMilestone
+  child_id: string;
+  title: string;
+  subject?: string;
+  due_date?: string; // YYYY-MM-DD
+  priority?: 'high' | 'medium' | 'low';
+  is_completed: boolean;
+  notes?: string;
+  created_at: string;
+  completed_at?: string;
+}
+
