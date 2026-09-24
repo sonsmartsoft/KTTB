@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useChild } from '@/context/ChildContext';
 import { storage } from '@/services/storage';
 import { Card } from '@/design-system/components/Card';
+import { KpiGradientCard } from '@/design-system/components/KpiGradientCard';
 import { Badge } from '@/design-system/components/Badge';
 import { Button } from '@/design-system/components/Button';
 import {
@@ -169,61 +170,46 @@ export const AchievementsPage: React.FC = () => {
 
         return (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-            {/* Gold Trophy */}
-            <div className="relative overflow-hidden rounded-2xl p-4 bg-gradient-to-br from-amber-500/15 via-yellow-400/10 to-amber-600/5 border-2 border-amber-300 dark:border-amber-700 shadow-sm flex flex-col justify-between group hover:scale-[1.02] transition-transform">
-              <div className="flex items-center justify-between">
-                <span className="text-2xl drop-shadow-sm">🏆</span>
-                <span className="text-2xl font-extrabold text-amber-600 dark:text-amber-400 font-mono">
-                  {goldCount}
-                </span>
-              </div>
-              <div className="mt-2">
-                <h4 className="text-xs font-bold text-content-primary">Cúp Vàng &amp; Giải Nhất</h4>
-                <p className="text-[10px] text-content-muted mt-0.5">Danh hiệu cao nhất</p>
-              </div>
-            </div>
-
-            {/* Silver Trophy */}
-            <div className="relative overflow-hidden rounded-2xl p-4 bg-gradient-to-br from-slate-400/15 via-zinc-300/10 to-slate-500/5 border-2 border-slate-300 dark:border-slate-700 shadow-sm flex flex-col justify-between group hover:scale-[1.02] transition-transform">
-              <div className="flex items-center justify-between">
-                <span className="text-2xl drop-shadow-sm">🥈</span>
-                <span className="text-2xl font-extrabold text-slate-600 dark:text-slate-300 font-mono">
-                  {silverCount}
-                </span>
-              </div>
-              <div className="mt-2">
-                <h4 className="text-xs font-bold text-content-primary">Cúp Bạc &amp; Giải Nhì</h4>
-                <p className="text-[10px] text-content-muted mt-0.5">Thành tích xuất sắc</p>
-              </div>
-            </div>
-
-            {/* Bronze Medal */}
-            <div className="relative overflow-hidden rounded-2xl p-4 bg-gradient-to-br from-orange-400/15 via-amber-600/10 to-yellow-700/5 border-2 border-orange-300 dark:border-orange-800 shadow-sm flex flex-col justify-between group hover:scale-[1.02] transition-transform">
-              <div className="flex items-center justify-between">
-                <span className="text-2xl drop-shadow-sm">🥉</span>
-                <span className="text-2xl font-extrabold text-orange-600 dark:text-orange-400 font-mono">
-                  {bronzeCount}
-                </span>
-              </div>
-              <div className="mt-2">
-                <h4 className="text-xs font-bold text-content-primary">Giải Ba &amp; Khuyến Khích</h4>
-                <p className="text-[10px] text-content-muted mt-0.5">Huy chương đồng</p>
-              </div>
-            </div>
-
-            {/* Certificate / Scholastic */}
-            <div className="relative overflow-hidden rounded-2xl p-4 bg-gradient-to-br from-blue-500/15 via-indigo-400/10 to-blue-600/5 border-2 border-blue-300 dark:border-blue-700 shadow-sm flex flex-col justify-between group hover:scale-[1.02] transition-transform">
-              <div className="flex items-center justify-between">
-                <span className="text-2xl drop-shadow-sm">📜</span>
-                <span className="text-2xl font-extrabold text-blue-600 dark:text-blue-400 font-mono">
-                  {certCount}
-                </span>
-              </div>
-              <div className="mt-2">
-                <h4 className="text-xs font-bold text-content-primary">Chứng Chỉ &amp; Bằng Khen</h4>
-                <p className="text-[10px] text-content-muted mt-0.5">Chứng nhận học thuật</p>
-              </div>
-            </div>
+            <KpiGradientCard
+              colorType="amber"
+              icon="🏆"
+              title="CÚP VÀNG & GIẢI NHẤT"
+              value={goldCount}
+              unit="giải"
+              subtitle="Danh hiệu cao nhất"
+              badgeText={goldCount > 0 ? '🏆 Nổi bật' : 'Chưa có'}
+              progressPercent={childAchievements.length > 0 ? Math.round((goldCount / childAchievements.length) * 100) : 0}
+            />
+            <KpiGradientCard
+              colorType="indigo"
+              icon="🥈"
+              title="CÚP BẠC & GIẢI NHÌ"
+              value={silverCount}
+              unit="giải"
+              subtitle="Thành tích xuất sắc"
+              badgeText={silverCount > 0 ? '🥈 Xuất sắc' : 'Chưa có'}
+              progressPercent={childAchievements.length > 0 ? Math.round((silverCount / childAchievements.length) * 100) : 0}
+            />
+            <KpiGradientCard
+              colorType="rose"
+              icon="🥉"
+              title="GIẢI BA & KHUỶN KHÍCH"
+              value={bronzeCount}
+              unit="giải"
+              subtitle="Huy chương đồng"
+              badgeText={bronzeCount > 0 ? '🥉 Tốt' : 'Chưa có'}
+              progressPercent={childAchievements.length > 0 ? Math.round((bronzeCount / childAchievements.length) * 100) : 0}
+            />
+            <KpiGradientCard
+              colorType="blue"
+              icon="📜"
+              title="CHỨNG CHỈ & BẰNG KHEN"
+              value={certCount}
+              unit="cái"
+              subtitle="Chứng nhận học thuật"
+              badgeText={certCount > 0 ? '📚 Giỏi' : 'Chưa có'}
+              progressPercent={childAchievements.length > 0 ? Math.round((certCount / childAchievements.length) * 100) : 0}
+            />
           </div>
         );
       })()}

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useChild } from '@/context/ChildContext';
 import { storage } from '@/services/storage';
 import { Card } from '@/design-system/components/Card';
+import { KpiGradientCard } from '@/design-system/components/KpiGradientCard';
 import { Badge } from '@/design-system/components/Badge';
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -168,44 +169,46 @@ export const MilestoneProgressPage: React.FC = () => {
       </div>
 
       {/* ── Summary Stats ── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="p-4 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-content-muted font-semibold">Tổng kỳ thi</span>
-            <CalendarDays className="w-4 h-4 text-primary/60" />
-          </div>
-          <div className="text-3xl font-black text-content-primary">{totalExams}</div>
-          <div className="text-[11px] text-content-muted">Năm học 2026–2027</div>
-        </Card>
-
-        <Card className="p-4 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-content-muted font-semibold">Đã hoàn thành</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-500/70" />
-          </div>
-          <div className="text-3xl font-black text-emerald-600">{doneCount}</div>
-          <div className="text-[11px] text-content-muted">/ {totalExams} kỳ thi</div>
-        </Card>
-
-        <Card className="p-4 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-content-muted font-semibold">Đạt mục tiêu</span>
-            <Target className="w-4 h-4 text-amber-500/70" />
-          </div>
-          <div className="text-3xl font-black text-amber-600">{metTarget}<span className="text-base font-semibold text-content-muted">/{scoredCount}</span></div>
-          <div className="text-[11px] text-content-muted">kỳ thi có điểm</div>
-        </Card>
-
-        <Card className="p-4 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-content-muted font-semibold">Điểm TB thực tế</span>
-            <Star className="w-4 h-4 text-violet-500/70" />
-          </div>
-          <div className="text-3xl font-black text-violet-600">
-            {avgActual !== null ? avgActual.toFixed(1) : '—'}
-          </div>
-          <div className="text-[11px] text-content-muted">trung bình tất cả kỳ</div>
-        </Card>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+        <KpiGradientCard
+          colorType="blue"
+          icon={CalendarDays}
+          title="TỔNG KỲ THI"
+          value={totalExams}
+          unit="kỳ"
+          subtitle="Năm học 2026–2027"
+          progressPercent={totalExams > 0 ? Math.round((doneCount / totalExams) * 100) : 0}
+          progressLabel="Hoàn thành"
+        />
+        <KpiGradientCard
+          colorType="emerald"
+          icon={CheckCircle2}
+          title="ĐÃ HOÀN THÀNH"
+          value={doneCount}
+          unit="kỳ"
+          badgeText={totalExams > 0 ? `${Math.round((doneCount/totalExams)*100)}%` : '0%'}
+          subtitle={`/ ${totalExams} kỳ thi tổng`}
+          progressPercent={totalExams > 0 ? Math.round((doneCount / totalExams) * 100) : 0}
+        />
+        <KpiGradientCard
+          colorType="amber"
+          icon={Target}
+          title="ĐẠT MỤC TIÊU"
+          value={metTarget}
+          unit={`/${scoredCount} kỳ`}
+          badgeText={scoredCount > 0 ? `${Math.round((metTarget/scoredCount)*100)}%` : '—'}
+          subtitle="Kỳ thi có nhập điểm"
+          progressPercent={scoredCount > 0 ? Math.round((metTarget / scoredCount) * 100) : 0}
+        />
+        <KpiGradientCard
+          colorType="purple"
+          icon={Star}
+          title="ĐIỂM TB THỰC TẾ"
+          value={avgActual !== null ? avgActual.toFixed(1) : '—'}
+          noCountUp
+          subtitle="Trung bình tất cả kỳ"
+          badgeText={avgActual !== null ? (avgActual >= 8 ? '🌟 Xuất sắc' : avgActual >= 6.5 ? '👍 Khá' : '📖 Cần cố') : 'Chưa có'}
+        />
       </div>
 
       {/* ── Bar Chart: Mục tiêu vs Thực tế ── */}

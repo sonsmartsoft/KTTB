@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useChild } from '@/context/ChildContext';
 import { storage } from '@/services/storage';
 import { Card } from '@/design-system/components/Card';
+import { KpiGradientCard } from '@/design-system/components/KpiGradientCard';
 import { Badge } from '@/design-system/components/Badge';
 import { Button } from '@/design-system/components/Button';
 import {
@@ -729,53 +730,47 @@ export const TimetablePage: React.FC = () => {
 
       {/* Weekly Stats KPI Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 no-print">
-        <div className="bg-app-card border border-app-border rounded-xl p-3 flex items-center gap-3 shadow-theme-sm">
-          <div className="w-9 h-9 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center font-bold text-lg">
-            📚
-          </div>
-          <div>
-            <div className="text-[11px] text-content-muted font-medium">Tổng tiết học</div>
-            <div className="text-sm md:text-base font-extrabold text-content-primary">
-              {activeEntries.length} tiết / tuần
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-app-card border border-app-border rounded-xl p-3 flex items-center gap-3 shadow-theme-sm">
-          <div className="w-9 h-9 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold text-lg">
-            ☀️
-          </div>
-          <div>
-            <div className="text-[11px] text-content-muted font-medium">Buổi sáng</div>
-            <div className="text-sm md:text-base font-extrabold text-content-primary">
-              {activeEntries.filter((e) => e.session === 'morning').length} tiết
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-app-card border border-app-border rounded-xl p-3 flex items-center gap-3 shadow-theme-sm">
-          <div className="w-9 h-9 rounded-lg bg-sky-500/10 text-sky-600 flex items-center justify-center font-bold text-lg">
-            🌤️
-          </div>
-          <div>
-            <div className="text-[11px] text-content-muted font-medium">Buổi chiều</div>
-            <div className="text-sm md:text-base font-extrabold text-content-primary">
-              {activeEntries.filter((e) => e.session === 'afternoon').length} tiết
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-app-card border border-app-border rounded-xl p-3 flex items-center gap-3 shadow-theme-sm">
-          <div className="w-9 h-9 rounded-lg bg-purple-500/10 text-purple-600 flex items-center justify-center font-bold text-lg">
-            🌙
-          </div>
-          <div>
-            <div className="text-[11px] text-content-muted font-medium">Lớp học thêm</div>
-            <div className="text-sm md:text-base font-extrabold text-content-primary">
-              {extraList.length} lớp học
-            </div>
-          </div>
-        </div>
+        <KpiGradientCard
+          colorType="blue"
+          icon={BookOpen}
+          title="TỔNG TIẾT HỌC"
+          value={activeEntries.length}
+          unit="tiết / tuần"
+          subtitle="Tất cả buổi học"
+          size="compact"
+        />
+        <KpiGradientCard
+          colorType="amber"
+          icon={Clock}
+          title="BUỔI SÁNG"
+          value={activeEntries.filter((e) => e.session === 'morning').length}
+          unit="tiết"
+          subtitle="Ca sáng (7:00–11:40)"
+          size="compact"
+          progressPercent={activeEntries.length > 0 ? Math.round((activeEntries.filter((e) => e.session === 'morning').length / activeEntries.length) * 100) : 0}
+          progressLabel="Tỷ lệ buổi sáng"
+        />
+        <KpiGradientCard
+          colorType="cyan"
+          icon={Calendar}
+          title="BUỔI CHIỀU"
+          value={activeEntries.filter((e) => e.session === 'afternoon').length}
+          unit="tiết"
+          subtitle="Ca chiều (13:30–16:25)"
+          size="compact"
+          progressPercent={activeEntries.length > 0 ? Math.round((activeEntries.filter((e) => e.session === 'afternoon').length / activeEntries.length) * 100) : 0}
+          progressLabel="Tỷ lệ buổi chiỀu"
+        />
+        <KpiGradientCard
+          colorType="purple"
+          icon={Sparkles}
+          title="LẬp HỌC THÊM"
+          value={extraList.length}
+          unit="lớp"
+          subtitle="Hoạt động ngoại khóa"
+          size="compact"
+          badgeText={extraList.length > 0 ? `${extraList.length} môn` : 'Chưa có'}
+        />
       </div>
 
       {/* Hero A4 Infographic Layout matching sample.png */}
