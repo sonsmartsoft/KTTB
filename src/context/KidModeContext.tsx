@@ -26,9 +26,9 @@ export const KidModeProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const [parentPin, setParentPinState] = useState<string>(() => {
     try {
-      return localStorage.getItem(STORAGE_KEYS.PARENT_PIN) || '1234';
+      return localStorage.getItem(STORAGE_KEYS.PARENT_PIN) || '0075';
     } catch {
-      return '1234';
+      return '0075';
     }
   });
 

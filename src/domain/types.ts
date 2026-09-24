@@ -19,6 +19,7 @@ export interface Child {
   class_name: string;
   avatar_url: string;
   color: string;
+  gender?: 'male' | 'female';
   active: boolean;
   created_at?: string;
   updated_at?: string;

@@ -3,7 +3,6 @@ import { useChild } from '@/context/ChildContext';
 import { useKidMode } from '@/context/KidModeContext';
 import { storage } from '@/services/storage';
 import { Card } from '@/design-system/components/Card';
-import { Badge } from '@/design-system/components/Badge';
 import { Button } from '@/design-system/components/Button';
 import {
   CheckCircle2,
@@ -13,41 +12,89 @@ import {
   Target,
   Flame,
   AlertCircle,
-  ShieldAlert,
   LogOut,
   Plus,
   Star,
   CheckSquare,
+  BookOpen,
+  Sun,
+  Zap,
 } from 'lucide-react';
-import {
-  AcademicMilestone,
-  ExamPrepTask,
-  HomeworkTask,
-} from '@/domain/types';
+import { AcademicMilestone, ExamPrepTask, HomeworkTask } from '@/domain/types';
 import { resolveSchedule } from '@/domain/schedule-resolution/resolveSchedule';
 import { formatChildDisplayName } from '@/lib/childNameHelper';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
+/* ─── Gender theme ─────────────────────────────────────────── */
+function getTheme(gender?: 'male' | 'female', avatarUrl?: string) {
+  // 'girl' avatar_url = con gái nếu chưa set gender
+  const isGirl = gender === 'female' || (!gender && avatarUrl === 'girl');
+  return isGirl
+    ? {
+        bgGradient: 'from-fuchsia-400 via-pink-400 to-rose-400',
+        accent: 'text-fuchsia-600',
+        accentBg: 'bg-fuchsia-100 dark:bg-fuchsia-900/30',
+        accentBorder: 'border-fuchsia-300 dark:border-fuchsia-700',
+        accentRing: 'ring-fuchsia-400',
+        progressBar: 'from-fuchsia-400 to-pink-500',
+        cardHighlight: 'border-fuchsia-200 bg-gradient-to-br from-fuchsia-50 to-pink-50 dark:from-fuchsia-950/20 dark:to-pink-950/20',
+        hoverBorder: 'hover:border-fuchsia-400',
+        emoji: '🦄',
+        greeting: '✨ Góc học tập của công chúa',
+        morningColor: '#e879f9',
+        afternoonColor: '#fb7185',
+        extraColor: '#a78bfa',
+        ddayBg: 'bg-fuchsia-500 border-fuchsia-400',
+        ddayUrgent: 'bg-rose-500 border-rose-400',
+        starClass: 'text-fuchsia-300 fill-fuchsia-200',
+        decorEmojis: ['🌸', '🌈', '🦋', '⭐', '💫', '🎀'],
+        checkedRow: 'bg-fuchsia-50/60 border-fuchsia-200/50',
+      }
+    : {
+        bgGradient: 'from-blue-500 via-indigo-500 to-violet-500',
+        accent: 'text-blue-600',
+        accentBg: 'bg-blue-100 dark:bg-blue-900/30',
+        accentBorder: 'border-blue-300 dark:border-blue-700',
+        accentRing: 'ring-blue-400',
+        progressBar: 'from-blue-500 to-indigo-500',
+        cardHighlight: 'border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20',
+        hoverBorder: 'hover:border-blue-400',
+        emoji: '🚀',
+        greeting: '⚡ Góc chinh phục của chiến binh',
+        morningColor: '#3b82f6',
+        afternoonColor: '#6366f1',
+        extraColor: '#f59e0b',
+        ddayBg: 'bg-blue-500 border-blue-400',
+        ddayUrgent: 'bg-red-500 border-red-400',
+        starClass: 'text-yellow-300 fill-yellow-200',
+        decorEmojis: ['🌙', '⭐', '🪐', '🔭', '💥', '🎮'],
+        checkedRow: 'bg-blue-50/60 border-blue-200/50',
+      };
+}
+
+const SESSION_CFG = {
+  morning:   { label: 'Buổi Sáng',  Icon: Sun,   dot: '#f59e0b' },
+  afternoon: { label: 'Buổi Chiều', Icon: Clock, dot: '#6366f1' },
+  evening:   { label: 'Học Thêm',   Icon: Zap,   dot: '#10b981' },
+} as const;
+
 export const KidCornerPage: React.FC = () => {
   const { activeChild } = useChild();
   const { isKidMode, exitKidMode } = useKidMode();
+  const theme = useMemo(() => getTheme(activeChild.gender, activeChild.avatar_url), [activeChild.gender, activeChild.avatar_url]);
 
   const [todayStr] = useState<string>(() => format(new Date(), 'yyyy-MM-dd'));
   const [milestones, setMilestones] = useState<AcademicMilestone[]>(() => storage.getMilestones());
   const [prepTasks, setPrepTasks] = useState<ExamPrepTask[]>(() => storage.getExamPrepTasks());
   const [homeworkTasks, setHomeworkTasks] = useState<HomeworkTask[]>(() => storage.getHomeworkTasks());
 
-  // Parent exit PIN modal
   const [showExitModal, setShowExitModal] = useState(false);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
-
-  // Quick add prep task
   const [newPrepTitle, setNewPrepTitle] = useState('');
-  const [selectedMilestoneId, setSelectedMilestoneId] = useState<string>('');
 
-  // Daily schedule for today — use pure domain resolver
+  /* resolved schedule */
   const resolved = useMemo(() => {
     const childTemplates = storage.getTemplates().filter((t) => t.child_id === activeChild.id);
     const templateIds = new Set(childTemplates.map((t) => t.id));
@@ -59,51 +106,60 @@ export const KidCornerPage: React.FC = () => {
       extraSchedules: storage.getExtraSchedules().filter((s) => s.child_id === activeChild.id),
       exceptions: storage.getExceptions().filter((x) => x.child_id === activeChild.id),
     });
-  }, [activeChild.id, todayStr]); // eslint-disable-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeChild.id, todayStr]);
 
-  // Filter child data
+  const morningItems  = resolved.morning.filter((i) => !i.isCancelled);
+  const afternoonItems = resolved.afternoon.filter((i) => !i.isCancelled);
+  const eveningItems  = resolved.evening.filter((i) => !i.isCancelled);
+  const totalItems = morningItems.length + afternoonItems.length + eveningItems.length;
+
+  /* milestones */
   const childMilestones = milestones
     .filter((m) => m.child_id === activeChild.id && m.status !== 'completed')
     .sort((a, b) => a.date.localeCompare(b.date));
-
-  // Next upcoming milestone
   const nextMilestone = childMilestones[0];
 
-  // Tasks for next milestone or child
   const relevantPrepTasks = prepTasks.filter(
     (t) => t.child_id === activeChild.id && (!nextMilestone || t.milestone_id === nextMilestone.id)
   );
-
   const completedPrepCount = relevantPrepTasks.filter((t) => t.is_completed).length;
-  const prepProgressPct = relevantPrepTasks.length > 0
-    ? Math.round((completedPrepCount / relevantPrepTasks.length) * 100)
-    : 0;
+  const prepPct = relevantPrepTasks.length > 0
+    ? Math.round((completedPrepCount / relevantPrepTasks.length) * 100) : 0;
 
-  // Child homework tasks
-  const childHomework = homeworkTasks.filter((h) => h.child_id === activeChild.id);
+  /* homework */
+  const childHw = homeworkTasks.filter((h) => h.child_id === activeChild.id);
+  const doneHw  = childHw.filter((h) => h.is_completed).length;
 
-  // Achievements
+  /* achievements */
   const achievements = storage.getAchievements().filter((a) => a.child_id === activeChild.id);
-  const totalStars = achievements.length;
 
-  // Handlers
-  const handleTogglePrep = (taskId: string) => {
-    storage.toggleExamPrepTask(taskId);
+  /* d-day */
+  const ddayInfo = (() => {
+    if (!nextMilestone) return null;
+    const now = new Date(); now.setHours(0,0,0,0);
+    const tgt = new Date(nextMilestone.date); tgt.setHours(0,0,0,0);
+    const d = Math.round((tgt.getTime() - now.getTime()) / 86400000);
+    if (d === 0) return { label: 'HÔM NAY! 🔥', urgent: true };
+    if (d > 0) return { label: `Còn ${d} ngày`, urgent: d <= 7 };
+    return { label: 'Đã diễn ra', urgent: false };
+  })();
+
+  /* handlers */
+  const handleTogglePrep = (id: string) => {
+    storage.toggleExamPrepTask(id);
     setPrepTasks(storage.getExamPrepTasks());
   };
-
-  const handleToggleHomework = (hwId: string) => {
-    storage.toggleHomework(hwId);
+  const handleToggleHomework = (id: string) => {
+    storage.toggleHomework(id);
     setHomeworkTasks(storage.getHomeworkTasks());
   };
-
   const handleAddPrepTask = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPrepTitle.trim() || !nextMilestone) return;
-
     storage.addExamPrepTask({
       child_id: activeChild.id,
-      milestone_id: selectedMilestoneId || nextMilestone.id,
+      milestone_id: nextMilestone.id,
       title: newPrepTitle.trim(),
       priority: 'high',
       is_completed: false,
@@ -111,355 +167,329 @@ export const KidCornerPage: React.FC = () => {
     setNewPrepTitle('');
     setPrepTasks(storage.getExamPrepTasks());
   };
-
   const handleConfirmExit = () => {
     const ok = exitKidMode(pinInput.trim() || undefined);
-    if (ok) {
-      setShowExitModal(false);
-      setPinInput('');
-      setPinError(false);
-    } else {
-      setPinError(true);
-    }
+    if (ok) { setShowExitModal(false); setPinInput(''); setPinError(false); }
+    else setPinError(true);
   };
 
-  // Calculate D-Day for next milestone
-  const ddayInfo = (() => {
-    if (!nextMilestone) return null;
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    const target = new Date(nextMilestone.date);
-    target.setHours(0, 0, 0, 0);
-    const diff = Math.round((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    if (diff === 0) return { label: 'HÔM NAY', isUrgent: true };
-    if (diff > 0) return { label: `Còn ${diff} ngày`, isUrgent: diff <= 7 };
-    return { label: `Đã diễn ra`, isUrgent: false };
-  })();
+  /* schedule section */
+  const renderSection = (
+    items: typeof morningItems,
+    key: 'morning' | 'afternoon' | 'evening'
+  ) => {
+    if (items.length === 0) return null;
+    const { label, Icon, dot } = SESSION_CFG[key];
+    return (
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-2 px-0.5">
+          <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: dot + '25' }}>
+            <Icon className="w-2.5 h-2.5" style={{ color: dot }} />
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: dot }}>{label}</span>
+          <div className="flex-1 h-px" style={{ backgroundColor: dot + '30' }} />
+          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: dot }}>
+            {items.length} tiết
+          </span>
+        </div>
+        {items.map((item, idx) => (
+          <div
+            key={item.id || idx}
+            className="flex items-center gap-2.5 p-2.5 rounded-2xl border border-app-border/60 bg-app-bg hover:scale-[1.01] transition-all"
+          >
+            <div className="w-1 h-10 rounded-full shrink-0" style={{ backgroundColor: item.color || dot }} />
+            <div className="flex-1 min-w-0">
+              <div className="text-[11px] font-extrabold text-content-primary truncate flex items-center gap-1.5">
+                {item.title}
+                {item.isExtra && (
+                  <span className="text-[8px] px-1 py-0.5 rounded bg-amber-500 text-white font-black">+</span>
+                )}
+              </div>
+              <div className="text-[10px] text-content-muted mt-0.5 flex items-center gap-1.5">
+                <Clock className="w-2.5 h-2.5 shrink-0" />
+                <span>{item.timeDisplay}</span>
+                {item.room && <span>• 📍 {item.room}</span>}
+              </div>
+            </div>
+            {item.subtitle && (
+              <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-app-border bg-app-card text-content-secondary">
+                {item.subtitle}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  };
 
-  // Today schedule items
-  const allTodayItems = [
-    ...resolved.morning,
-    ...resolved.afternoon,
-    ...resolved.evening,
-  ].filter((item) => !item.isCancelled);
-
+  /* ═══════════════════════════════════════════════════════════ */
   return (
-    <div className="space-y-6 max-w-5xl mx-auto animate-in fade-in duration-200">
-      {/* ── Cheerful Kid Header Banner ── */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-amber-400 via-orange-400 to-rose-400 p-6 md:p-8 text-white shadow-theme-lg">
-        {/* Decorative background shapes */}
-        <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-white/10 blur-xl pointer-events-none" />
-        <div className="absolute -bottom-8 -left-8 w-40 h-40 rounded-full bg-white/15 blur-lg pointer-events-none" />
+    <div className="space-y-5 max-w-4xl mx-auto animate-in fade-in duration-300 pb-8">
+
+      {/* ── HERO BANNER ── */}
+      <div className={`relative overflow-hidden rounded-3xl bg-gradient-to-r ${theme.bgGradient} p-5 md:p-7 text-white shadow-2xl`}>
+        <div className="absolute -top-10 -right-10 w-44 h-44 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+        <div className="absolute -bottom-6 -left-6 w-36 h-36 rounded-full bg-white/15 blur-xl pointer-events-none" />
+        {theme.decorEmojis.map((em, i) => (
+          <span key={i} className="absolute pointer-events-none select-none opacity-20 text-xl"
+            style={{ top: `${12 + i * 13}%`, right: `${5 + i * 7}%` }}>{em}</span>
+        ))}
 
         <div className="relative z-10 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div
-              className="w-16 h-16 md:w-20 md:h-20 rounded-2xl flex items-center justify-center text-4xl shadow-theme-md border-2 border-white/40 overflow-hidden bg-white/20 backdrop-blur-sm"
-              style={{ backgroundColor: activeChild.color || '#2563EB' }}
+              className="relative w-16 h-16 md:w-20 md:h-20 rounded-2xl border-4 border-white/40 shadow-lg overflow-hidden flex items-center justify-center text-4xl bg-white/20 backdrop-blur-sm"
+              style={{ backgroundColor: activeChild.color || '#6366f1' }}
             >
-              {activeChild.avatar_url?.startsWith('data:') || activeChild.avatar_url?.startsWith('http') ? (
-                <img src={activeChild.avatar_url} alt={activeChild.name} className="w-full h-full object-cover" />
-              ) : activeChild.avatar_url === 'girl' ? (
-                '👧'
-              ) : (
-                '👦'
-              )}
+              {activeChild.avatar_url?.startsWith('data:') || activeChild.avatar_url?.startsWith('http')
+                ? <img src={activeChild.avatar_url} alt={activeChild.name} className="w-full h-full object-cover" />
+                : activeChild.avatar_url === 'girl' ? '👧' : '👦'}
+              <span className="absolute -bottom-1 -right-1 text-base">{theme.emoji}</span>
             </div>
             <div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-sm text-xs font-black mb-1">
-                <span>⭐ Góc học tập & rèn luyện</span>
+              <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/20 text-[10px] font-black mb-1">
+                {theme.greeting}
               </div>
-              <h1 className="text-2xl md:text-3xl font-black font-display tracking-tight drop-shadow-sm">
-                Chào {formatChildDisplayName(activeChild)}! 🚀
+              <h1 className="text-xl md:text-2xl font-black tracking-tight drop-shadow-sm">
+                Xin chào {formatChildDisplayName(activeChild)}! {theme.emoji}
               </h1>
-              <p className="text-white/90 text-xs md:text-sm font-medium mt-0.5">
-                {activeChild.class_name} • Hôm nay là {format(new Date(), 'EEEE, dd/MM/yyyy', { locale: vi })}
+              <p className="text-white/85 text-xs font-semibold mt-0.5">
+                {activeChild.class_name} • {format(new Date(), 'EEEE, dd/MM/yyyy', { locale: vi })}
               </p>
             </div>
           </div>
-
-          <div className="flex items-center gap-3">
-            {/* Stars pill */}
-            <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 text-white shadow-sm">
-              <Star className="w-5 h-5 text-yellow-200 fill-yellow-300 animate-pulse" />
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30">
+              <Star className={`w-4 h-4 ${theme.starClass}`} />
               <div>
-                <div className="text-[10px] font-bold text-white/80 uppercase">Sao thưởng</div>
-                <div className="text-lg font-black leading-none">{totalStars} ⭐</div>
+                <div className="text-[9px] font-bold text-white/80 uppercase">Khen thưởng</div>
+                <div className="text-base font-black leading-none">{achievements.length} 🏅</div>
               </div>
             </div>
-
-            {/* Exit Kid Mode Button */}
+            <div className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30">
+              <BookOpen className="w-4 h-4 text-white/80" />
+              <div>
+                <div className="text-[9px] font-bold text-white/80 uppercase">Hôm nay</div>
+                <div className="text-base font-black leading-none">{totalItems} tiết 📚</div>
+              </div>
+            </div>
             {isKidMode && (
-              <Button
-                variant="outline"
-                size="sm"
+              <button
                 onClick={() => setShowExitModal(true)}
-                className="bg-white/20 hover:bg-white/30 text-white border-white/40 text-xs font-bold shadow-sm"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-white/20 hover:bg-white/30 border border-white/40 text-xs font-bold transition-all"
               >
-                <LogOut className="w-3.5 h-3.5 mr-1" />
-                Về chế độ Ba Mẹ
-              </Button>
+                <LogOut className="w-3.5 h-3.5" />
+                Ba Mẹ
+              </button>
             )}
           </div>
         </div>
       </div>
 
-      {/* ── Main Content Grid ── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Left Column: Today's Routine & Timetable (1 Col on Desktop) */}
-        <div className="space-y-6">
-          {/* Today's Schedule */}
-          <Card className="p-5 space-y-4 border border-app-border shadow-theme-sm">
+      {/* ── MAIN GRID ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+        {/* Left: Schedule + Homework */}
+        <div className="space-y-5">
+
+          {/* TODAY SCHEDULE */}
+          <Card className={`p-5 space-y-4 border-2 ${theme.accentBorder} shadow-md`}>
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                  <Clock className="w-4 h-4" />
+              <div className="flex items-center gap-2.5">
+                <div className={`w-9 h-9 rounded-2xl ${theme.accentBg} flex items-center justify-center`}>
+                  <BookOpen className={`w-4 h-4 ${theme.accent}`} />
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-sm text-content-primary">Lịch học hôm nay</h3>
-                  <p className="text-[11px] text-content-muted">Chuẩn bị sách vở và đồ dùng</p>
+                  <h3 className="font-black text-sm text-content-primary">Lịch học hôm nay</h3>
+                  <p className="text-[10px] text-content-muted">Nhớ mang đủ sách vở nhé {theme.emoji}</p>
                 </div>
               </div>
-              <Badge variant="primary" size="sm">
-                {allTodayItems.length} tiết
-              </Badge>
+              <div className="px-2.5 py-1 rounded-full text-[10px] font-black text-white"
+                style={{ backgroundColor: theme.morningColor }}>
+                {totalItems} tiết
+              </div>
             </div>
 
-            {allTodayItems.length === 0 ? (
-              <div className="py-8 text-center text-content-muted space-y-1">
-                <div className="text-3xl">🎉</div>
-                <p className="text-xs font-bold">Hôm nay con được nghỉ học!</p>
-                <p className="text-[11px]">Nghỉ ngơi và vui chơi cùng gia đình nhé.</p>
+            {totalItems === 0 ? (
+              <div className="py-8 text-center space-y-2">
+                <div className="text-5xl animate-bounce">🎉</div>
+                <p className="text-sm font-black text-content-primary">Hôm nay được nghỉ học!</p>
+                <p className="text-xs text-content-muted">Nghỉ ngơi vui vẻ cùng gia đình nhé 🏠</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {renderSection(morningItems, 'morning')}
+                {renderSection(afternoonItems, 'afternoon')}
+                {renderSection(eveningItems, 'evening')}
+              </div>
+            )}
+          </Card>
+
+          {/* HOMEWORK */}
+          <Card className="p-5 space-y-3 border border-app-border shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                  <CheckSquare className="w-4 h-4 text-emerald-600" />
+                </div>
+                <div>
+                  <h3 className="font-black text-sm text-content-primary">Bài tập về nhà</h3>
+                  <p className="text-[10px] text-content-muted">Tick khi làm xong nhé ✅</p>
+                </div>
+              </div>
+              <div className={`px-2.5 py-1 rounded-full text-[10px] font-black ${
+                doneHw === childHw.length && childHw.length > 0
+                  ? 'bg-emerald-500 text-white' : 'bg-emerald-100 text-emerald-700'
+              }`}>
+                {doneHw}/{childHw.length}
+              </div>
+            </div>
+            {childHw.length === 0 ? (
+              <div className="py-5 text-center">
+                <div className="text-3xl mb-1">👏</div>
+                <p className="text-xs font-bold text-emerald-600">Không còn bài tập tồn đọng!</p>
               </div>
             ) : (
               <div className="space-y-2">
-                {allTodayItems.map((item, idx) => (
+                {childHw.map((hw) => (
                   <div
-                    key={item.id || idx}
-                    className={`p-3 rounded-xl border flex items-center justify-between transition-all ${
-                      item.isExtra
-                        ? 'bg-amber-50/50 dark:bg-amber-950/20 border-amber-200/80 dark:border-amber-900/50'
-                        : 'bg-app-bg border-app-border/80'
+                    key={hw.id}
+                    onClick={() => handleToggleHomework(hw.id)}
+                    className={`p-3 rounded-2xl border flex items-start gap-3 cursor-pointer select-none transition-all active:scale-[0.98] ${
+                      hw.is_completed
+                        ? `${theme.checkedRow} opacity-60`
+                        : `bg-app-bg border-app-border ${theme.hoverBorder}`
                     }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="w-2.5 h-10 rounded-full shrink-0"
-                        style={{ backgroundColor: item.color || '#2563EB' }}
-                      />
-                      <div>
-                        <div className="text-xs font-black text-content-primary flex items-center gap-1.5">
-                          <span>{item.title}</span>
-                          {item.isExtra && (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500 text-white font-bold">
-                              Học thêm
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[11px] text-content-muted flex items-center gap-2 mt-0.5">
-                          <span>{item.timeDisplay}</span>
-                          {item.room && <span>• Phòng {item.room}</span>}
-                        </div>
+                    <button className="mt-0.5 shrink-0 text-emerald-500">
+                      {hw.is_completed
+                        ? <CheckCircle2 className="w-4 h-4 fill-emerald-500 text-white" />
+                        : <Circle className="w-4 h-4" />}
+                    </button>
+                    <div className="min-w-0 flex-1">
+                      <div className={`text-[11px] font-bold text-content-primary ${hw.is_completed ? 'line-through' : ''}`}>
+                        {hw.subject}
                       </div>
+                      <div className="text-[10px] text-content-secondary mt-0.5 line-clamp-2">{hw.description}</div>
                     </div>
-                    {item.subtitle && (
-                      <span className="text-[10px] font-bold text-content-secondary bg-app-card px-2 py-0.5 rounded-md border border-app-border">
-                        {item.subtitle}
-                      </span>
-                    )}
                   </div>
                 ))}
               </div>
             )}
           </Card>
-
-          {/* Quick Homework Checklist */}
-          <Card className="p-5 space-y-4 border border-app-border shadow-theme-sm">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600">
-                  <CheckSquare className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="font-extrabold text-sm text-content-primary">Bài tập về nhà</h3>
-                  <p className="text-[11px] text-content-muted">Tick chọn khi con làm xong nhé</p>
-                </div>
-              </div>
-              <Badge variant="success" size="sm">
-                {childHomework.filter((h) => h.is_completed).length}/{childHomework.length}
-              </Badge>
-            </div>
-
-            <div className="space-y-2">
-              {childHomework.length === 0 ? (
-                <div className="py-6 text-center text-content-muted text-xs">
-                  👏 Tuyệt vời, con không còn bài tập nào tồn đọng!
-                </div>
-              ) : (
-                childHomework.map((hw) => (
-                  <div
-                    key={hw.id}
-                    onClick={() => handleToggleHomework(hw.id)}
-                    className={`p-3 rounded-xl border flex items-start gap-3 cursor-pointer transition-all ${
-                      hw.is_completed
-                        ? 'bg-emerald-50/40 dark:bg-emerald-950/10 border-emerald-200/50 text-content-muted line-through opacity-70'
-                        : 'bg-app-bg border-app-border hover:border-emerald-400'
-                    }`}
-                  >
-                    <button className="mt-0.5 shrink-0 text-emerald-600">
-                      {hw.is_completed ? (
-                        <CheckCircle2 className="w-4 h-4 fill-emerald-500 text-white" />
-                      ) : (
-                        <Circle className="w-4 h-4" />
-                      )}
-                    </button>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-bold text-content-primary">{hw.subject}</div>
-                      <div className="text-[11px] text-content-secondary line-clamp-2 mt-0.5">
-                        {hw.description}
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </Card>
         </div>
 
-        {/* Middle & Right Column: Exam Prep Countdown & Tasks (2 Cols on Desktop) */}
-        <div className="md:col-span-2 space-y-6">
-          {/* Upcoming Milestone Countdown Card */}
+        {/* Right 2 cols */}
+        <div className="lg:col-span-2 space-y-5">
+
+          {/* MILESTONE */}
           {nextMilestone ? (
-            <Card className="p-6 border-2 border-primary/30 bg-gradient-to-br from-app-card via-app-card to-primary/5 shadow-theme-md space-y-5">
+            <Card className={`p-6 border-2 ${theme.accentBorder} ${theme.cardHighlight} shadow-lg space-y-5`}>
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-black">
+                <div className="space-y-1.5">
+                  <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full ${theme.accentBg} ${theme.accent} text-xs font-black`}>
                     <Flame className="w-3.5 h-3.5 text-amber-500 animate-bounce" />
-                    <span>Kỳ Thi Nước Rút Tiếp Theo</span>
+                    Kỳ Thi Sắp Tới
                   </div>
-                  <h2 className="text-xl md:text-2xl font-black text-content-primary">
-                    {nextMilestone.title}
-                  </h2>
+                  <h2 className="text-xl md:text-2xl font-black text-content-primary">{nextMilestone.title}</h2>
                   <p className="text-xs text-content-secondary">
-                    Ngày thi: <b className="text-content-primary font-mono">{nextMilestone.date.split('-').reverse().join('/')}</b>
+                    📅 <b className="text-content-primary font-mono">{nextMilestone.date.split('-').reverse().join('/')}</b>
                     {nextMilestone.subjects?.length ? ` • Môn: ${nextMilestone.subjects.join(', ')}` : ''}
                   </p>
                 </div>
-
                 {ddayInfo && (
-                  <div
-                    className={`px-4 py-3 rounded-2xl text-center shadow-theme-sm border ${
-                      ddayInfo.isUrgent
-                        ? 'bg-red-500 text-white border-red-400 animate-pulse'
-                        : 'bg-amber-500 text-white border-amber-400'
-                    }`}
-                  >
-                    <div className="text-[10px] font-bold uppercase tracking-wider">Đếm ngược</div>
-                    <div className="text-2xl font-black">{ddayInfo.label}</div>
+                  <div className={`px-4 py-3 rounded-2xl text-center shadow-md border text-white ${
+                    ddayInfo.urgent ? theme.ddayUrgent + ' animate-pulse' : theme.ddayBg
+                  }`}>
+                    <div className="text-[9px] font-black uppercase tracking-widest opacity-80">Đếm ngược</div>
+                    <div className="text-xl font-black">{ddayInfo.label}</div>
                   </div>
                 )}
               </div>
 
-              {/* Target Score & Goal */}
-              <div className="p-3.5 rounded-2xl bg-app-bg border border-app-border flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500">
-                    <Target className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="text-[11px] text-content-muted font-bold">Mục tiêu của con</div>
-                    <div className="text-sm font-black text-primary">
-                      {nextMilestone.target_score || 'Đạt điểm tối đa'}
-                    </div>
+              {/* Target */}
+              <div className={`p-3 rounded-2xl ${theme.accentBg} border ${theme.accentBorder} flex items-center gap-3`}>
+                <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center text-amber-600">
+                  <Target className="w-4 h-4" />
+                </div>
+                <div className="flex-1">
+                  <div className="text-[10px] font-bold text-content-muted uppercase">Mục tiêu</div>
+                  <div className={`text-sm font-black ${theme.accent}`}>
+                    🎯 {nextMilestone.target_score || 'Đạt điểm cao nhất!'}
                   </div>
                 </div>
                 {nextMilestone.preparation_notes && (
-                  <div className="text-right text-[11px] text-content-muted italic max-w-xs line-clamp-1">
+                  <p className="text-[10px] text-content-muted italic max-w-[110px] line-clamp-2">
                     💡 {nextMilestone.preparation_notes}
-                  </div>
+                  </p>
                 )}
               </div>
 
-              {/* Progress Bar */}
-              <div className="space-y-2">
+              {/* Progress */}
+              <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs font-bold">
-                  <span className="text-content-primary flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                    Tiến độ ôn tập nước rút
+                  <span className="text-content-primary flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                    Tiến độ ôn tập
                   </span>
-                  <span className="text-emerald-600 font-black">
-                    {completedPrepCount}/{relevantPrepTasks.length} nhiệm vụ ({prepProgressPct}%)
-                  </span>
+                  <span className="text-emerald-600 font-black">{completedPrepCount}/{relevantPrepTasks.length} ({prepPct}%)</span>
                 </div>
-                <div className="h-3 rounded-full bg-app-bg border border-app-subtle overflow-hidden">
+                <div className="h-4 rounded-full bg-app-bg border border-app-subtle overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-primary to-emerald-500 transition-all duration-500"
-                    style={{ width: `${prepProgressPct}%` }}
-                  />
+                    className={`h-full rounded-full bg-gradient-to-r ${theme.progressBar} transition-all duration-700 flex items-center justify-end pr-2`}
+                    style={{ width: `${prepPct}%` }}
+                  >
+                    {prepPct > 15 && <span className="text-[8px] font-black text-white">{prepPct}%</span>}
+                  </div>
                 </div>
               </div>
 
-              {/* Checklist Tasks */}
-              <div className="space-y-3 pt-2">
-                <div className="text-xs font-black text-content-primary uppercase tracking-wider">
-                  Nhiệm vụ cần ôn tập trước ngày thi:
-                </div>
-
-                <div className="space-y-2.5">
+              {/* Checklist */}
+              <div className="space-y-3">
+                <div className="text-xs font-black text-content-primary uppercase tracking-wider">📋 Nhiệm vụ ôn tập:</div>
+                <div className="space-y-2">
                   {relevantPrepTasks.map((task) => (
                     <div
                       key={task.id}
                       onClick={() => handleTogglePrep(task.id)}
-                      className={`p-3.5 rounded-2xl border flex items-start gap-3.5 cursor-pointer transition-all ${
+                      className={`p-3.5 rounded-2xl border flex items-start gap-3 cursor-pointer select-none transition-all active:scale-[0.98] ${
                         task.is_completed
-                          ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 text-content-muted line-through opacity-75'
-                          : 'bg-app-bg border-app-border hover:border-primary/50 shadow-sm'
+                          ? `${theme.checkedRow} opacity-70`
+                          : `bg-app-bg border-app-border ${theme.hoverBorder} shadow-sm`
                       }`}
                     >
-                      <button className="mt-0.5 shrink-0 text-emerald-600">
-                        {task.is_completed ? (
-                          <CheckCircle2 className="w-5 h-5 fill-emerald-500 text-white" />
-                        ) : (
-                          <Circle className="w-5 h-5" />
-                        )}
+                      <button className={`mt-0.5 shrink-0 ${theme.accent}`}>
+                        {task.is_completed
+                          ? <CheckCircle2 className="w-5 h-5 fill-emerald-500 text-white" />
+                          : <Circle className="w-5 h-5" />}
                       </button>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-content-primary">{task.title}</span>
+                        <div className={`text-xs font-bold text-content-primary flex items-center gap-2 ${task.is_completed ? 'line-through' : ''}`}>
+                          <span>{task.title}</span>
                           {task.priority === 'high' && !task.is_completed && (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-100 text-red-600 font-black">
-                              Ưu tiên cao
-                            </span>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 font-black shrink-0">⚡ Ưu tiên</span>
                           )}
                         </div>
-                        <div className="flex items-center gap-3 mt-1 text-[11px] text-content-secondary">
-                          {task.subject && <span className="font-semibold text-primary">📚 {task.subject}</span>}
-                          {task.due_date && <span>📅 Hạn: {task.due_date.split('-').reverse().join('/')}</span>}
+                        <div className="text-[10px] text-content-secondary mt-0.5 flex items-center gap-2">
+                          {task.subject && <span className={`font-semibold ${theme.accent}`}>📚 {task.subject}</span>}
+                          {task.due_date && <span>📅 {task.due_date.split('-').reverse().join('/')}</span>}
                         </div>
-                        {task.notes && (
-                          <div className="text-[10px] text-content-muted mt-1 italic">
-                            💡 {task.notes}
-                          </div>
-                        )}
                       </div>
                     </div>
                   ))}
-
                   {relevantPrepTasks.length === 0 && (
-                    <div className="py-6 text-center text-xs text-content-muted">
-                      Chưa có nhiệm vụ ôn tập nào. Con hoặc ba mẹ hãy thêm vào bên dưới nhé!
+                    <div className="py-5 text-center text-xs text-content-muted">
+                      Chưa có nhiệm vụ ôn tập. Thêm vào bên dưới nhé! ✍️
                     </div>
                   )}
                 </div>
-
-                {/* Quick Add Prep Task Form */}
-                <form onSubmit={handleAddPrepTask} className="pt-2 flex gap-2">
+                <form onSubmit={handleAddPrepTask} className="flex gap-2 pt-1">
                   <input
                     type="text"
-                    placeholder="Thêm nhiệm vụ ôn tập (VD: Giải đề thi thử số 2, học từ vựng...)"
+                    placeholder="Thêm nhiệm vụ ôn tập..."
                     value={newPrepTitle}
                     onChange={(e) => setNewPrepTitle(e.target.value)}
-                    className="flex-1 px-3.5 py-2 text-xs rounded-xl border border-app-border bg-app-bg text-content-primary focus:outline-none focus:ring-2 focus:ring-primary"
+                    className={`flex-1 px-3 py-2 text-xs rounded-xl border border-app-border bg-app-bg text-content-primary focus:outline-none focus:ring-2 ${theme.accentRing}`}
                   />
                   <Button type="submit" variant="primary" size="sm" icon={<Plus className="w-3.5 h-3.5" />}>
                     Thêm
@@ -468,93 +498,91 @@ export const KidCornerPage: React.FC = () => {
               </div>
             </Card>
           ) : (
-            <Card className="p-8 text-center space-y-2 border border-app-border">
-              <div className="text-4xl">🌟</div>
-              <h3 className="font-bold text-content-primary">Chưa có kỳ thi nào sắp tới</h3>
-              <p className="text-xs text-content-muted">
-                Hiện tại không có áp lực thi cử! Hãy tập trung học tốt các tiết học trên lớp nhé.
-              </p>
+            <Card className="p-10 text-center space-y-3 border border-app-border">
+              <div className="text-6xl animate-bounce">🌟</div>
+              <h3 className="font-black text-content-primary">Chưa có kỳ thi nào sắp tới!</h3>
+              <p className="text-xs text-content-muted">Hãy tập trung học tốt mỗi ngày nhé {theme.emoji}</p>
             </Card>
           )}
 
-          {/* Cheerful Achievements Showcase */}
-          <Card className="p-5 space-y-4 border border-app-border shadow-theme-sm">
+          {/* ACHIEVEMENTS */}
+          <Card className="p-5 space-y-4 border border-app-border shadow-sm">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-amber-600">
                   <Trophy className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-sm text-content-primary">Bảng vàng thành tích của con</h3>
-                  <p className="text-[11px] text-content-muted">Những nỗ lực đáng tự hào đã đạt được</p>
+                  <h3 className="font-black text-sm text-content-primary">Bảng vàng thành tích 🏆</h3>
+                  <p className="text-[10px] text-content-muted">Những nỗ lực đáng tự hào</p>
                 </div>
               </div>
-              <Badge variant="outline" size="sm">
+              <div className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 text-[10px] font-black">
                 {achievements.length} khen thưởng
-              </Badge>
+              </div>
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {achievements.slice(0, 4).map((item) => (
-                <div
-                  key={item.id}
-                  className="p-3 rounded-2xl bg-app-bg border border-app-subtle flex items-center gap-3 hover:border-amber-300 transition-colors"
-                >
-                  <div className="text-2xl">🏅</div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-xs font-black text-content-primary truncate">{item.title}</div>
-                    <div className="text-[10px] text-content-muted">
-                      {item.date?.split('-').reverse().join('/')} • {item.result || item.level || 'Đạt thành tích'}
+            {achievements.length === 0 ? (
+              <div className="py-6 text-center">
+                <div className="text-4xl mb-2">💪</div>
+                <p className="text-xs text-content-muted">Cố lên! Thành tích đầu tiên đang chờ con!</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {achievements.slice(0, 6).map((item) => (
+                  <div key={item.id} className={`p-3.5 rounded-2xl border flex items-center gap-3 hover:scale-[1.02] transition-all ${theme.cardHighlight}`}>
+                    <div className="text-2xl shrink-0">🏅</div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-black text-content-primary truncate">{item.title}</div>
+                      <div className="text-[10px] text-content-muted mt-0.5">
+                        📅 {item.date?.split('-').reverse().join('/')}
+                        {item.result && <> • <span className="text-amber-600 font-bold">{item.result}</span></>}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </Card>
         </div>
       </div>
 
-      {/* ── Parent Exit PIN Modal ── */}
+      {/* ── EXIT PIN MODAL ── */}
       {showExitModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-app-surface border border-app-border rounded-2xl shadow-theme-pop w-full max-w-sm p-6 space-y-4 animate-in zoom-in-95">
-            <div className="flex items-center gap-3 text-content-primary">
-              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                <ShieldAlert className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-bold text-sm">Xác nhận trở lại chế độ Ba Mẹ</h3>
-                <p className="text-xs text-content-muted">Bảo vệ riêng tư tài chính & học phí</p>
-              </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in">
+          <div className="bg-app-surface border border-app-border rounded-3xl shadow-2xl w-full max-w-xs p-6 space-y-5 animate-in zoom-in-95">
+            <div className="text-center space-y-1">
+              <div className="text-4xl">🔐</div>
+              <h3 className="font-black text-base text-content-primary">Trở về chế độ Ba Mẹ</h3>
+              <p className="text-xs text-content-muted">Nhập mã PIN để tiếp tục</p>
             </div>
-
             <div className="space-y-2">
-              <label className="text-xs font-bold text-content-secondary">
-                Nhập mã PIN ba mẹ (Mặc định: 1234 hoặc bấm xác nhận):
-              </label>
               <input
                 type="password"
                 maxLength={8}
-                placeholder="1234"
+                placeholder="● ● ● ●"
                 value={pinInput}
-                onChange={(e) => {
-                  setPinInput(e.target.value);
-                  setPinError(false);
-                }}
-                className="w-full px-3 py-2 text-center text-lg font-mono tracking-widest rounded-xl border border-app-border bg-app-bg text-content-primary focus:outline-none focus:ring-2 focus:ring-primary"
+                autoFocus
+                onChange={(e) => { setPinInput(e.target.value); setPinError(false); }}
+                onKeyDown={(e) => e.key === 'Enter' && handleConfirmExit()}
+                className={`w-full px-4 py-3 text-center text-2xl font-black tracking-[0.5em] rounded-2xl border-2 bg-app-bg text-content-primary focus:outline-none transition-all ${
+                  pinError
+                    ? 'border-red-400 focus:ring-2 ring-red-300'
+                    : `border-app-border focus:ring-2 ${theme.accentRing}`
+                }`}
               />
               {pinError && (
-                <p className="text-[11px] text-red-500 font-bold flex items-center gap-1">
-                  <AlertCircle className="w-3.5 h-3.5" /> Mã PIN không đúng. Vui lòng thử lại!
+                <p className="text-[11px] text-red-500 font-bold flex items-center justify-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  Mã PIN không đúng. Thử lại nhé!
                 </p>
               )}
             </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-app-border">
-              <Button variant="outline" size="sm" onClick={() => setShowExitModal(false)}>
-                Ở lại góc của con
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" className="flex-1"
+                onClick={() => { setShowExitModal(false); setPinInput(''); setPinError(false); }}>
+                Ở lại
               </Button>
-              <Button variant="primary" size="sm" onClick={handleConfirmExit}>
+              <Button variant="primary" size="sm" className="flex-1" onClick={handleConfirmExit}>
                 Xác nhận
               </Button>
             </div>
