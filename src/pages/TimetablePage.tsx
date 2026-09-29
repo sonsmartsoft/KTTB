@@ -30,6 +30,7 @@ import { BookStack } from '@/design-system/illustrations/BookStack';
 import { PushPin, SpeechBubble, MotivationalRibbon } from '@/design-system/illustrations/DecorativeBadges';
 import { TimetableEntry, TimetableTemplate, WeekdayNumber, SessionType, SubjectItem, TimetableLegendItem, ExtraSchedule } from '@/domain/types';
 import { SEED_TIMETABLE_LEGEND } from '@/services/seedData';
+import { BreakfastCard } from '@/components/timetable/BreakfastCard';
 
 const MORNING_TIMES = ['7:00 – 7:45', '8:45 – 9:30', '9:50 – 10:35', '10:55 – 11:40'];
 const AFTERNOON_TIMES = ['13:30 – 14:15', '14:35 – 15:20', '15:40 – 16:25'];
@@ -1318,6 +1319,9 @@ export const TimetablePage: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        {/* 🍳 BỮA SÁNG — breakfast card dưới thẻ buổi tối */}
+        <BreakfastCard todayWeekday={(() => { const d = new Date().getDay(); const map: Record<number,WeekdayNumber> = {1:2,2:3,3:4,4:5,5:6,6:7,0:8}; return map[d]; })()} />
 
         {/* Bottom Infographic Module: Lịch học thêm clipboard + Pinned Ghi chú */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-5 pt-4 border-t border-slate-100">

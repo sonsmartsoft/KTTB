@@ -348,3 +348,34 @@ export interface ExamPrepTask {
   completed_at?: string;
 }
 
+// ================== BỮA SÁNG (Breakfast Planner) ==================
+
+/** Một món ăn sáng cụ thể cho một ngày trong tuần */
+export interface BreakfastMeal {
+  weekday: WeekdayNumber; // 2=Mon, 3=Tue, ..., 7=Sat, 8=Sun
+  meal: string;           // e.g. "Bánh mì trứng", "Cháo gà"
+  note?: string;
+}
+
+/** Kế hoạch bữa sáng cho một trẻ — có thể có nhiều menu xoay vòng */
+export interface BreakfastPlan {
+  id: string;
+  child_id: string;
+  /** Tên menu, e.g. "Menu Tuần A", "Menu Tuần B" */
+  name: string;
+  /** Danh sách món theo từng ngày */
+  meals: BreakfastMeal[];
+  created_at?: string;
+}
+
+/** Cài đặt tính năng bữa sáng per-child */
+export interface BreakfastSettings {
+  child_id: string;
+  enabled: boolean;
+  /** ID của BreakfastPlan đang áp dụng tuần này */
+  active_plan_id?: string;
+  /** Bật tự động xoay vòng menu (A→B→A→B…) theo tuần */
+  auto_rotate: boolean;
+  /** Ngày bắt đầu cycle hiện tại (YYYY-MM-DD) — để tính tuần mấy */
+  cycle_start?: string;
+}

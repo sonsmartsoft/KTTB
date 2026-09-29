@@ -19,6 +19,8 @@ import {
   MonthlyTuitionPayment,
   AcademicMilestone,
   ExamPrepTask,
+  BreakfastPlan,
+  BreakfastSettings,
 } from '@/domain/types';
 import { upsertToTable, syncOnStart, STORAGE_TO_TABLE } from '@/lib/supabaseSync';
 import {
@@ -63,6 +65,8 @@ const KEYS = {
   TUITION_PAYMENTS: 'ktt_tuition_payments',
   MILESTONES: 'ktt_academic_milestones',
   EXAM_PREP_TASKS: 'ktt_exam_prep_tasks',
+  BREAKFAST_PLANS: 'ktt_breakfast_plans',
+  BREAKFAST_SETTINGS: 'ktt_breakfast_settings',
 };
 
 function getItem<T>(key: string, defaultValue: T): T {
@@ -652,6 +656,38 @@ export const storage = {
   deleteExamPrepTask(id: string): void {
     const list = this.getExamPrepTasks().filter((t) => t.id !== id);
     this.saveExamPrepTasks(list);
+  },
+
+  // ================== BỮA SÁNG ==================
+  getBreakfastPlans(childId: string): BreakfastPlan[] {
+    const all = getItem<BreakfastPlan[]>(KEYS.BREAKFAST_PLANS, []);
+    return all.filter((p) => p.child_id === childId);
+  },
+  saveBreakfastPlan(plan: BreakfastPlan): void {
+    const all = getItem<BreakfastPlan[]>(KEYS.BREAKFAST_PLANS, []);
+    const idx = all.findIndex((p) => p.id === plan.id);
+    if (idx >= 0) all[idx] = plan;
+    else all.push(plan);
+    setItem(KEYS.BREAKFAST_PLANS, all);
+  },
+  deleteBreakfastPlan(id: string): void {
+    const all = getItem<BreakfastPlan[]>(KEYS.BREAKFAST_PLANS, []).filter((p) => p.id !== id);
+    setItem(KEYS.BREAKFAST_PLANS, all);
+  },
+  getBreakfastSettings(childId: string): BreakfastSettings {
+    const all = getItem<BreakfastSettings[]>(KEYS.BREAKFAST_SETTINGS, []);
+    return all.find((s) => s.child_id === childId) || {
+      child_id: childId,
+      enabled: false,
+      auto_rotate: false,
+    };
+  },
+  saveBreakfastSettings(settings: BreakfastSettings): void {
+    const all = getItem<BreakfastSettings[]>(KEYS.BREAKFAST_SETTINGS, []);
+    const idx = all.findIndex((s) => s.child_id === settings.child_id);
+    if (idx >= 0) all[idx] = settings;
+    else all.push(settings);
+    setItem(KEYS.BREAKFAST_SETTINGS, all);
   },
 };
 
