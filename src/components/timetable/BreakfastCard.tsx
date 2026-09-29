@@ -1,11 +1,11 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { storage } from '@/services/storage';
 import { BreakfastPlan, BreakfastMeal, BreakfastSettings, WeekdayNumber } from '@/domain/types';
 import { useChild } from '@/context/ChildContext';
 import {
   UtensilsCrossed, Plus, Trash2, Edit3, Check, X, RotateCcw,
   ChevronDown, ChevronUp, ArrowLeftRight, Settings, Shuffle,
-  Eye, EyeOff, GripVertical,
+  EyeOff, GripVertical, ChevronLeft, ChevronRight, Sparkles, Tag,
 } from 'lucide-react';
 
 const WEEKDAYS: { num: WeekdayNumber; label: string; short: string }[] = [
@@ -15,7 +15,7 @@ const WEEKDAYS: { num: WeekdayNumber; label: string; short: string }[] = [
   { num: 5, label: 'Thứ 5', short: 'T5' },
   { num: 6, label: 'Thứ 6', short: 'T6' },
   { num: 7, label: 'Thứ 7', short: 'T7' },
-  { num: 8, label: 'CN', short: 'CN' },
+  { num: 8, label: 'Chủ nhật', short: 'CN' },
 ];
 
 /** Tính ISO week number của ngày */
@@ -27,14 +27,6 @@ function getISOWeekNumber(date: Date): number {
   return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 }
 
-const MEAL_SUGGESTIONS = [
-  'Bánh mì trứng', 'Bánh mì thịt nguội', 'Cháo gà', 'Cháo thịt',
-  'Phở bò', 'Phở gà', 'Bún riêu', 'Mì tôm trứng', 'Cơm chiên trứng',
-  'Xôi xéo', 'Xôi lạc', 'Bánh cuốn', 'Bánh bao', 'Sữa + bánh quy',
-  'Trứng ốp la + cơm', 'Miến gà', 'Hủ tiếu', 'Bún bò', 'Bánh ướt',
-  'Yến mạch', 'Sandwich', 'Ngũ cốc sữa', 'Cháo cá',
-];
-
 interface Props {
   /** Tuần JS weekday của ngày hôm nay để highlight */
   todayWeekday?: WeekdayNumber;
@@ -43,23 +35,26 @@ interface Props {
 export const BreakfastCard: React.FC<Props> = ({ todayWeekday }) => {
   const { activeChild } = useChild();
 
-  // Reload từ storage
-  const reload = () => {
-    setSettings(storage.getBreakfastSettings(activeChild.id));
-    setPlans(storage.getBreakfastPlans(activeChild.id));
-  };
-
   const [settings, setSettings] = useState<BreakfastSettings>(() =>
     storage.getBreakfastSettings(activeChild.id)
   );
   const [plans, setPlans] = useState<BreakfastPlan[]>(() =>
     storage.getBreakfastPlans(activeChild.id)
   );
+  const [dishList, setDishList] = useState<string[]>(() =>
+    storage.getBreakfastDishes()
+  );
 
-  // Đồng bộ khi đổi trẻ
-  React.useEffect(() => {
+  // Reload từ storage khi đổi bé
+  const reload = () => {
+    setSettings(storage.getBreakfastSettings(activeChild.id));
+    setPlans(storage.getBreakfastPlans(activeChild.id));
+    setDishList(storage.getBreakfastDishes());
+  };
+
+  useEffect(() => {
     reload();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeChild.id]);
 
   const saveSettings = (next: BreakfastSettings) => {
@@ -92,11 +87,12 @@ export const BreakfastCard: React.FC<Props> = ({ todayWeekday }) => {
   const [swapSource, setSwapSource] = useState<{ planId: string; weekday: WeekdayNumber } | null>(null);
   const [swapTarget, setSwapTarget] = useState<{ planId: string; weekday: WeekdayNumber } | null>(null);
 
-  // Inline meal edit state
-  const [editCell, setEditCell] = useState<{ planId: string; weekday: WeekdayNumber } | null>(null);
-  const [editMealValue, setEditMealValue] = useState('');
-  const [editNoteValue, setEditNoteValue] = useState('');
-  const [suggestionOpen, setSuggestionOpen] = useState(false);
+  // Quick Meal Modal Editor state
+  const [modalCell, setModalCell] = useState<{ planId: string; weekday: WeekdayNumber } | null>(null);
+  const [formMeal, setFormMeal] = useState('');
+  const [formNote, setFormNote] = useState('');
+  const [isAddingCustomDish, setIsAddingCustomDish] = useState(false);
+  const [newCustomDishName, setNewCustomDishName] = useState('');
 
   // Determine active plan & tính tuần nếu auto_rotate
   const activePlanId = (() => {
@@ -152,23 +148,75 @@ export const BreakfastCard: React.FC<Props> = ({ todayWeekday }) => {
     savePlan(updated);
   };
 
-  const openEditCell = (planId: string, weekday: WeekdayNumber) => {
+  const openModal = (planId: string, weekday: WeekdayNumber) => {
     const plan = plans.find((p) => p.id === planId);
     if (!plan) return;
     const m = getMeal(plan, weekday);
-    setEditCell({ planId, weekday });
-    setEditMealValue(m?.meal || '');
-    setEditNoteValue(m?.note || '');
-    setSuggestionOpen(false);
+    setModalCell({ planId, weekday });
+    setFormMeal(m?.meal || '');
+    setFormNote(m?.note || '');
+    setIsAddingCustomDish(false);
+    setNewCustomDishName('');
   };
 
-  const saveEditCell = () => {
-    if (!editCell) return;
-    const plan = plans.find((p) => p.id === editCell.planId);
+  const closeModal = () => {
+    setModalCell(null);
+    setIsAddingCustomDish(false);
+  };
+
+  const handleSaveMeal = (andNext = false) => {
+    if (!modalCell || !activePlan) return;
+    const updated = upsertMeal(activePlan, modalCell.weekday, formMeal, formNote);
+    savePlan(updated);
+
+    if (formMeal.trim()) {
+      storage.addBreakfastDish(formMeal.trim());
+      setDishList(storage.getBreakfastDishes());
+    }
+
+    if (andNext) {
+      const currentIdx = WEEKDAYS.findIndex((d) => d.num === modalCell.weekday);
+      const nextDay = WEEKDAYS[(currentIdx + 1) % WEEKDAYS.length];
+      const nextMeal = getMeal(updated, nextDay.num);
+      setModalCell({ planId: modalCell.planId, weekday: nextDay.num });
+      setFormMeal(nextMeal?.meal || '');
+      setFormNote(nextMeal?.note || '');
+    } else {
+      closeModal();
+    }
+  };
+
+  const handleDeleteMeal = (planId: string, weekday: WeekdayNumber) => {
+    const plan = plans.find((p) => p.id === planId);
     if (!plan) return;
-    savePlan(upsertMeal(plan, editCell.weekday, editMealValue, editNoteValue));
-    setEditCell(null);
-    setSuggestionOpen(false);
+    savePlan(upsertMeal(plan, weekday, ''));
+    if (modalCell?.weekday === weekday) {
+      closeModal();
+    }
+  };
+
+  const handleSwitchDayInModal = (targetWeekday: WeekdayNumber) => {
+    if (!activePlan || !modalCell) return;
+    const targetMeal = getMeal(activePlan, targetWeekday);
+    setModalCell({ planId: modalCell.planId, weekday: targetWeekday });
+    setFormMeal(targetMeal?.meal || '');
+    setFormNote(targetMeal?.note || '');
+  };
+
+  const handleAddCustomDish = () => {
+    const trimmed = newCustomDishName.trim();
+    if (!trimmed) return;
+    storage.addBreakfastDish(trimmed);
+    setDishList(storage.getBreakfastDishes());
+    setFormMeal(trimmed);
+    setNewCustomDishName('');
+    setIsAddingCustomDish(false);
+  };
+
+  const handleDeleteDishFromList = (dishToDelete: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    storage.deleteBreakfastDish(dishToDelete);
+    setDishList(storage.getBreakfastDishes());
   };
 
   /* ---- Drag and Drop for swapping ---- */
@@ -193,9 +241,9 @@ export const BreakfastCard: React.FC<Props> = ({ todayWeekday }) => {
       <div className="mt-4 pt-4 border-t border-dashed border-slate-200">
         <button
           onClick={() => saveSettings({ ...settings, enabled: true })}
-          className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl border-2 border-dashed border-amber-300 text-amber-700 hover:bg-amber-50 hover:border-amber-400 transition-all text-sm font-semibold group"
+          className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl border-2 border-dashed border-amber-300 text-amber-700 hover:bg-amber-50 hover:border-amber-400 transition-all text-sm font-semibold group cursor-pointer"
         >
-          <UtensilsCrossed className="w-4 h-4 group-hover:scale-110 transition-transform" />
+          <UtensilsCrossed className="w-4 h-4 group-hover:scale-110 transition-transform text-amber-600" />
           <span>Bật thẻ Thực đơn bữa sáng</span>
           <span className="text-xs font-normal text-amber-500">(Click để kích hoạt)</span>
         </button>
@@ -203,53 +251,75 @@ export const BreakfastCard: React.FC<Props> = ({ todayWeekday }) => {
     );
   }
 
+  const currentModalDay = modalCell ? WEEKDAYS.find((d) => d.num === modalCell.weekday) : null;
+  const currentModalMeal = modalCell && activePlan ? getMeal(activePlan, modalCell.weekday) : null;
+
   return (
     <div className="mt-5 pt-4 border-t-2 border-dashed border-amber-200">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-lg">☀️</div>
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-400 to-amber-500 text-white flex items-center justify-center text-base shadow-sm">
+            ☀️
+          </div>
           <div>
-            <h3 className="text-sm font-black text-amber-900 uppercase tracking-wide">Thực đơn bữa sáng</h3>
-            <p className="text-[10px] text-amber-600">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-black text-amber-950 uppercase tracking-wide">Thực đơn bữa sáng</h3>
+              <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded-full border border-amber-200">
+                Tuần {getISOWeekNumber(new Date())}
+              </span>
+            </div>
+            <p className="text-[11px] text-amber-700 font-medium">
               {settings.auto_rotate && plans.length >= 2
                 ? `Tự động xoay ${plans.length} menu • Tuần này: ${activePlan?.name || '—'}`
-                : `Đang dùng: ${activePlan?.name || '—'}`
-              }
+                : `Đang dùng: ${activePlan?.name || '—'}`}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-1.5">
           <button
             onClick={() => setIsSettingsOpen((v) => !v)}
-            className={`p-1.5 rounded-lg border transition-colors text-amber-700 ${isSettingsOpen ? 'bg-amber-100 border-amber-300' : 'bg-white border-amber-200 hover:bg-amber-50'}`}
-            title="Cài đặt bữa sáng"
+            className={`p-1.5 rounded-lg border transition-colors cursor-pointer text-amber-800 ${
+              isSettingsOpen ? 'bg-amber-200/80 border-amber-400' : 'bg-white border-amber-200 hover:bg-amber-50'
+            }`}
+            title="Cài đặt bữa sáng & xoay menu"
           >
-            <Settings className="w-3.5 h-3.5" />
+            <Settings className="w-4 h-4" />
           </button>
           <button
             onClick={() => saveSettings({ ...settings, enabled: false })}
-            className="p-1.5 rounded-lg border border-amber-200 bg-white hover:bg-red-50 hover:border-red-300 hover:text-red-600 text-amber-700 transition-colors"
-            title="Ẩn thẻ bữa sáng"
+            className="p-1.5 rounded-lg border border-amber-200 bg-white hover:bg-rose-50 hover:border-rose-300 hover:text-rose-600 text-amber-700 transition-colors cursor-pointer"
+            title="Tắt thẻ bữa sáng"
           >
-            <EyeOff className="w-3.5 h-3.5" />
+            <EyeOff className="w-4 h-4" />
           </button>
           <button
             onClick={() => setIsExpanded((v) => !v)}
-            className="p-1.5 rounded-lg border border-amber-200 bg-white hover:bg-amber-50 text-amber-700 transition-colors"
+            className="p-1.5 rounded-lg border border-amber-200 bg-white hover:bg-amber-50 text-amber-700 transition-colors cursor-pointer"
+            title={isExpanded ? 'Thu gọn' : 'Mở rộng'}
           >
-            {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
         </div>
       </div>
 
       {/* Settings Panel */}
       {isSettingsOpen && (
-        <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs space-y-3">
-          <p className="font-bold text-amber-900 text-[11px] uppercase tracking-wider">⚙️ Cài đặt thực đơn</p>
+        <div className="mb-3.5 p-3.5 bg-amber-50/90 border border-amber-200 rounded-2xl text-xs space-y-3.5 shadow-sm">
+          <div className="flex items-center justify-between pb-2 border-b border-amber-200/80">
+            <p className="font-bold text-amber-950 text-xs flex items-center gap-1.5">
+              <span>⚙️ Cài đặt thực đơn</span>
+            </p>
+            <button
+              onClick={() => setIsSettingsOpen(false)}
+              className="text-amber-700 hover:text-amber-900 font-bold p-1 rounded hover:bg-amber-100"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
 
-          {/* Auto rotate */}
-          <label className="flex items-center gap-2.5 cursor-pointer">
+          {/* Auto rotate toggle */}
+          <label className="flex items-center gap-3 cursor-pointer select-none">
             <div
               onClick={() => {
                 const next = { ...settings, auto_rotate: !settings.auto_rotate };
@@ -257,80 +327,137 @@ export const BreakfastCard: React.FC<Props> = ({ todayWeekday }) => {
                 else next.cycle_start = new Date().toISOString().split('T')[0];
                 saveSettings(next);
               }}
-              className={`w-9 h-5 rounded-full border-2 relative transition-all ${settings.auto_rotate ? 'bg-amber-500 border-amber-600' : 'bg-slate-200 border-slate-300'}`}
+              className={`w-9 h-5 rounded-full border-2 relative transition-all ${
+                settings.auto_rotate ? 'bg-amber-500 border-amber-600' : 'bg-slate-200 border-slate-300'
+              }`}
             >
-              <div className={`absolute top-0.5 w-3.5 h-3.5 bg-white rounded-full shadow transition-all ${settings.auto_rotate ? 'left-[18px]' : 'left-0.5'}`} />
+              <div
+                className={`absolute top-0.5 w-3.5 h-3.5 bg-white rounded-full shadow transition-all ${
+                  settings.auto_rotate ? 'left-[18px]' : 'left-0.5'
+                }`}
+              />
             </div>
-            <span className="font-semibold text-amber-800">
-              Tự động xoay vòng menu theo tuần
-              {settings.auto_rotate && <span className="font-normal text-amber-600"> (cần ≥ 2 menu)</span>}
-            </span>
+            <div className="text-amber-900 leading-tight">
+              <span className="font-bold">Tự động đổi món xoay vòng theo tuần</span>
+              <p className="text-[10px] text-amber-700">
+                {settings.auto_rotate
+                  ? 'Hệ thống tự động luân phiên các Menu A, B, C... mỗi khi sang tuần mới'
+                  : 'Đang tắt xoay vòng (chọn menu thủ công bên dưới)'}
+              </p>
+            </div>
           </label>
 
           {settings.auto_rotate && settings.cycle_start && (
-            <div className="flex items-center gap-2">
-              <span className="text-amber-700">Bắt đầu từ:</span>
+            <div className="flex items-center gap-2 pl-12 text-[11px]">
+              <span className="text-amber-800 font-medium">Bắt đầu chu kỳ từ:</span>
               <input
                 type="date"
                 value={settings.cycle_start}
                 onChange={(e) => saveSettings({ ...settings, cycle_start: e.target.value })}
-                className="border border-amber-300 rounded-md px-2 py-0.5 text-xs bg-white"
+                className="border border-amber-300 rounded-md px-2 py-0.5 text-xs bg-white text-amber-950 font-medium"
               />
-              <span className="text-amber-500">(thứ Hai tuần đó)</span>
             </div>
           )}
 
           {/* Menu list management */}
-          <div className="space-y-1.5">
-            <p className="font-semibold text-amber-800">Danh sách menu ({plans.length})</p>
-            {plans.map((plan) => (
-              <div key={plan.id} className="flex items-center gap-2 bg-white p-2 rounded-lg border border-amber-200">
-                <button
-                  onClick={() => saveSettings({ ...settings, active_plan_id: plan.id, auto_rotate: false })}
-                  className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${plan.id === activePlanId && !settings.auto_rotate ? 'bg-amber-500 border-amber-600' : 'border-slate-300 hover:border-amber-400'}`}
+          <div className="space-y-2 pt-1 border-t border-amber-200/60">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-amber-950">Danh sách các Menu ({plans.length})</span>
+              <span className="text-[10px] text-amber-600 font-normal">Tạo nhiều menu để xoay món</span>
+            </div>
+            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+              {plans.map((plan) => (
+                <div
+                  key={plan.id}
+                  className={`flex items-center gap-2 p-2 rounded-xl border transition-all ${
+                    plan.id === activePlanId
+                      ? 'bg-amber-100/70 border-amber-400 shadow-2xs'
+                      : 'bg-white border-amber-200 hover:border-amber-300'
+                  }`}
                 >
-                  {plan.id === activePlanId && !settings.auto_rotate && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                </button>
-                {editingPlanId === plan.id ? (
-                  <input
-                    autoFocus
-                    value={plan.name}
-                    onChange={(e) => savePlan({ ...plan, name: e.target.value })}
-                    onBlur={() => setEditingPlanId(null)}
-                    onKeyDown={(e) => e.key === 'Enter' && setEditingPlanId(null)}
-                    className="flex-1 border border-amber-300 rounded px-1.5 py-0.5 text-xs"
-                  />
-                ) : (
-                  <span className="flex-1 font-medium text-amber-900">{plan.name}</span>
-                )}
-                <button onClick={() => setEditingPlanId(editingPlanId === plan.id ? null : plan.id)} className="text-slate-400 hover:text-amber-600 transition-colors">
-                  <Edit3 className="w-3 h-3" />
-                </button>
-                <button onClick={() => { if (confirm(`Xóa "${plan.name}"?`)) deletePlan(plan.id); }} className="text-slate-400 hover:text-red-500 transition-colors">
-                  <Trash2 className="w-3 h-3" />
-                </button>
-              </div>
-            ))}
+                  <button
+                    onClick={() => saveSettings({ ...settings, active_plan_id: plan.id, auto_rotate: false })}
+                    className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 cursor-pointer transition-colors ${
+                      plan.id === activePlanId
+                        ? 'bg-amber-500 border-amber-600'
+                        : 'border-slate-300 hover:border-amber-400'
+                    }`}
+                    title="Chọn làm menu hiện tại"
+                  >
+                    {plan.id === activePlanId && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                  </button>
+                  {editingPlanId === plan.id ? (
+                    <input
+                      autoFocus
+                      value={plan.name}
+                      onChange={(e) => savePlan({ ...plan, name: e.target.value })}
+                      onBlur={() => setEditingPlanId(null)}
+                      onKeyDown={(e) => e.key === 'Enter' && setEditingPlanId(null)}
+                      className="flex-1 border border-amber-300 rounded-md px-2 py-0.5 text-xs bg-white text-amber-950 font-semibold"
+                    />
+                  ) : (
+                    <div
+                      className="flex-1 font-semibold text-amber-950 cursor-pointer"
+                      onClick={() => setEditingPlanId(plan.id)}
+                    >
+                      {plan.name}
+                      <span className="text-[10px] font-normal text-amber-600 ml-2">
+                        ({plan.meals.length}/7 ngày có món)
+                      </span>
+                    </div>
+                  )}
+                  <button
+                    onClick={() => setEditingPlanId(editingPlanId === plan.id ? null : plan.id)}
+                    className="p-1 text-slate-400 hover:text-amber-600 transition-colors rounded"
+                    title="Đổi tên"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (confirm(`Xóa "${plan.name}"?`)) deletePlan(plan.id);
+                    }}
+                    className="p-1 text-slate-400 hover:text-rose-500 transition-colors rounded"
+                    title="Xóa menu"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
 
             {isAddingPlan ? (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 pt-1">
                 <input
                   autoFocus
                   value={newPlanName}
                   onChange={(e) => setNewPlanName(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') addNewPlan(); if (e.key === 'Escape') setIsAddingPlan(false); }}
-                  placeholder={`Menu ${String.fromCharCode(65 + plans.length)}`}
-                  className="flex-1 border border-amber-300 rounded-lg px-2 py-1 text-xs"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') addNewPlan();
+                    if (e.key === 'Escape') setIsAddingPlan(false);
+                  }}
+                  placeholder={`Ví dụ: Menu ${String.fromCharCode(65 + plans.length)} (Tuần chẵn)`}
+                  className="flex-1 border border-amber-300 rounded-lg px-2.5 py-1 text-xs bg-white text-amber-950"
                 />
-                <button onClick={addNewPlan} className="p-1 bg-amber-500 rounded text-white"><Check className="w-3 h-3" /></button>
-                <button onClick={() => setIsAddingPlan(false)} className="p-1 bg-slate-200 rounded text-slate-600"><X className="w-3 h-3" /></button>
+                <button
+                  onClick={addNewPlan}
+                  className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 rounded-lg text-white font-bold flex items-center gap-1 cursor-pointer"
+                >
+                  <Check className="w-3.5 h-3.5" /> Lưu
+                </button>
+                <button
+                  onClick={() => setIsAddingPlan(false)}
+                  className="p-1 bg-slate-200 hover:bg-slate-300 rounded-lg text-slate-600 cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
               </div>
             ) : (
               <button
                 onClick={() => setIsAddingPlan(true)}
-                className="w-full py-1.5 border-2 border-dashed border-amber-300 rounded-lg text-amber-700 hover:bg-amber-50 transition-colors flex items-center justify-center gap-1 text-[11px] font-semibold"
+                className="w-full py-1.5 border-2 border-dashed border-amber-300 rounded-xl text-amber-800 hover:bg-amber-100/60 transition-colors flex items-center justify-center gap-1 text-xs font-bold cursor-pointer"
               >
-                <Plus className="w-3 h-3" /> Thêm menu mới
+                <Plus className="w-3.5 h-3.5" /> Thêm menu mới
               </button>
             )}
           </div>
@@ -339,58 +466,74 @@ export const BreakfastCard: React.FC<Props> = ({ todayWeekday }) => {
 
       {/* Plan tabs (if multiple) */}
       {isExpanded && plans.length > 1 && (
-        <div className="flex gap-1.5 mb-3 flex-wrap">
+        <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+          <span className="text-[11px] font-bold text-amber-800 mr-1 flex items-center gap-1">
+            <UtensilsCrossed className="w-3 h-3 text-amber-600" /> Menu:
+          </span>
           {plans.map((plan) => (
             <button
               key={plan.id}
               onClick={() => saveSettings({ ...settings, active_plan_id: plan.id, auto_rotate: false })}
-              className={`px-2.5 py-1 rounded-full text-[11px] font-bold transition-all border ${plan.id === activePlanId ? 'bg-amber-500 text-white border-amber-600 shadow-sm' : 'bg-white text-amber-700 border-amber-300 hover:bg-amber-50'}`}
+              className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer border ${
+                plan.id === activePlanId
+                  ? 'bg-amber-500 text-white border-amber-600 shadow-sm'
+                  : 'bg-white text-amber-800 border-amber-200 hover:bg-amber-50'
+              }`}
             >
               {plan.name}
               {settings.auto_rotate && plan.id === activePlanId && ' ✓'}
             </button>
           ))}
           {settings.auto_rotate && (
-            <span className="flex items-center gap-1 text-[10px] text-amber-600 font-medium ml-1">
-              <Shuffle className="w-3 h-3" /> Tự động
+            <span className="flex items-center gap-1 text-[11px] text-amber-700 bg-amber-100 font-bold px-2 py-0.5 rounded-full ml-1 border border-amber-200">
+              <Shuffle className="w-3 h-3 text-amber-600" /> Tự động đổi tuần
             </span>
           )}
         </div>
       )}
 
-      {/* Meal grid */}
+      {/* Meal Grid */}
       {isExpanded && (
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto rounded-xl border border-amber-200 shadow-xs bg-white">
           {plans.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-6 text-amber-600">
-              <UtensilsCrossed className="w-8 h-8 opacity-40" />
-              <p className="text-sm font-semibold">Chưa có menu nào</p>
+            <div className="flex flex-col items-center gap-2 py-8 text-amber-700">
+              <UtensilsCrossed className="w-8 h-8 opacity-40 text-amber-500" />
+              <p className="text-sm font-bold">Chưa có menu nào</p>
               <button
                 onClick={() => setIsSettingsOpen(true)}
-                className="text-xs px-3 py-1.5 bg-amber-100 rounded-lg border border-amber-300 hover:bg-amber-200 transition-colors font-medium"
+                className="text-xs px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg shadow-sm font-bold transition-colors cursor-pointer"
               >
-                ⚙️ Mở cài đặt để thêm menu
+                + Tạo menu đầu tiên
               </button>
             </div>
           ) : activePlan ? (
-            <table className="w-full border-collapse text-xs min-w-[500px]">
+            <table className="w-full border-collapse text-xs min-w-[580px]">
               <thead>
-                <tr>
-                  {WEEKDAYS.map((d) => (
-                    <th
-                      key={d.num}
-                      className={`py-1.5 px-2 text-center font-bold text-[11px] rounded-t-lg ${d.num === todayWeekday ? 'bg-amber-500 text-white' : 'bg-amber-100 text-amber-800'}`}
-                    >
-                      {d.label}
-                    </th>
-                  ))}
+                <tr className="border-b border-amber-200 bg-amber-50/80">
+                  {WEEKDAYS.map((d) => {
+                    const isToday = d.num === todayWeekday;
+                    return (
+                      <th
+                        key={d.num}
+                        className={`py-2 px-2 text-center font-bold text-xs transition-colors ${
+                          isToday
+                            ? 'bg-amber-500 text-white'
+                            : 'text-amber-900 border-r border-amber-100 last:border-r-0'
+                        }`}
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          <span>{d.label}</span>
+                          {isToday && <span className="text-[10px] font-normal">●</span>}
+                        </div>
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
                 <tr>
                   {WEEKDAYS.map((d) => {
                     const m = getMeal(activePlan, d.num);
-                    const isEditing = editCell?.planId === activePlan.id && editCell?.weekday === d.num;
                     const isDragTarget = swapTarget?.planId === activePlan.id && swapTarget?.weekday === d.num;
                     const isToday = d.num === todayWeekday;
 
@@ -401,76 +544,71 @@ export const BreakfastCard: React.FC<Props> = ({ todayWeekday }) => {
                         onDragStart={() => m && handleDragStart(activePlan.id, d.num)}
                         onDragOver={(e) => handleDragOver(activePlan.id, d.num, e)}
                         onDrop={() => handleDrop(activePlan.id, d.num)}
-                        onDragEnd={() => { setSwapSource(null); setSwapTarget(null); }}
-                        className={`p-1.5 align-top border border-amber-100 transition-all ${isToday ? 'bg-amber-50' : 'bg-white'} ${isDragTarget ? 'border-2 border-amber-400 bg-amber-50' : ''}`}
-                        style={{ minWidth: 100 }}
+                        onDragEnd={() => {
+                          setSwapSource(null);
+                          setSwapTarget(null);
+                        }}
+                        className={`p-1.5 align-top border-r border-amber-100 last:border-r-0 transition-all ${
+                          isToday ? 'bg-amber-50/50' : 'bg-white'
+                        } ${isDragTarget ? 'ring-2 ring-amber-400 bg-amber-100/70' : ''}`}
+                        style={{ minWidth: 100, width: `${100 / 7}%` }}
                       >
-                        {isEditing ? (
-                          <div className="space-y-1 relative">
-                            <input
-                              autoFocus
-                              value={editMealValue}
-                              onChange={(e) => { setEditMealValue(e.target.value); setSuggestionOpen(e.target.value.length > 0); }}
-                              onKeyDown={(e) => { if (e.key === 'Enter') saveEditCell(); if (e.key === 'Escape') setEditCell(null); }}
-                              placeholder="Tên món..."
-                              className="w-full border border-amber-300 rounded px-1.5 py-1 text-[11px] focus:ring-1 focus:ring-amber-400"
-                            />
-                            {/* Suggestions dropdown */}
-                            {suggestionOpen && (
-                              <div className="absolute top-full left-0 right-0 z-50 bg-white border border-amber-200 rounded-lg shadow-lg max-h-36 overflow-y-auto mt-0.5">
-                                {MEAL_SUGGESTIONS.filter((s) => s.toLowerCase().includes(editMealValue.toLowerCase())).map((s) => (
-                                  <button
-                                    key={s}
-                                    onMouseDown={(e) => { e.preventDefault(); setEditMealValue(s); setSuggestionOpen(false); }}
-                                    className="w-full text-left px-2 py-1 hover:bg-amber-50 text-[11px] text-slate-700"
-                                  >
-                                    {s}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                            <input
-                              value={editNoteValue}
-                              onChange={(e) => setEditNoteValue(e.target.value)}
-                              onKeyDown={(e) => { if (e.key === 'Enter') saveEditCell(); }}
-                              placeholder="Ghi chú..."
-                              className="w-full border border-amber-200 rounded px-1.5 py-0.5 text-[10px] text-slate-500"
-                            />
-                            <div className="flex gap-1">
-                              <button onClick={saveEditCell} className="flex-1 bg-amber-500 text-white rounded py-0.5 flex items-center justify-center gap-0.5 hover:bg-amber-600 transition-colors">
-                                <Check className="w-2.5 h-2.5" />
-                              </button>
-                              <button onClick={() => setEditCell(null)} className="flex-1 bg-slate-200 rounded py-0.5 flex items-center justify-center hover:bg-slate-300 transition-colors">
-                                <X className="w-2.5 h-2.5 text-slate-600" />
-                              </button>
-                            </div>
-                          </div>
-                        ) : m ? (
+                        {m ? (
                           <div
-                            className={`group flex flex-col gap-0.5 cursor-pointer rounded-lg p-1.5 transition-all hover:shadow-sm ${isToday ? 'bg-amber-100/70 hover:bg-amber-100' : 'hover:bg-amber-50'}`}
-                            onClick={() => openEditCell(activePlan.id, d.num)}
+                            onClick={() => openModal(activePlan.id, d.num)}
+                            className={`group relative flex flex-col justify-between min-h-[64px] p-2 rounded-xl border transition-all cursor-pointer ${
+                              isToday
+                                ? 'bg-amber-100/90 border-amber-300 shadow-2xs hover:bg-amber-100 hover:border-amber-400'
+                                : 'bg-amber-50/40 border-amber-200/70 hover:bg-amber-50 hover:border-amber-300 hover:shadow-2xs'
+                            }`}
+                            title="Bấm để chỉnh sửa món"
                           >
-                            <div className="flex items-start justify-between gap-1">
-                              <span className="font-semibold text-amber-900 leading-tight text-[11px]">{m.meal}</span>
-                              <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <GripVertical className="w-2.5 h-2.5 text-slate-400 cursor-grab" />
-                                <Edit3 className="w-2.5 h-2.5 text-amber-500" />
-                              </div>
+                            {/* Grip & Quick Delete on hover */}
+                            <div className="absolute top-1 right-1 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                              <span
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteMeal(activePlan.id, d.num);
+                                }}
+                                title="Xóa món"
+                                className="w-4 h-4 rounded-full bg-rose-500 hover:bg-rose-600 text-white flex items-center justify-center text-[10px] shadow-sm cursor-pointer"
+                              >
+                                <X className="w-2.5 h-2.5" />
+                              </span>
                             </div>
-                            {m.note && (
-                              <span className="text-[9px] text-amber-600 bg-amber-50 rounded px-1 leading-tight">{m.note}</span>
-                            )}
-                            {isToday && (
-                              <span className="text-[9px] font-bold text-amber-700">📍 Hôm nay</span>
-                            )}
+
+                            {/* Tên món — Không lặp lại nhãn thứ */}
+                            <div className="text-xs font-bold text-amber-950 leading-snug pr-3">
+                              {m.meal}
+                            </div>
+
+                            {/* Ghi chú hoặc Hôm nay */}
+                            <div className="mt-1.5 space-y-1">
+                              {m.note && (
+                                <div
+                                  className="text-[9px] text-amber-900 bg-amber-200/60 rounded px-1.5 py-0.5 font-normal leading-tight truncate border border-amber-300/40"
+                                  title={m.note}
+                                >
+                                  📝 {m.note}
+                                </div>
+                              )}
+                              {isToday && (
+                                <span className="inline-flex items-center text-[9px] font-bold text-amber-700 bg-white/80 px-1.5 py-0.5 rounded-full border border-amber-200 shadow-2xs">
+                                  📍 Hôm nay
+                                </span>
+                              )}
+                            </div>
                           </div>
                         ) : (
+                          /* Ô trống: bấm để thêm nhanh */
                           <button
-                            onClick={() => openEditCell(activePlan.id, d.num)}
-                            className="w-full h-full min-h-[48px] flex flex-col items-center justify-center gap-0.5 text-amber-300 hover:text-amber-500 hover:bg-amber-50/60 rounded-lg transition-all group border border-dashed border-amber-200 hover:border-amber-300"
+                            type="button"
+                            onClick={() => openModal(activePlan.id, d.num)}
+                            className="w-full h-full min-h-[64px] flex flex-col items-center justify-center gap-1 text-amber-400 hover:text-amber-700 hover:bg-amber-50/70 rounded-xl transition-all group border border-dashed border-amber-200 hover:border-amber-400 cursor-pointer p-1"
+                            title="Bấm để chọn món ăn sáng"
                           >
-                            <Plus className="w-3 h-3 group-hover:scale-110 transition-transform" />
-                            <span className="text-[9px]">Thêm món</span>
+                            <Plus className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                            <span className="text-[10px] font-semibold">Thêm món</span>
                           </button>
                         )}
                       </td>
@@ -483,12 +621,240 @@ export const BreakfastCard: React.FC<Props> = ({ todayWeekday }) => {
         </div>
       )}
 
-      {/* Swap hint */}
+      {/* Gợi ý kéo thả đổi món */}
       {isExpanded && activePlan && activePlan.meals.length >= 2 && (
-        <p className="text-[10px] text-amber-500 mt-2 flex items-center gap-1">
-          <ArrowLeftRight className="w-3 h-3" />
-          Kéo thả ô để hoán vị món giữa các ngày • Click ô để chỉnh sửa
-        </p>
+        <div className="flex items-center justify-between text-[11px] text-amber-700 mt-2 px-1">
+          <span className="flex items-center gap-1.5 font-medium">
+            <ArrowLeftRight className="w-3.5 h-3.5 text-amber-600" />
+            Kéo thả giữa 2 ô để hoán đổi món cho nhau • Nhấp vào ô để chỉnh sửa nhanh
+          </span>
+        </div>
+      )}
+
+      {/* ================= MODAL CHỌN MÓN ĂN SÁNG NHANH ================= */}
+      {modalCell && currentModalDay && activePlan && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white border border-amber-200 rounded-2xl p-5 shadow-2xl w-full max-w-lg space-y-4 animate-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-amber-100">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-sm shadow-sm">
+                  🍳
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-amber-950 flex items-center gap-1.5">
+                    <span>Thực đơn {currentModalDay.label}</span>
+                    {currentModalDay.num === todayWeekday && (
+                      <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded-full border border-amber-200">
+                        Hôm nay
+                      </span>
+                    )}
+                  </h3>
+                  <p className="text-[11px] text-amber-600">
+                    Menu: <strong className="text-amber-800">{activePlan.name}</strong>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={closeModal}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Day Switcher Tabs inside Modal */}
+            <div className="flex items-center gap-1 overflow-x-auto pb-1">
+              <span className="text-[11px] font-bold text-amber-800 shrink-0 mr-1">Chuyển ngày:</span>
+              {WEEKDAYS.map((d) => (
+                <button
+                  type="button"
+                  key={d.num}
+                  onClick={() => handleSwitchDayInModal(d.num)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                    d.num === modalCell.weekday
+                      ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
+                      : 'bg-amber-50/70 text-amber-900 border-amber-200 hover:bg-amber-100'
+                  }`}
+                >
+                  {d.short}
+                </button>
+              ))}
+            </div>
+
+            {/* Form */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSaveMeal(false);
+              }}
+              className="space-y-3.5 text-xs"
+            >
+              {/* Input tên món */}
+              <div className="space-y-1.5">
+                <label className="font-bold text-amber-950 flex items-center justify-between">
+                  <span>Món ăn sáng *</span>
+                  {formMeal && (
+                    <span className="text-[10px] text-amber-600 font-normal">
+                      Bấm Enter hoặc nút Lưu để hoàn tất
+                    </span>
+                  )}
+                </label>
+                <input
+                  type="text"
+                  autoFocus
+                  required
+                  placeholder="Nhập tên món ăn sáng (ví dụ: Bánh mì trứng)..."
+                  value={formMeal}
+                  onChange={(e) => setFormMeal(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-amber-300 bg-amber-50/30 text-amber-950 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+
+                {/* Quick Pills (Gợi ý món chọn nhanh giống môn học) */}
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="font-bold text-amber-800 flex items-center gap-1">
+                      <Tag className="w-3 h-3 text-amber-600" />
+                      Gợi ý món ăn nhanh (bấm để chọn):
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingCustomDish((v) => !v)}
+                      className="text-amber-700 hover:text-amber-900 font-bold flex items-center gap-0.5 cursor-pointer"
+                    >
+                      <Plus className="w-3 h-3" />
+                      Thêm món vào danh sách
+                    </button>
+                  </div>
+
+                  {/* Add Custom Dish input */}
+                  {isAddingCustomDish && (
+                    <div className="flex items-center gap-1.5 p-2 bg-amber-50 rounded-xl border border-amber-200">
+                      <input
+                        type="text"
+                        placeholder="Tên món mới..."
+                        value={newCustomDishName}
+                        onChange={(e) => setNewCustomDishName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddCustomDish();
+                          }
+                          if (e.key === 'Escape') setIsAddingCustomDish(false);
+                        }}
+                        className="flex-1 px-2.5 py-1 rounded-lg border border-amber-300 text-xs bg-white text-amber-950"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddCustomDish}
+                        className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-bold text-xs cursor-pointer"
+                      >
+                        Thêm
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsAddingCustomDish(false)}
+                        className="p-1 bg-slate-200 hover:bg-slate-300 text-slate-600 rounded-lg cursor-pointer"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Quick Pills List */}
+                  <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-1.5 bg-amber-50/50 rounded-xl border border-amber-200/60">
+                    {dishList.map((dish) => {
+                      const isSelected = formMeal === dish;
+                      return (
+                        <div
+                          key={dish}
+                          className={`group/pill inline-flex items-center rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-amber-500 text-white border-amber-600 shadow-2xs'
+                              : 'bg-white text-amber-950 border-amber-200 hover:border-amber-400 hover:bg-amber-100/70'
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => setFormMeal(dish)}
+                            className="px-2.5 py-1 text-left cursor-pointer"
+                          >
+                            {dish}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteDishFromList(dish, e)}
+                            title="Xóa khỏi danh sách gợi ý"
+                            className={`pr-1.5 pl-0.5 opacity-0 group-hover/pill:opacity-100 transition-opacity hover:text-rose-500 cursor-pointer ${
+                              isSelected ? 'text-white/80 hover:text-white' : 'text-slate-400'
+                            }`}
+                          >
+                            <X className="w-2.5 h-2.5" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Ghi chú */}
+              <div className="space-y-1">
+                <label className="font-bold text-amber-950">Ghi chú thêm (tuỳ chọn)</label>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: uống 1 hộp sữa tươi, mang thêm bánh..."
+                  value={formNote}
+                  onChange={(e) => setFormNote(e.target.value)}
+                  className="w-full px-3 py-1.5 rounded-xl border border-amber-200 bg-app-bg text-content-primary focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-between pt-2 border-t border-amber-100 gap-2">
+                <div>
+                  {currentModalMeal && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteMeal(activePlan.id, modalCell.weekday)}
+                      className="px-3 py-2 rounded-xl text-rose-600 hover:bg-rose-50 border border-rose-200 text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Xóa món này
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    className="px-3 py-2 rounded-xl text-slate-600 hover:bg-slate-100 text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    Huỷ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSaveMeal(true)}
+                    className="px-3 py-2 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                    title="Lưu món này và mở ngay ngày tiếp theo"
+                  >
+                    <span>Lưu & Tiếp theo</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-sm transition-colors flex items-center gap-1 cursor-pointer"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    Lưu
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

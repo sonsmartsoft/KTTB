@@ -67,6 +67,7 @@ const KEYS = {
   EXAM_PREP_TASKS: 'ktt_exam_prep_tasks',
   BREAKFAST_PLANS: 'ktt_breakfast_plans',
   BREAKFAST_SETTINGS: 'ktt_breakfast_settings',
+  BREAKFAST_DISHES: 'ktt_breakfast_dishes',
 };
 
 function getItem<T>(key: string, defaultValue: T): T {
@@ -688,6 +689,46 @@ export const storage = {
     if (idx >= 0) all[idx] = settings;
     else all.push(settings);
     setItem(KEYS.BREAKFAST_SETTINGS, all);
+  },
+  getBreakfastDishes(): string[] {
+    const defaultDishes = [
+      'Bánh mì trứng',
+      'Bánh mì thịt pate',
+      'Phở bò',
+      'Phở gà',
+      'Bún riêu cua',
+      'Bún bò Huế',
+      'Xôi xéo ruốc',
+      'Xôi lạc đậu xanh',
+      'Bánh bao nhân thịt',
+      'Bánh cuốn chả',
+      'Cơm chiên trứng',
+      'Mì tôm nấu trứng',
+      'Cháo sườn / cháo gà',
+      'Miến gà',
+      'Hủ tiếu Nam Vang',
+      'Sandwich phô mai',
+      'Ngũ cốc + sữa tươi',
+      'Bánh mì chảo',
+      'Bánh giò nóng',
+      'Sữa chua + hoa quả',
+    ];
+    return getItem<string[]>(KEYS.BREAKFAST_DISHES, defaultDishes);
+  },
+  saveBreakfastDishes(dishes: string[]): void {
+    setItem(KEYS.BREAKFAST_DISHES, dishes);
+  },
+  addBreakfastDish(dish: string): void {
+    const trimmed = dish.trim();
+    if (!trimmed) return;
+    const current = this.getBreakfastDishes();
+    if (!current.includes(trimmed)) {
+      this.saveBreakfastDishes([trimmed, ...current]);
+    }
+  },
+  deleteBreakfastDish(dish: string): void {
+    const current = this.getBreakfastDishes().filter((d) => d !== dish);
+    this.saveBreakfastDishes(current);
   },
 };
 
