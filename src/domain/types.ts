@@ -451,8 +451,10 @@ export interface MotherSettings {
   startDate: string; // YYYY-MM-DD ngày bắt đầu lộ trình 30 ngày
   targetCalories: number; // 1300
   targetWaterLiters: number; // 2.0
-  targetWeightKg?: number;
-  currentWeightKg?: number;
+  startWeightKg?: number; // Cân nặng lúc bắt đầu lộ trình (VD: 56.5)
+  targetWeightKg?: number; // Cân nặng mục tiêu (VD: 52.0)
+  currentWeightKg?: number; // Cân nặng hiện tại
+  targetWorkoutsPerWeek?: number; // Số buổi tập mục tiêu mỗi tuần (VD: 5)
   heightCm?: number;
   birthYear?: number;
   date_of_birth?: string; // YYYY-MM-DD ngày tháng năm sinh nhật của Mẹ

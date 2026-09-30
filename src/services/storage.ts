@@ -41,6 +41,7 @@ import {
   SEED_BREAKFAST_SETTINGS,
   SEED_MOTHER_MEAL_DAYS,
   SEED_MOTHER_WORKOUTS,
+  SEED_MOTHER_CHECKINS,
   DEFAULT_MOTHER_SETTINGS,
   DEFAULT_TYPOGRAPHY_SETTINGS,
 } from './motherAndBreakfastSeed';
@@ -877,7 +878,8 @@ export const storage = {
     setItem(KEYS.MOTHER_WORKOUTS, SEED_MOTHER_WORKOUTS);
   },
   getMotherCheckIns(): MotherDailyCheckIn[] {
-    return getItem<MotherDailyCheckIn[]>(KEYS.MOTHER_CHECKINS, []);
+    const stored = getItem<MotherDailyCheckIn[]>(KEYS.MOTHER_CHECKINS, SEED_MOTHER_CHECKINS);
+    return stored.length > 0 ? stored : SEED_MOTHER_CHECKINS;
   },
   getMotherCheckInByDate(date: string): MotherDailyCheckIn {
     const all = this.getMotherCheckIns();

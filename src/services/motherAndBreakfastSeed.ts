@@ -3,6 +3,7 @@ import {
   BreakfastSettings,
   MotherMealDay,
   MotherWorkoutItem,
+  MotherDailyCheckIn,
   MotherSettings,
   TypographySettings,
 } from '@/domain/types';
@@ -390,8 +391,10 @@ export const DEFAULT_MOTHER_SETTINGS: MotherSettings = {
   startDate: '2026-09-28',
   targetCalories: 1300,
   targetWaterLiters: 2.0,
-  targetWeightKg: 52,
-  currentWeightKg: 56,
+  startWeightKg: 56.0,
+  targetWeightKg: 52.0,
+  currentWeightKg: 54.8,
+  targetWorkoutsPerWeek: 5,
   heightCm: 160,
   birthYear: 1990,
   date_of_birth: '1990-10-20',
@@ -401,6 +404,65 @@ export const DEFAULT_MOTHER_SETTINGS: MotherSettings = {
   color: '#F43F5E',
   goalNote: 'Giữ dáng thon gọn, khỏe mạnh & tràn đầy năng lượng mỗi ngày',
 };
+
+export const SEED_MOTHER_CHECKINS: MotherDailyCheckIn[] = [
+  {
+    date: '2026-09-24',
+    weightKg: 56.0,
+    waterGlasses: 7,
+    workoutCompleted: true,
+    completedMeals: ['breakfast', 'lunch', 'snack', 'dinner'],
+    note: 'Ngày đầu khởi động lộ trình ăn healthy & tập luyện',
+  },
+  {
+    date: '2026-09-25',
+    weightKg: 55.8,
+    waterGlasses: 8,
+    workoutCompleted: true,
+    completedMeals: ['breakfast', 'lunch', 'snack', 'dinner'],
+    note: 'Uống đủ 2L nước, tập Pilates siết eo 45p',
+  },
+  {
+    date: '2026-09-26',
+    weightKg: 55.5,
+    waterGlasses: 8,
+    workoutCompleted: true,
+    completedMeals: ['breakfast', 'lunch', 'snack', 'dinner'],
+    note: 'Đi bộ nhanh cùng các con buổi sáng cuối tuần',
+  },
+  {
+    date: '2026-09-27',
+    weightKg: 55.4,
+    waterGlasses: 7,
+    workoutCompleted: false,
+    completedMeals: ['breakfast', 'lunch', 'dinner'],
+    note: 'Chủ nhật nghỉ phục hồi cơ, chuẩn bị thực phẩm tuần mới',
+  },
+  {
+    date: '2026-09-28',
+    weightKg: 55.2,
+    waterGlasses: 8,
+    workoutCompleted: true,
+    completedMeals: ['breakfast', 'lunch', 'snack', 'dinner'],
+    note: 'Ngày 1 thực đơn 1300 Calo — Cơ thể nhẹ nhàng',
+  },
+  {
+    date: '2026-09-29',
+    weightKg: 55.0,
+    waterGlasses: 8,
+    workoutCompleted: true,
+    completedMeals: ['breakfast', 'lunch', 'snack', 'dinner'],
+    note: 'Tập thân dưới & mông đùi 45p, uống đủ 8 cốc nước',
+  },
+  {
+    date: '2026-09-30',
+    weightKg: 54.8,
+    waterGlasses: 8,
+    workoutCompleted: true,
+    completedMeals: ['breakfast', 'lunch', 'snack', 'dinner'],
+    note: 'Yoga Flow & giãn cơ, đã giảm được 1.2kg so với ban đầu!',
+  },
+];
 
 // ================== DEFAULT TYPOGRAPHY SETTINGS ==================
 
