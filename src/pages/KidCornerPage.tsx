@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useChild } from '@/context/ChildContext';
 import { useKidMode } from '@/context/KidModeContext';
 import { storage } from '@/services/storage';
@@ -19,13 +19,41 @@ import {
   BookOpen,
   Sun,
   Zap,
+  Utensils,
+  X,
+  Check,
 } from 'lucide-react';
-import { AcademicMilestone, ExamPrepTask, HomeworkTask } from '@/domain/types';
+import { AcademicMilestone, ExamPrepTask, HomeworkTask, BreakfastPlan, WeekdayNumber } from '@/domain/types';
 import { resolveSchedule } from '@/domain/schedule-resolution/resolveSchedule';
 import { formatChildDisplayName } from '@/lib/childNameHelper';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { getHolidayInfo } from '@/utils/vietnameseHolidays';
+
+const WEEKDAYS_KID: { day: WeekdayNumber; label: string; short: string }[] = [
+  { day: 2, label: 'Thứ 2', short: 'T2' },
+  { day: 3, label: 'Thứ 3', short: 'T3' },
+  { day: 4, label: 'Thứ 4', short: 'T4' },
+  { day: 5, label: 'Thứ 5', short: 'T5' },
+  { day: 6, label: 'Thứ 6', short: 'T6' },
+  { day: 7, label: 'Thứ 7', short: 'T7' },
+  { day: 8, label: 'CN',    short: 'CN' },
+];
+
+function getDishEmoji(dish?: string): string {
+  if (!dish) return '🍽️';
+  const first = dish.trim().split(' ')[0];
+  if (first && first.length <= 4 && /[^\w\sÀ-ỹ]/u.test(first)) return first;
+  return '🥣';
+}
+function getDishTitle(dish?: string): string {
+  if (!dish) return '';
+  const parts = dish.trim().split(' ');
+  if (parts.length > 1 && parts[0].length <= 4 && /[^\w\sÀ-ỹ]/u.test(parts[0])) {
+    return parts.slice(1).join(' ');
+  }
+  return dish;
+}
 
 /* ─── Gender theme ─────────────────────────────────────────── */
 function getTheme(gender?: 'male' | 'female', avatarUrl?: string) {
@@ -86,10 +114,69 @@ export const KidCornerPage: React.FC = () => {
   const theme = useMemo(() => getTheme(activeChild.gender, activeChild.avatar_url), [activeChild.gender, activeChild.avatar_url]);
 
   const [todayStr] = useState<string>(() => format(new Date(), 'yyyy-MM-dd'));
+  const todayWeekday = useMemo<WeekdayNumber>(() => {
+    const jsDay = new Date().getDay();
+    return (jsDay === 0 ? 8 : jsDay + 1) as WeekdayNumber;
+  }, []);
   const todayHoliday = useMemo(() => getHolidayInfo(new Date()), []);
   const [milestones, setMilestones] = useState<AcademicMilestone[]>(() => storage.getMilestones());
   const [prepTasks, setPrepTasks] = useState<ExamPrepTask[]>(() => storage.getExamPrepTasks());
   const [homeworkTasks, setHomeworkTasks] = useState<HomeworkTask[]>(() => storage.getHomeworkTasks());
+
+  // Breakfast state for activeChild
+  const [activeBreakfastPlan, setActiveBreakfastPlan] = useState<BreakfastPlan | null>(() =>
+    storage.getActiveBreakfastPlanForChild(activeChild.id)
+  );
+  const [editingBreakfastDay, setEditingBreakfastDay] = useState<WeekdayNumber | null>(null);
+  const [dishInput, setDishInput] = useState('');
+  const [noteInput, setNoteInput] = useState('');
+  const dishes = useMemo(() => storage.getBreakfastDishes(), [editingBreakfastDay]);
+
+  useEffect(() => {
+    setActiveBreakfastPlan(storage.getActiveBreakfastPlanForChild(activeChild.id));
+  }, [activeChild.id]);
+
+  useEffect(() => {
+    const onCloudSynced = () => {
+      setMilestones(storage.getMilestones());
+      setPrepTasks(storage.getExamPrepTasks());
+      setHomeworkTasks(storage.getHomeworkTasks());
+      setActiveBreakfastPlan(storage.getActiveBreakfastPlanForChild(activeChild.id));
+    };
+    window.addEventListener('ktt-cloud-synced', onCloudSynced);
+    return () => window.removeEventListener('ktt-cloud-synced', onCloudSynced);
+  }, [activeChild.id]);
+
+  const todayBreakfast = useMemo(() => {
+    return activeBreakfastPlan?.meals.find((m) => m.weekday === todayWeekday) || null;
+  }, [activeBreakfastPlan, todayWeekday]);
+
+  const handleOpenEditBreakfast = (weekday: WeekdayNumber) => {
+    const existing = activeBreakfastPlan?.meals.find((m) => m.weekday === weekday);
+    setEditingBreakfastDay(weekday);
+    setDishInput(existing?.meal || '');
+    setNoteInput(existing?.note || '');
+  };
+
+  const handleSaveBreakfastDay = (customDish?: string) => {
+    if (!activeBreakfastPlan || editingBreakfastDay === null) return;
+    const dishToSave = (customDish !== undefined ? customDish : dishInput).trim();
+    const updatedMeals = activeBreakfastPlan.meals.filter((m) => m.weekday !== editingBreakfastDay);
+    if (dishToSave) {
+      updatedMeals.push({
+        weekday: editingBreakfastDay,
+        meal: dishToSave,
+        note: noteInput.trim() || undefined,
+      });
+    }
+    const updatedPlan: BreakfastPlan = {
+      ...activeBreakfastPlan,
+      meals: updatedMeals.sort((a, b) => a.weekday - b.weekday),
+    };
+    storage.saveBreakfastPlan(updatedPlan);
+    setActiveBreakfastPlan(updatedPlan);
+    setEditingBreakfastDay(null);
+  };
 
   const [showExitModal, setShowExitModal] = useState(false);
   const [pinInput, setPinInput] = useState('');
@@ -226,7 +313,7 @@ export const KidCornerPage: React.FC = () => {
 
   /* ═══════════════════════════════════════════════════════════ */
   return (
-    <div className="space-y-5 max-w-4xl mx-auto animate-in fade-in duration-300 pb-8">
+    <div data-section="kid-corner" className="space-y-5 max-w-5xl mx-auto animate-in fade-in duration-300 pb-8">
 
       {/* ── HERO BANNER ── */}
       <div className={`relative overflow-hidden rounded-3xl bg-gradient-to-r ${theme.bgGradient} p-5 md:p-7 text-white shadow-2xl`}>
@@ -273,6 +360,20 @@ export const KidCornerPage: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            {todayBreakfast?.meal && (
+              <button
+                type="button"
+                onClick={() => handleOpenEditBreakfast(todayWeekday)}
+                className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-amber-400/30 hover:bg-amber-400/40 backdrop-blur-md border border-white/40 text-left transition-all"
+                title="Nhấn để đổi món ăn sáng hôm nay"
+              >
+                <span className="text-xl leading-none">{getDishEmoji(todayBreakfast.meal)}</span>
+                <div>
+                  <div className="text-[9px] font-bold text-white/90 uppercase">Bữa sáng hôm nay</div>
+                  <div className="text-xs font-black leading-tight max-w-[150px] truncate">{getDishTitle(todayBreakfast.meal)}</div>
+                </div>
+              </button>
+            )}
             <div className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30">
               <Star className={`w-4 h-4 ${theme.starClass}`} />
               <div>
@@ -299,6 +400,89 @@ export const KidCornerPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* ── BREAKFAST WEEKLY BANNER FOR KID CORNER ── */}
+      {activeBreakfastPlan && (
+        <Card className="p-4 md:p-5 border-2 border-amber-300/70 dark:border-amber-700/60 bg-gradient-to-br from-amber-50/90 via-orange-50/60 to-yellow-50/70 dark:from-amber-950/30 dark:via-orange-950/20 dark:to-amber-950/10 shadow-md space-y-3.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center shadow-sm">
+                <Utensils className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-black text-sm text-amber-950 dark:text-amber-200">
+                    🍳 Thực đơn bữa sáng của {formatChildDisplayName(activeChild)}
+                  </h3>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-200/80 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200">
+                    {activeBreakfastPlan.name}
+                  </span>
+                </div>
+                <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80">
+                  {todayBreakfast?.meal
+                    ? `Sáng nay ăn: ${todayBreakfast.meal}${todayBreakfast.note ? ` (${todayBreakfast.note})` : ''}`
+                    : 'Nhấn vào từng thứ bên dưới để chọn món ăn sáng con thích nhé!'}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleOpenEditBreakfast(todayWeekday)}
+              className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-extrabold shadow-sm transition-all"
+            >
+              🍽️ Đổi món hôm nay
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
+            {WEEKDAYS_KID.map(({ day, label }) => {
+              const meal = activeBreakfastPlan.meals.find((m) => m.weekday === day);
+              const isToday = day === todayWeekday;
+              const emoji = getDishEmoji(meal?.meal);
+              const title = getDishTitle(meal?.meal);
+              return (
+                <button
+                  key={day}
+                  type="button"
+                  onClick={() => handleOpenEditBreakfast(day)}
+                  className={`p-2.5 rounded-2xl border text-center flex flex-col items-center justify-between gap-1.5 transition-all hover:scale-[1.02] ${
+                    isToday
+                      ? 'border-amber-500 bg-amber-100/90 dark:bg-amber-900/40 ring-2 ring-amber-400/50 shadow-sm'
+                      : meal?.meal
+                      ? 'border-amber-200/80 dark:border-amber-800/50 bg-white/90 dark:bg-slate-900/60 hover:border-amber-400'
+                      : 'border-dashed border-amber-200 bg-white/50 dark:bg-slate-900/30 hover:border-amber-400'
+                  }`}
+                >
+                  <div className="flex items-center justify-center gap-1 w-full">
+                    <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                      isToday ? 'bg-amber-500 text-white' : 'bg-amber-100/80 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300'
+                    }`}>
+                      {label}
+                    </span>
+                  </div>
+                  {meal?.meal ? (
+                    <div className="flex flex-col items-center justify-center gap-1 py-0.5 w-full">
+                      <span className="text-xl leading-none">{emoji}</span>
+                      <span className="text-xs font-extrabold text-content-primary text-center line-clamp-2 leading-snug">
+                        {title}
+                      </span>
+                      {meal.note && (
+                        <span className="text-[10px] text-amber-700 dark:text-amber-300 italic line-clamp-1">
+                          {meal.note}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="py-2 text-[11px] font-bold text-amber-600/70">
+                      + Chọn món
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </Card>
+      )}
 
       {/* ── MAIN GRID ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -567,6 +751,95 @@ export const KidCornerPage: React.FC = () => {
           </Card>
         </div>
       </div>
+
+      {/* ── BREAKFAST QUICK PICKER MODAL ── */}
+      {editingBreakfastDay !== null && activeBreakfastPlan && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-150"
+          onClick={() => setEditingBreakfastDay(null)}
+        >
+          <div
+            className="bg-app-surface rounded-3xl shadow-2xl border border-app-border w-full max-w-md overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white">
+              <div className="flex items-center gap-2 font-black text-sm">
+                <Utensils className="w-4 h-4" />
+                <span>
+                  Chọn món ăn sáng — {WEEKDAYS_KID.find((w) => w.day === editingBreakfastDay)?.label}
+                </span>
+              </div>
+              <button
+                onClick={() => setEditingBreakfastDay(null)}
+                className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              <div>
+                <label className="text-[11px] font-bold text-content-secondary mb-1.5 block">
+                  🍽️ Chạm để chọn nhanh món ăn con thích:
+                </label>
+                <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto p-1 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200/50">
+                  {dishes.map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => {
+                        setDishInput(d);
+                        handleSaveBreakfastDay(d);
+                      }}
+                      className={`px-2.5 py-1 rounded-full text-xs font-bold border transition-all ${
+                        dishInput === d
+                          ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                          : 'bg-app-surface border-app-border text-content-secondary hover:border-amber-400 hover:bg-amber-50'
+                      }`}
+                    >
+                      {d}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="text-[11px] font-bold text-content-secondary mb-1 block">
+                  Hoặc tự nhập tên món ăn:
+                </label>
+                <input
+                  value={dishInput}
+                  onChange={(e) => setDishInput(e.target.value)}
+                  placeholder="VD: 🍜 Phở bò tái chín..."
+                  className="w-full px-3 py-2 text-xs font-semibold border border-app-border rounded-xl bg-app-bg text-content-primary focus:outline-none focus:ring-2 focus:ring-amber-400"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-bold text-content-secondary mb-1 block">
+                  Ghi chú thêm (nếu có):
+                </label>
+                <input
+                  value={noteInput}
+                  onChange={(e) => setNoteInput(e.target.value)}
+                  placeholder="VD: Thêm 1 hộp sữa tươi..."
+                  className="w-full px-3 py-1.5 text-xs border border-app-border rounded-xl bg-app-bg text-content-primary focus:outline-none focus:ring-2 focus:ring-amber-400"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button variant="outline" size="sm" onClick={() => setEditingBreakfastDay(null)}>
+                  Đóng
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={<Check className="w-3.5 h-3.5" />}
+                  onClick={() => handleSaveBreakfastDay()}
+                >
+                  Lưu món ăn
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── EXIT PIN MODAL ── */}
       {showExitModal && (

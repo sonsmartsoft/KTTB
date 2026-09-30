@@ -36,14 +36,135 @@
   --shadow-lg: 0 10px 24px -4px rgba(245, 158, 11, 0.12);
   --shadow-pop: 0 6px 0 #D97706;
   --font-display: 'Comfortaa', 'Quicksand', cursive;
+
+  /* Typography & Section Scaling Variables */
+  --font-general: 'Quicksand', 'Nunito', sans-serif;
+  --scale-general: 1.14;
+  --font-timetable: 'Be Vietnam Pro', 'Quicksand', sans-serif;
+  --scale-timetable: 1.14;
+  --font-breakfast: 'Be Vietnam Pro', 'Quicksand', sans-serif;
+  --scale-breakfast: 1.14;
+  --font-extra: 'Quicksand', 'Nunito', sans-serif;
+  --scale-extra: 1.14;
+  --font-kidCorner: 'Quicksand', 'Nunito', sans-serif;
+  --scale-kidCorner: 1.14;
+  --font-mother: 'Be Vietnam Pro', 'Quicksand', sans-serif;
+  --scale-mother: 1.14;
+  --current-section-scale: var(--scale-general, 1.14);
+}
+
+/* ================= RESPONSIVE DISPLAY & TV AUTO-SCALING ================= */
+html {
+  font-size: 16px;
+  transition: font-size 0.2s ease;
+}
+
+/* Chế độ Tự động (Auto): Tự cân chỉnh từ điện thoại, laptop đến màn hình lớn & Tivi */
+html[data-display-mode="auto"] {
+  font-size: 16px;
+}
+@media (min-width: 1536px) {
+  html[data-display-mode="auto"] {
+    font-size: 17px;
+  }
+}
+@media (min-width: 1920px) {
+  html[data-display-mode="auto"] {
+    font-size: 18.5px;
+  }
+}
+@media (min-width: 2560px) {
+  html[data-display-mode="auto"] {
+    font-size: clamp(20px, 1.1vw, 28px);
+  }
+}
+
+/* Chế độ Chuẩn (Standard) */
+html[data-display-mode="standard"] {
+  font-size: 15px;
+}
+
+/* Chế độ Màn hình lớn (Large) */
+html[data-display-mode="large"] {
+  font-size: 17.5px;
+}
+
+/* Chế độ Tivi / Trình chiếu từ xa (TV Mode) */
+html[data-display-mode="tv"] {
+  font-size: clamp(18.5px, 1.2vw, 26px);
+}
+
+/* Mở rộng độ rộng khung nội dung trên màn hình lớn / TV */
+@media (min-width: 1440px) {
+  html[data-full-width="true"] .max-w-4xl,
+  html[data-display-mode="tv"] .max-w-4xl {
+    max-width: 92rem !important;
+  }
 }
 
 body {
   background-color: var(--bg-app);
   color: var(--text-primary);
-  font-family: 'Quicksand', 'Nunito', sans-serif;
+  font-family: var(--font-general, 'Quicksand', 'Nunito', sans-serif);
+  --current-section-scale: var(--scale-general, 1.14);
   transition: background-color 0.25s ease, color 0.25s ease;
   overflow-x: hidden;
+}
+
+/* ================= PER-SECTION TYPOGRAPHY & FONT SIZE SCALING ================= */
+[data-section="general"] {
+  font-family: var(--font-general);
+  --current-section-scale: var(--scale-general, 1.14);
+}
+[data-section="timetable"] {
+  font-family: var(--font-timetable);
+  --current-section-scale: var(--scale-timetable, 1.14);
+}
+[data-section="breakfast"] {
+  font-family: var(--font-breakfast);
+  --current-section-scale: var(--scale-breakfast, 1.14);
+}
+[data-section="extra"] {
+  font-family: var(--font-extra);
+  --current-section-scale: var(--scale-extra, 1.14);
+}
+[data-section="kid-corner"] {
+  font-family: var(--font-kidCorner);
+  --current-section-scale: var(--scale-kidCorner, 1.14);
+}
+[data-section="mother"] {
+  font-family: var(--font-mother);
+  --current-section-scale: var(--scale-mother, 1.14);
+}
+
+/* Scale utility text classes dynamically according to --current-section-scale */
+.text-\[8px\] {
+  font-size: calc(0.58rem * var(--current-section-scale, 1.14)) !important;
+  line-height: 1.35 !important;
+}
+.text-\[9px\] {
+  font-size: calc(0.64rem * var(--current-section-scale, 1.14)) !important;
+  line-height: 1.38 !important;
+}
+.text-\[10px\] {
+  font-size: calc(0.7rem * var(--current-section-scale, 1.14)) !important;
+  line-height: 1.42 !important;
+}
+.text-\[11px\] {
+  font-size: calc(0.75rem * var(--current-section-scale, 1.14)) !important;
+  line-height: 1.45 !important;
+}
+.text-xs {
+  font-size: calc(0.79rem * var(--current-section-scale, 1.14)) !important;
+  line-height: 1.48 !important;
+}
+.text-sm {
+  font-size: calc(0.9rem * var(--current-section-scale, 1.14)) !important;
+  line-height: 1.5 !important;
+}
+.text-base {
+  font-size: calc(1rem * var(--current-section-scale, 1.14)) !important;
+  line-height: 1.55 !important;
 }
 
 @keyframes spin {

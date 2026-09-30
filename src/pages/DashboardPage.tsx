@@ -351,6 +351,33 @@ export const DashboardPage: React.FC = () => {
             </div>
             <span className="text-xs text-content-muted">7:00 – 11:30</span>
           </div>
+          {(() => {
+            const bfMeal = storage.getBreakfastMealForWeekday(activeChild.id, resolved.weekday);
+            if (!bfMeal?.meal) return null;
+            return (
+              <Link
+                to="/timetable"
+                className="flex items-center justify-between gap-2 p-2.5 rounded-theme-sm border border-amber-300/70 bg-gradient-to-r from-amber-50 to-orange-50/70 dark:from-amber-950/30 dark:to-orange-950/20 hover:border-amber-400 transition-all"
+              >
+                <div className="min-w-0">
+                  <div className="text-[10px] font-extrabold uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                    🍳 Bữa sáng hôm nay
+                  </div>
+                  <div className="text-xs font-extrabold text-amber-950 dark:text-amber-200 truncate">
+                    {bfMeal.meal}
+                  </div>
+                  {bfMeal.note && (
+                    <div className="text-[10px] text-amber-700/80 dark:text-amber-300/80 italic truncate">
+                      {bfMeal.note}
+                    </div>
+                  )}
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-200/70 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 shrink-0">
+                  6:15 – 6:45
+                </span>
+              </Link>
+            );
+          })()}
           {resolved.morning.length === 0 ? (
             <div className="py-6 text-center text-xs text-content-muted">Không có tiết học buổi sáng</div>
           ) : (

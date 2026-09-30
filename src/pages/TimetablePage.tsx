@@ -813,7 +813,10 @@ export const TimetablePage: React.FC = () => {
         </div>
 
         {/* Timetable Matrix Grid */}
-        <div className="w-full overflow-x-auto rounded-2xl bg-slate-100/90 dark:bg-slate-900/70 p-2 border border-slate-200/80 shadow-sm mt-4">
+        <div
+          data-section="timetable"
+          className="w-full overflow-x-auto rounded-2xl bg-slate-100/90 dark:bg-slate-900/70 p-2 border border-slate-200/80 shadow-sm mt-4"
+        >
           <table className="w-full table-fixed border-collapse">
             <colgroup>
               <col style={{ width: '84px' }} />
@@ -1324,7 +1327,10 @@ export const TimetablePage: React.FC = () => {
         <BreakfastCard todayWeekday={(() => { const d = new Date().getDay(); const map: Record<number,WeekdayNumber> = {1:2,2:3,3:4,4:5,5:6,6:7,0:8}; return map[d]; })()} />
 
         {/* Bottom Infographic Module: Lịch học thêm clipboard + Pinned Ghi chú */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-5 pt-4 border-t border-slate-100">
+        <div
+          data-section="extra"
+          className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-5 pt-4 border-t border-slate-100"
+        >
           {/* Extra Classes Board */}
           <div className="md:col-span-2 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-3.5 relative">
             <div className="flex items-center justify-between mb-2">

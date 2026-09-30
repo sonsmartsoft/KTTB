@@ -21,8 +21,29 @@ import {
   ExamPrepTask,
   BreakfastPlan,
   BreakfastSettings,
+  BreakfastMeal,
+  WeekdayNumber,
+  TypographySettings,
+  MotherMealDay,
+  MotherWorkoutItem,
+  MotherDailyCheckIn,
+  MotherSettings,
 } from '@/domain/types';
-import { upsertToTable, syncOnStart, STORAGE_TO_TABLE } from '@/lib/supabaseSync';
+import {
+  upsertToTable,
+  upsertKvToCloud,
+  syncOnStart,
+  STORAGE_TO_TABLE,
+  SYS_KV_STORAGE_KEYS,
+} from '@/lib/supabaseSync';
+import {
+  SEED_BREAKFAST_PLANS,
+  SEED_BREAKFAST_SETTINGS,
+  SEED_MOTHER_MEAL_DAYS,
+  SEED_MOTHER_WORKOUTS,
+  DEFAULT_MOTHER_SETTINGS,
+  DEFAULT_TYPOGRAPHY_SETTINGS,
+} from './motherAndBreakfastSeed';
 import {
   SEED_CHILDREN,
   SEED_TIMETABLE_TEMPLATES,
@@ -68,6 +89,11 @@ const KEYS = {
   BREAKFAST_PLANS: 'ktt_breakfast_plans',
   BREAKFAST_SETTINGS: 'ktt_breakfast_settings',
   BREAKFAST_DISHES: 'ktt_breakfast_dishes',
+  TYPOGRAPHY_SETTINGS: 'ktt_typography_settings',
+  MOTHER_MEALS: 'ktt_mother_meals',
+  MOTHER_WORKOUTS: 'ktt_mother_workouts',
+  MOTHER_CHECKINS: 'ktt_mother_checkins',
+  MOTHER_SETTINGS: 'ktt_mother_settings',
 };
 
 function getItem<T>(key: string, defaultValue: T): T {
@@ -83,10 +109,14 @@ function getItem<T>(key: string, defaultValue: T): T {
 function setItem<T>(key: string, value: T): void {
   try {
     localStorage.setItem(key, JSON.stringify(value));
-    // Auto-sync to Supabase (fire-and-forget) for all data tables
+    // Auto-sync to Supabase (fire-and-forget) for standard tables
     const tableName = STORAGE_TO_TABLE[key];
     if (tableName && Array.isArray(value)) {
       upsertToTable(tableName, value as unknown[]);
+    }
+    // Auto-sync to Supabase KV store for extended settings/data (Breakfast, Typography, Mother...)
+    if (SYS_KV_STORAGE_KEYS.has(key)) {
+      upsertKvToCloud(key, value);
     }
   } catch (err) {
     console.error(`Failed to save to localStorage [${key}]:`, err);
@@ -660,35 +690,92 @@ export const storage = {
   },
 
   // ================== BỮA SÁNG ==================
+  getAllBreakfastPlans(): BreakfastPlan[] {
+    const all = getItem<BreakfastPlan[]>(KEYS.BREAKFAST_PLANS, SEED_BREAKFAST_PLANS);
+    return all.length > 0 ? all : SEED_BREAKFAST_PLANS;
+  },
   getBreakfastPlans(childId: string): BreakfastPlan[] {
-    const all = getItem<BreakfastPlan[]>(KEYS.BREAKFAST_PLANS, []);
-    return all.filter((p) => p.child_id === childId);
+    const all = this.getAllBreakfastPlans();
+    const childPlans = all.filter((p) => p.child_id === childId);
+    if (childPlans.length > 0) return childPlans;
+    // Tự động khởi tạo menu mặc định nếu bé chưa có menu nào
+    const fallbackPlan: BreakfastPlan = {
+      id: `bp-default-${childId}`,
+      child_id: childId,
+      name: 'Menu Tuần A',
+      meals: [
+        { weekday: 2, meal: 'Phở bò', note: 'Uống 1 hộp sữa tươi' },
+        { weekday: 3, meal: 'Bánh mì trứng', note: 'Kèm dưa chuột' },
+        { weekday: 4, meal: 'Xôi xéo ruốc', note: 'Thêm chả quế' },
+        { weekday: 5, meal: 'Bún riêu cua', note: 'Ít hành' },
+        { weekday: 6, meal: 'Bánh bao nhân thịt', note: 'Uống sữa hạt' },
+        { weekday: 7, meal: 'Cơm chiên trứng', note: 'Thêm xúc xích' },
+        { weekday: 8, meal: 'Bánh mì chảo', note: 'Bữa sáng cuối tuần' },
+      ],
+      created_at: new Date().toISOString(),
+    };
+    setItem(KEYS.BREAKFAST_PLANS, [...all, fallbackPlan]);
+    return [fallbackPlan];
   },
   saveBreakfastPlan(plan: BreakfastPlan): void {
-    const all = getItem<BreakfastPlan[]>(KEYS.BREAKFAST_PLANS, []);
+    const all = [...this.getAllBreakfastPlans()];
     const idx = all.findIndex((p) => p.id === plan.id);
     if (idx >= 0) all[idx] = plan;
     else all.push(plan);
     setItem(KEYS.BREAKFAST_PLANS, all);
   },
   deleteBreakfastPlan(id: string): void {
-    const all = getItem<BreakfastPlan[]>(KEYS.BREAKFAST_PLANS, []).filter((p) => p.id !== id);
+    const all = this.getAllBreakfastPlans().filter((p) => p.id !== id);
     setItem(KEYS.BREAKFAST_PLANS, all);
   },
+  resetBreakfastPlansForChild(childId: string): void {
+    const others = this.getAllBreakfastPlans().filter((p) => p.child_id !== childId);
+    const seedForChild = SEED_BREAKFAST_PLANS.filter((p) => p.child_id === childId);
+    setItem(KEYS.BREAKFAST_PLANS, [...others, ...seedForChild]);
+  },
   getBreakfastSettings(childId: string): BreakfastSettings {
-    const all = getItem<BreakfastSettings[]>(KEYS.BREAKFAST_SETTINGS, []);
-    return all.find((s) => s.child_id === childId) || {
+    const all = getItem<BreakfastSettings[]>(KEYS.BREAKFAST_SETTINGS, SEED_BREAKFAST_SETTINGS);
+    const found = all.find((s) => s.child_id === childId);
+    if (found) return found;
+    const seedFound = SEED_BREAKFAST_SETTINGS.find((s) => s.child_id === childId);
+    if (seedFound) return seedFound;
+    return {
       child_id: childId,
-      enabled: false,
+      enabled: true,
       auto_rotate: false,
     };
   },
   saveBreakfastSettings(settings: BreakfastSettings): void {
-    const all = getItem<BreakfastSettings[]>(KEYS.BREAKFAST_SETTINGS, []);
+    const all = [...getItem<BreakfastSettings[]>(KEYS.BREAKFAST_SETTINGS, SEED_BREAKFAST_SETTINGS)];
     const idx = all.findIndex((s) => s.child_id === settings.child_id);
     if (idx >= 0) all[idx] = settings;
     else all.push(settings);
     setItem(KEYS.BREAKFAST_SETTINGS, all);
+  },
+  getActiveBreakfastPlanForChild(childId: string): BreakfastPlan | null {
+    const plans = this.getBreakfastPlans(childId);
+    if (plans.length === 0) return null;
+    const settings = this.getBreakfastSettings(childId);
+    if (settings.auto_rotate && settings.cycle_start && plans.length >= 2) {
+      const getISOWeek = (date: Date) => {
+        const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+        const dayNum = d.getUTCDay() || 7;
+        d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+        const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+        return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+      };
+      const cycleWeek = getISOWeek(new Date(settings.cycle_start));
+      const currentWeek = getISOWeek(new Date());
+      const diff = currentWeek - cycleWeek;
+      const idx = ((diff % plans.length) + plans.length) % plans.length;
+      return plans[idx] || plans[0];
+    }
+    return plans.find((p) => p.id === settings.active_plan_id) || plans[0];
+  },
+  getBreakfastMealForWeekday(childId: string, weekday: WeekdayNumber): BreakfastMeal | undefined {
+    const plan = this.getActiveBreakfastPlanForChild(childId);
+    if (!plan) return undefined;
+    return plan.meals.find((m) => m.weekday === weekday);
   },
   getBreakfastDishes(): string[] {
     const defaultDishes = [
@@ -730,5 +817,92 @@ export const storage = {
     const current = this.getBreakfastDishes().filter((d) => d !== dish);
     this.saveBreakfastDishes(current);
   },
+
+  // ================== CÀI ĐẶT CỠ CHỮ & FONT CHỮ (Typography) ==================
+  getTypographySettings(): TypographySettings {
+    const stored = getItem<Partial<TypographySettings>>(KEYS.TYPOGRAPHY_SETTINGS, DEFAULT_TYPOGRAPHY_SETTINGS);
+    return {
+      displayMode: stored.displayMode || DEFAULT_TYPOGRAPHY_SETTINGS.displayMode,
+      fullWidthOnLargeScreen:
+        stored.fullWidthOnLargeScreen !== undefined
+          ? stored.fullWidthOnLargeScreen
+          : DEFAULT_TYPOGRAPHY_SETTINGS.fullWidthOnLargeScreen,
+      sections: {
+        ...DEFAULT_TYPOGRAPHY_SETTINGS.sections,
+        ...(stored.sections || {}),
+      },
+    };
+  },
+  saveTypographySettings(settings: TypographySettings): void {
+    setItem(KEYS.TYPOGRAPHY_SETTINGS, settings);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ktt-typography-updated'));
+    }
+  },
+
+  // ================== GÓC CỦA MẸ (Thực đơn 30 ngày & Lịch tập) ==================
+  getMotherMeals(): MotherMealDay[] {
+    const stored = getItem<MotherMealDay[]>(KEYS.MOTHER_MEALS, SEED_MOTHER_MEAL_DAYS);
+    return stored.length > 0 ? stored : SEED_MOTHER_MEAL_DAYS;
+  },
+  saveMotherMeals(meals: MotherMealDay[]): void {
+    setItem(KEYS.MOTHER_MEALS, meals);
+  },
+  updateMotherMealDay(updatedDay: MotherMealDay): void {
+    const all = this.getMotherMeals().map((d) => (d.day === updatedDay.day ? updatedDay : d));
+    this.saveMotherMeals(all);
+  },
+  resetMotherMeals(): void {
+    setItem(KEYS.MOTHER_MEALS, SEED_MOTHER_MEAL_DAYS);
+  },
+  getMotherWorkouts(): MotherWorkoutItem[] {
+    const stored = getItem<MotherWorkoutItem[]>(KEYS.MOTHER_WORKOUTS, SEED_MOTHER_WORKOUTS);
+    return stored.length > 0 ? stored : SEED_MOTHER_WORKOUTS;
+  },
+  saveMotherWorkouts(workouts: MotherWorkoutItem[]): void {
+    setItem(KEYS.MOTHER_WORKOUTS, workouts);
+  },
+  upsertMotherWorkout(workout: MotherWorkoutItem): void {
+    const all = [...this.getMotherWorkouts()];
+    const idx = all.findIndex((w) => w.id === workout.id);
+    if (idx >= 0) all[idx] = workout;
+    else all.push(workout);
+    this.saveMotherWorkouts(all);
+  },
+  deleteMotherWorkout(id: string): void {
+    const all = this.getMotherWorkouts().filter((w) => w.id !== id);
+    this.saveMotherWorkouts(all);
+  },
+  resetMotherWorkouts(): void {
+    setItem(KEYS.MOTHER_WORKOUTS, SEED_MOTHER_WORKOUTS);
+  },
+  getMotherCheckIns(): MotherDailyCheckIn[] {
+    return getItem<MotherDailyCheckIn[]>(KEYS.MOTHER_CHECKINS, []);
+  },
+  getMotherCheckInByDate(date: string): MotherDailyCheckIn {
+    const all = this.getMotherCheckIns();
+    return (
+      all.find((c) => c.date === date) || {
+        date,
+        completedMeals: [],
+        waterGlasses: 0,
+        workoutCompleted: false,
+      }
+    );
+  },
+  saveMotherCheckIn(checkIn: MotherDailyCheckIn): void {
+    const all = [...this.getMotherCheckIns()];
+    const idx = all.findIndex((c) => c.date === checkIn.date);
+    if (idx >= 0) all[idx] = checkIn;
+    else all.push(checkIn);
+    setItem(KEYS.MOTHER_CHECKINS, all);
+  },
+  getMotherSettings(): MotherSettings {
+    return getItem<MotherSettings>(KEYS.MOTHER_SETTINGS, DEFAULT_MOTHER_SETTINGS);
+  },
+  saveMotherSettings(settings: MotherSettings): void {
+    setItem(KEYS.MOTHER_SETTINGS, settings);
+  },
 };
+
 

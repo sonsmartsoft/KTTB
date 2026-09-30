@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { AppTheme } from '@/domain/types';
-import { THEMES, ThemeConfig, applyTheme, ColorMode } from '@/design-system/themes';
+import { AppTheme, TypographySettings } from '@/domain/types';
+import { THEMES, ThemeConfig, applyTheme, applyTypography, ColorMode } from '@/design-system/themes';
 import { storage } from '@/services/storage';
 
 export type { ColorMode };
@@ -12,6 +12,8 @@ interface ThemeContextType {
   availableThemes: ThemeConfig[];
   colorMode: ColorMode;
   setColorMode: (mode: ColorMode) => void;
+  typography: TypographySettings;
+  setTypography: (next: TypographySettings) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -29,11 +31,34 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return (localStorage.getItem('ktt_color_mode') as ColorMode) || 'light';
   });
 
+  const [typography, setTypographyState] = useState<TypographySettings>(() =>
+    storage.getTypographySettings()
+  );
+
   useEffect(() => {
     applyTheme(theme, colorMode);
     const settings = storage.getSettings();
     storage.saveSettings({ ...settings, theme });
   }, [theme, colorMode]);
+
+  useEffect(() => {
+    applyTypography(typography);
+  }, [typography]);
+
+  // Listen to cloud sync completion to apply latest cloud typography & theme
+  useEffect(() => {
+    const handleCloudSynced = () => {
+      const latestTypo = storage.getTypographySettings();
+      setTypographyState(latestTypo);
+      applyTypography(latestTypo);
+      const latestSettings = storage.getSettings();
+      if (latestSettings.theme && latestSettings.theme !== theme) {
+        setThemeState(latestSettings.theme);
+      }
+    };
+    window.addEventListener('ktt-cloud-synced', handleCloudSynced);
+    return () => window.removeEventListener('ktt-cloud-synced', handleCloudSynced);
+  }, [theme]);
 
   // Listen to system dark mode preference change if mode is 'system'
   useEffect(() => {
@@ -55,11 +80,28 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     applyTheme(theme, newMode);
   };
 
+  const setTypography = (next: TypographySettings) => {
+    setTypographyState(next);
+    storage.saveTypographySettings(next);
+    applyTypography(next);
+  };
+
   const themeConfig = THEMES[theme] || THEMES.cute;
   const availableThemes = Object.values(THEMES);
 
   return (
-    <ThemeContext.Provider value={{ theme, themeConfig, setTheme, availableThemes, colorMode, setColorMode }}>
+    <ThemeContext.Provider
+      value={{
+        theme,
+        themeConfig,
+        setTheme,
+        availableThemes,
+        colorMode,
+        setColorMode,
+        typography,
+        setTypography,
+      }}
+    >
       {children}
     </ThemeContext.Provider>
   );
@@ -72,4 +114,3 @@ export const useTheme = (): ThemeContextType => {
   }
   return context;
 };
-

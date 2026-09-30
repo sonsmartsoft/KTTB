@@ -18,6 +18,7 @@ import { TeachersPage } from './pages/TeachersPage';
 import { MilestonesKanbanPage } from './pages/MilestonesKanbanPage';
 import { MilestoneProgressPage } from './pages/MilestoneProgressPage';
 import { KidCornerPage } from './pages/KidCornerPage';
+import { MotherCornerPage } from './pages/MotherCornerPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -40,6 +41,7 @@ export const App: React.FC = () => {
                   <Route path="/" element={<AppShell />}>
                     <Route index element={<DashboardPage />} />
                     <Route path="kid-corner" element={<KidCornerPage />} />
+                    <Route path="mother" element={<MotherCornerPage />} />
                     <Route path="timetable" element={<TimetablePage />} />
                     <Route path="calendar" element={<CalendarPage />} />
                     <Route path="extra-classes" element={<ExtraClassesPage />} />

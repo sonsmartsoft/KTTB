@@ -1,6 +1,20 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTheme, ColorMode } from '@/context/ThemeContext';
-import { AppTheme } from '@/domain/types';
+import { useChild } from '@/context/ChildContext';
+import {
+  AppTheme,
+  FontFamilyKey,
+  FontSizeScale,
+  DisplayScaleMode,
+  TypographySectionKey,
+  BreakfastPlan,
+  BreakfastSettings,
+  Child,
+} from '@/domain/types';
+import { FONT_FAMILY_CSS, FONT_SIZE_MULTIPLIER } from '@/design-system/themes';
+import { DEFAULT_TYPOGRAPHY_SETTINGS } from '@/services/motherAndBreakfastSeed';
+import { storage } from '@/services/storage';
+import { formatChildDisplayName } from '@/lib/childNameHelper';
 import { Card } from '@/design-system/components/Card';
 import { Button } from '@/design-system/components/Button';
 import { Badge } from '@/design-system/components/Badge';
@@ -9,11 +23,29 @@ import {
   Check, Palette, Sun, Moon, Monitor, RefreshCw, Database,
   Server, Link2, Shield, HardDrive, Activity, Clock,
   ChevronRight, AlertCircle, CheckCircle2, Loader2, Wifi,
+  Type, Tv, Maximize2, Utensils, Plus, Trash2, Edit2, RotateCcw, Eye, EyeOff,
 } from 'lucide-react';
-
+import { format } from 'date-fns';
 
 type ConnStatus = 'idle' | 'checking' | 'ok' | 'error';
 interface ConnInfo { status: ConnStatus; latencyMs?: number; rowCount?: number; checkedAt?: string; errorMsg?: string; }
+
+const FONT_FAMILY_LABELS: Record<FontFamilyKey, string> = {
+  'Quicksand': 'Quicksand (Mềm mại, dễ thương)',
+  'Be Vietnam Pro': 'Be Vietnam Pro (Rõ nét Tiếng Việt)',
+  'Lexend': 'Lexend (Chống mỏi mắt, đọc siêu nhanh)',
+  'Nunito': 'Nunito (Bo tròn, thân thiện)',
+  'Inter': 'Inter (Hiện đại, chuẩn quốc tế)',
+  'Comfortaa': 'Comfortaa (Nghệ thuật, bo tròn)',
+};
+
+const FONT_SIZE_LABELS: Record<FontSizeScale, string> = {
+  sm: 'Nhỏ gọn (90%)',
+  md: 'Vừa (100%)',
+  lg: 'Lớn rõ (114%)',
+  xl: 'Rất lớn (128%)',
+  '2xl': 'Siêu lớn / TV (145%)',
+};
 
 function getLocalStorageStats() {
   const KTT_KEYS = [
@@ -22,6 +54,8 @@ function getLocalStorageStats() {
     'ktt_achievements','ktt_school_years','ktt_teachers','ktt_subjects',
     'ktt_timetable_legend','ktt_session_logs','ktt_homework',
     'ktt_daily_teacher_comments','ktt_tuition_payments','ktt_academic_milestones',
+    'ktt_breakfast_plans','ktt_breakfast_settings','ktt_breakfast_dishes',
+    'ktt_typography_settings','ktt_mother_meals','ktt_mother_workouts','ktt_mother_checkins',
   ];
   let totalBytes = 0; let totalItems = 0;
   const tableInfo: { key: string; items: number; bytes: number }[] = [];
@@ -43,9 +77,194 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
 }
 
+const SECTION_LABELS: { key: TypographySectionKey; label: string; desc: string; icon: string }[] = [
+  { key: 'general',   label: 'Toàn bộ ứng dụng & Menu chính', desc: 'Thanh điều hướng, tiêu đề chung và tổng quan', icon: '🏠' },
+  { key: 'timetable', label: 'Bảng Thời Khóa Biểu Chính Khóa', desc: 'Môn học, tiết học, giờ học Sáng & Chiều', icon: '📅' },
+  { key: 'breakfast', label: 'Thực Đơn Bữa Sáng',             desc: 'Tên món ăn sáng và ghi chú dinh dưỡng', icon: '🍳' },
+  { key: 'extra',     label: 'Lịch Học Thêm & Ngoại Khóa',    desc: 'Các ca học thêm, trung tâm, giáo viên', icon: '📚' },
+  { key: 'kidCorner', label: 'Góc Của Bé',                    desc: 'Giao diện xem lịch học, bài tập & mục tiêu của con', icon: '🚀' },
+  { key: 'mother',    label: 'Góc Của Mẹ (Lịch Ăn & Tập)',    desc: 'Thực đơn 30 ngày 1300 Calo & Lịch tập luyện', icon: '🧘‍♀️' },
+];
+
+const DISPLAY_MODES: { id: DisplayScaleMode; label: string; desc: string; badge: string }[] = [
+  {
+    id: 'auto',
+    label: 'Tự động thông minh (Khuyên dùng)',
+    desc: 'Tự động nhận diện Điện thoại, Laptop, Màn hình lớn 2K/4K hoặc Smart TV để tự căn chỉnh cỡ chữ & bố cục tối ưu',
+    badge: 'Auto Adapt',
+  },
+  {
+    id: 'standard',
+    label: 'Chuẩn máy tính / Điện thoại',
+    desc: 'Tỷ lệ hiển thị tiêu chuẩn gọn gàng',
+    badge: '100%',
+  },
+  {
+    id: 'large',
+    label: 'Chữ lớn rõ ràng',
+    desc: 'Phóng to toàn bộ giao diện thêm 15% giúp đọc dễ dàng hơn',
+    badge: '115%',
+  },
+  {
+    id: 'tv',
+    label: 'Chế độ Smart TV / Màn hình lớn',
+    desc: 'Phóng to chữ và bảng biểu (135% - 155%) để đứng từ xa 2–3m vẫn nhìn rõ Thời khóa biểu & Thực đơn',
+    badge: 'TV / 4K',
+  },
+];
+
 export const SettingsPage: React.FC = () => {
-  const { theme, setTheme, availableThemes, colorMode, setColorMode } = useTheme();
+  const {
+    theme,
+    setTheme,
+    availableThemes,
+    colorMode,
+    setColorMode,
+    typography,
+    setTypography,
+  } = useTheme();
+  const { childrenList, activeChild } = useChild();
   const handleColorMode = (mode: ColorMode) => { setColorMode(mode); };
+
+  // Helper to update a single section's typography
+  const updateSectionTypography = (
+    sectionKey: TypographySectionKey,
+    patch: Partial<{ fontFamily: FontFamilyKey; fontSize: FontSizeScale }>
+  ) => {
+    setTypography({
+      ...typography,
+      sections: {
+        ...typography.sections,
+        [sectionKey]: {
+          ...typography.sections[sectionKey],
+          ...patch,
+        },
+      },
+    });
+  };
+
+  const resetTypography = () => {
+    setTypography(DEFAULT_TYPOGRAPHY_SETTINGS);
+  };
+
+  // ── Breakfast Setup State in Admin Settings ──
+  const [selectedChildId, setSelectedChildId] = useState<string>(activeChild.id);
+  const [childPlans, setChildPlans] = useState<BreakfastPlan[]>(() =>
+    storage.getBreakfastPlans(activeChild.id)
+  );
+  const [childBfConfig, setChildBfConfig] = useState<BreakfastSettings>(() =>
+    storage.getBreakfastSettings(activeChild.id)
+  );
+  const [dishes, setDishes] = useState<string[]>(() => storage.getBreakfastDishes());
+  const [newPlanName, setNewPlanName] = useState('');
+  const [renamingPlanId, setRenamingPlanId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [newDishName, setNewDishName] = useState('');
+
+  useEffect(() => {
+    setChildPlans(storage.getBreakfastPlans(selectedChildId));
+    setChildBfConfig(storage.getBreakfastSettings(selectedChildId));
+  }, [selectedChildId]);
+
+  useEffect(() => {
+    const onSynced = () => {
+      setChildPlans(storage.getBreakfastPlans(selectedChildId));
+      setChildBfConfig(storage.getBreakfastSettings(selectedChildId));
+      setDishes(storage.getBreakfastDishes());
+    };
+    window.addEventListener('ktt-cloud-synced', onSynced);
+    return () => window.removeEventListener('ktt-cloud-synced', onSynced);
+  }, [selectedChildId]);
+
+  const handleSaveBfConfig = (patch: Partial<BreakfastSettings>) => {
+    const updated: BreakfastSettings = { ...childBfConfig, ...patch, child_id: selectedChildId };
+    storage.saveBreakfastSettings(updated);
+    setChildBfConfig(storage.getBreakfastSettings(selectedChildId));
+  };
+
+  const handleCreatePlan = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPlanName.trim()) return;
+    const newPlan: BreakfastPlan = {
+      id: `bf-${selectedChildId}-${Date.now()}`,
+      child_id: selectedChildId,
+      name: newPlanName.trim(),
+      meals: [
+        { weekday: 2, meal: 'Phở bò', note: 'Thêm 1 hộp sữa tươi' },
+        { weekday: 3, meal: 'Bánh mì trứng', note: 'Kèm dưa chuột' },
+        { weekday: 4, meal: 'Xôi xéo ruốc', note: 'Uống sữa đậu nành' },
+        { weekday: 5, meal: 'Bánh bao nhân thịt', note: '1 hộp sữa Milo' },
+        { weekday: 6, meal: 'Cơm chiên trứng', note: 'Kèm 1 quả chuối' },
+        { weekday: 7, meal: 'Sandwich phô mai', note: 'Thêm trái cây' },
+        { weekday: 8, meal: 'Bún riêu cua', note: 'Ăn sáng cùng gia đình' },
+      ],
+      created_at: new Date().toISOString(),
+    };
+    storage.saveBreakfastPlan(newPlan);
+    setChildPlans(storage.getBreakfastPlans(selectedChildId));
+    handleSaveBfConfig({ active_plan_id: newPlan.id });
+    setNewPlanName('');
+  };
+
+  const handleRenamePlan = (plan: BreakfastPlan) => {
+    if (!renameValue.trim()) return;
+    storage.saveBreakfastPlan({ ...plan, name: renameValue.trim() });
+    setChildPlans(storage.getBreakfastPlans(selectedChildId));
+    setRenamingPlanId(null);
+    setRenameValue('');
+  };
+
+  const handleDeletePlan = (planId: string) => {
+    if (childPlans.length <= 1) {
+      window.alert('Mỗi bé cần giữ lại ít nhất 1 thực đơn bữa sáng!');
+      return;
+    }
+    if (!window.confirm('Bạn có chắc muốn xoá thực đơn bữa sáng này?')) return;
+    storage.deleteBreakfastPlan(planId);
+    const remaining = storage.getBreakfastPlans(selectedChildId);
+    setChildPlans(remaining);
+    if (childBfConfig.active_plan_id === planId && remaining[0]) {
+      handleSaveBfConfig({ active_plan_id: remaining[0].id });
+    }
+  };
+
+  const handleResetChildBreakfast = () => {
+    if (window.confirm('Khôi phục bộ Thực đơn bữa sáng mẫu cho bé này?')) {
+      storage.resetBreakfastPlansForChild(selectedChildId);
+      setChildPlans(storage.getBreakfastPlans(selectedChildId));
+      setChildBfConfig(storage.getBreakfastSettings(selectedChildId));
+    }
+  };
+
+  const handleAddDish = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newDishName.trim()) return;
+    storage.addBreakfastDish(newDishName.trim());
+    setDishes(storage.getBreakfastDishes());
+    setNewDishName('');
+  };
+
+  const handleRemoveDish = (dish: string) => {
+    storage.deleteBreakfastDish(dish);
+    setDishes(storage.getBreakfastDishes());
+  };
+
+  // Apply font family or size to ALL sections quickly
+  const handleApplyFontToAll = (fontFamily: FontFamilyKey) => {
+    const nextSections = { ...typography.sections };
+    (Object.keys(nextSections) as TypographySectionKey[]).forEach((k) => {
+      nextSections[k] = { ...nextSections[k], fontFamily };
+    });
+    setTypography({ ...typography, sections: nextSections });
+  };
+
+  const handleApplySizeToAll = (fontSize: FontSizeScale) => {
+    const nextSections = { ...typography.sections };
+    (Object.keys(nextSections) as TypographySectionKey[]).forEach((k) => {
+      nextSections[k] = { ...nextSections[k], fontSize };
+    });
+    setTypography({ ...typography, sections: nextSections });
+  };
 
   const [conn, setConn] = useState<ConnInfo>({ status: 'idle' });
   const checkConnection = useCallback(async () => {
@@ -73,16 +292,486 @@ export const SettingsPage: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto animate-in fade-in duration-200">
+    <div className="space-y-6 max-w-5xl mx-auto animate-in fade-in duration-200 pb-10">
       <div>
         <h2 className="text-2xl font-bold text-content-primary font-display flex items-center gap-2">
           <Palette className="w-6 h-6 text-primary" />
-          <span>Giao diện &amp; Cài đặt</span>
+          <span>Cài đặt Hệ thống, Cỡ chữ &amp; Thực đơn</span>
         </h2>
         <p className="text-sm text-content-secondary mt-1">
-          Tùy chỉnh giao diện, theo dõi kết nối hệ thống và thông tin cấu hình
+          Tùy chỉnh cỡ chữ, font chữ cho từng mục, chế độ màn hình lớn / Smart TV và thiết lập thực đơn bữa sáng
         </p>
       </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════════
+          1. TYPOGRAPHY & LARGE SCREEN / TV ADAPTATION SETTINGS
+         ═══════════════════════════════════════════════════════════════════════ */}
+      <Card className="p-6 space-y-5 border-2 border-primary/30 shadow-theme-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-app-border">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-theme-md bg-primary/15 flex items-center justify-center">
+              <Type className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="text-base font-black text-content-primary">
+                Cài đặt Cỡ chữ, Font chữ &amp; Tương thích Màn hình lớn / Tivi
+              </h3>
+              <p className="text-xs text-content-muted">
+                Tuỳ chỉnh cỡ chữ và kiểu chữ riêng cho từng khu vực hoặc bật chế độ tự động phóng to trên Tivi / Màn hình lớn
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            icon={<RotateCcw className="w-3.5 h-3.5" />}
+            onClick={resetTypography}
+          >
+            Khôi phục chữ mặc định
+          </Button>
+        </div>
+
+        {/* Display Mode / TV Mode Selector */}
+        <div className="space-y-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <label className="text-xs font-extrabold uppercase tracking-wider text-content-secondary flex items-center gap-1.5">
+              <Tv className="w-4 h-4 text-primary" />
+              1. Chế độ Màn hình &amp; Tự động co giãn (TV / Màn hình lớn)
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-primary">
+              <input
+                type="checkbox"
+                checked={typography.fullWidthOnLargeScreen}
+                onChange={(e) =>
+                  setTypography({
+                    ...typography,
+                    fullWidthOnLargeScreen: e.target.checked,
+                  })
+                }
+                className="w-4 h-4 accent-primary rounded"
+              />
+              <Maximize2 className="w-3.5 h-3.5" />
+              <span>Mở rộng toàn màn hình (Full-width) trên màn hình lớn / Tivi</span>
+            </label>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {DISPLAY_MODES.map((dm) => {
+              const isSelected = typography.displayMode === dm.id;
+              return (
+                <button
+                  key={dm.id}
+                  type="button"
+                  onClick={() =>
+                    setTypography({
+                      ...typography,
+                      displayMode: dm.id,
+                    })
+                  }
+                  className={`p-3.5 rounded-2xl border-2 text-left transition-all flex flex-col justify-between gap-2 ${
+                    isSelected
+                      ? 'border-primary bg-primary/10 shadow-sm ring-2 ring-primary/20'
+                      : 'border-app-border bg-app-bg hover:border-primary/40'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2 w-full">
+                    <span className="text-xs font-black text-content-primary">{dm.label}</span>
+                    <span
+                      className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full shrink-0 ${
+                        isSelected ? 'bg-primary text-white' : 'bg-app-card text-content-muted border border-app-border'
+                      }`}
+                    >
+                      {dm.badge}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-content-secondary leading-relaxed">{dm.desc}</p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Quick Global Apply Bar */}
+        <div className="p-3.5 rounded-2xl bg-app-bg border border-app-border flex flex-wrap items-center justify-between gap-3">
+          <div className="text-xs font-bold text-content-primary">
+            ⚡ Áp dụng nhanh cho <strong>tất cả các mục</strong> cùng lúc:
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={typography.sections.general.fontFamily}
+              onChange={(e) => handleApplyFontToAll(e.target.value as FontFamilyKey)}
+              className="px-3 py-1.5 text-xs font-bold border border-app-border rounded-xl bg-app-surface text-content-primary"
+            >
+              {(Object.keys(FONT_FAMILY_LABELS) as FontFamilyKey[]).map((fk) => (
+                <option key={fk} value={fk}>
+                  Font tất cả: {FONT_FAMILY_LABELS[fk]}
+                </option>
+              ))}
+            </select>
+
+            <div className="flex items-center gap-1 bg-app-surface p-1 rounded-xl border border-app-border">
+              {(Object.keys(FONT_SIZE_LABELS) as FontSizeScale[]).map((sz) => {
+                const active = typography.sections.general.fontSize === sz;
+                return (
+                  <button
+                    key={sz}
+                    type="button"
+                    onClick={() => handleApplySizeToAll(sz)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-extrabold transition-all ${
+                      active
+                        ? 'bg-primary text-white shadow-sm'
+                        : 'text-content-secondary hover:bg-app-bg'
+                    }`}
+                  >
+                    {sz.toUpperCase()}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Per-Section Font Family & Font Size Table */}
+        <div className="space-y-2.5">
+          <label className="text-xs font-extrabold uppercase tracking-wider text-content-secondary block">
+            2. Tuỳ chỉnh Cỡ chữ &amp; Font chữ riêng cho từng mục
+          </label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {SECTION_LABELS.map(({ key, label, desc, icon }) => {
+              const cfg = typography.sections[key] || { fontFamily: 'Quicksand', fontSize: 'lg' };
+              return (
+                <div
+                  key={key}
+                  className="p-4 rounded-2xl border border-app-border bg-app-bg/60 space-y-3 flex flex-col justify-between"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-2xl leading-none">{icon}</span>
+                      <div>
+                        <div className="text-xs font-black text-content-primary">{label}</div>
+                        <div className="text-[11px] text-content-muted">{desc}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                    <div>
+                      <label className="text-[10px] font-bold text-content-secondary mb-1 block">
+                        Kiểu chữ (Font)
+                      </label>
+                      <select
+                        value={cfg.fontFamily}
+                        onChange={(e) =>
+                          updateSectionTypography(key, {
+                            fontFamily: e.target.value as FontFamilyKey,
+                          })
+                        }
+                        className="w-full px-2.5 py-1.5 text-xs font-bold border border-app-border rounded-xl bg-app-surface text-content-primary"
+                        style={{ fontFamily: FONT_FAMILY_CSS[cfg.fontFamily] }}
+                      >
+                        {(Object.keys(FONT_FAMILY_LABELS) as FontFamilyKey[]).map((fk) => (
+                          <option key={fk} value={fk}>
+                            {FONT_FAMILY_LABELS[fk]}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-content-secondary mb-1 block">
+                        Cỡ chữ hiển thị
+                      </label>
+                      <select
+                        value={cfg.fontSize}
+                        onChange={(e) =>
+                          updateSectionTypography(key, {
+                            fontSize: e.target.value as FontSizeScale,
+                          })
+                        }
+                        className="w-full px-2.5 py-1.5 text-xs font-bold border border-app-border rounded-xl bg-app-surface text-content-primary"
+                      >
+                        {(Object.keys(FONT_SIZE_LABELS) as FontSizeScale[]).map((sz) => (
+                          <option key={sz} value={sz}>
+                            {FONT_SIZE_LABELS[sz]}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Live Mini Preview for this section */}
+                  <div
+                    className="px-3 py-2 rounded-xl bg-app-surface border border-app-border/80 text-content-primary flex items-center justify-between"
+                    style={{
+                      fontFamily: FONT_FAMILY_CSS[cfg.fontFamily],
+                      fontSize: `${Math.round(13 * (FONT_SIZE_MULTIPLIER[cfg.fontSize] || 1.14))}px`,
+                    }}
+                  >
+                    <span className="font-bold truncate">
+                      Mẫu chữ: Toán • Tiếng Anh • 🍜 Phở bò
+                    </span>
+                    <span className="text-[10px] font-mono text-content-muted shrink-0 ml-2">
+                      {cfg.fontFamily} • {cfg.fontSize.toUpperCase()}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </Card>
+
+      {/* ═══════════════════════════════════════════════════════════════════════
+          2. BREAKFAST MENU SETUP (MOVED FROM TIMETABLE PAGE TO SETTINGS)
+         ═══════════════════════════════════════════════════════════════════════ */}
+      <Card className="p-6 space-y-5 border-2 border-amber-300/80 dark:border-amber-700/60 shadow-theme-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-app-border">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-theme-md bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center shadow-sm">
+              <Utensils className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-black text-content-primary">
+                Thiết lập Thực đơn Bữa sáng (Breakfast Setup)
+              </h3>
+              <p className="text-xs text-content-muted">
+                Quản lý danh sách thực đơn, tự động xoay vòng theo tuần và kho món ăn gợi ý (ngoài Thời khóa biểu chỉ cần chọn món &amp; bấm Hiện/Ẩn)
+              </p>
+            </div>
+          </div>
+
+          {/* Child switcher for Breakfast Setup */}
+          <div className="flex items-center gap-1.5 bg-app-bg p-1 rounded-xl border border-app-border">
+            {childrenList.map((c: Child) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => setSelectedChildId(c.id)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all ${
+                  selectedChildId === c.id
+                    ? 'bg-amber-500 text-white shadow-sm'
+                    : 'text-content-secondary hover:bg-app-surface'
+                }`}
+              >
+                {formatChildDisplayName(c)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Show/Hide & Auto-Rotate Toggles */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-4 rounded-2xl bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-800/50 flex items-center justify-between gap-3">
+            <div className="space-y-0.5">
+              <div className="text-xs font-black text-content-primary flex items-center gap-1.5">
+                {childBfConfig.enabled ? (
+                  <Eye className="w-4 h-4 text-amber-600" />
+                ) : (
+                  <EyeOff className="w-4 h-4 text-content-muted" />
+                )}
+                <span>Hiển thị Thực đơn sáng trên Thời khóa biểu</span>
+              </div>
+              <p className="text-[11px] text-content-secondary">
+                Bạn cũng có thể bấm nút <strong>Hiện / Ẩn</strong> nhanh ngay trên trang Thời khóa biểu
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleSaveBfConfig({ enabled: !childBfConfig.enabled })}
+              className={`px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all shrink-0 ${
+                childBfConfig.enabled
+                  ? 'bg-emerald-500 text-white shadow-sm'
+                  : 'bg-app-surface text-content-muted border border-app-border'
+              }`}
+            >
+              {childBfConfig.enabled ? 'Đang Hiện ✓' : 'Đang Ẩn'}
+            </button>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-800/50 space-y-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <div className="text-xs font-black text-content-primary">
+                  🔄 Tự động xoay vòng thực đơn theo tuần
+                </div>
+                <p className="text-[11px] text-content-secondary">
+                  Khi có từ 2 thực đơn trở lên, hệ thống tự đổi thực đơn mỗi tuần
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                checked={!!childBfConfig.auto_rotate}
+                onChange={(e) =>
+                  handleSaveBfConfig({
+                    auto_rotate: e.target.checked,
+                    cycle_start:
+                      childBfConfig.cycle_start || format(new Date(), 'yyyy-MM-dd'),
+                  })
+                }
+                className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
+              />
+            </div>
+            {childBfConfig.auto_rotate && (
+              <div className="flex items-center justify-between gap-2 pt-2 border-t border-amber-200/60">
+                <span className="text-[11px] font-bold text-content-secondary">
+                  Ngày bắt đầu tính Tuần 1:
+                </span>
+                <input
+                  type="date"
+                  value={childBfConfig.cycle_start || format(new Date(), 'yyyy-MM-dd')}
+                  onChange={(e) =>
+                    handleSaveBfConfig({ cycle_start: e.target.value })
+                  }
+                  className="px-2.5 py-1 text-xs font-bold border border-amber-300 rounded-lg bg-white dark:bg-slate-900 text-content-primary"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Menu List Manager + Dish Library Manager */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {/* Left: Manage Breakfast Plans */}
+          <div className="p-4 rounded-2xl border border-app-border bg-app-bg/50 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-black text-content-primary uppercase tracking-wider">
+                📋 Danh sách Thực đơn của bé ({childPlans.length})
+              </div>
+              <button
+                type="button"
+                onClick={handleResetChildBreakfast}
+                className="text-[11px] font-bold text-amber-600 hover:underline flex items-center gap-1"
+              >
+                <RotateCcw className="w-3 h-3" /> Khôi phục mẫu
+              </button>
+            </div>
+
+            <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+              {childPlans.map((p, idx) => {
+                const isActive = p.id === (childBfConfig.active_plan_id || childPlans[0]?.id);
+                return (
+                  <div
+                    key={p.id}
+                    className={`flex items-center justify-between gap-2 p-2.5 rounded-xl border transition-all ${
+                      isActive
+                        ? 'border-amber-500 bg-amber-50/90 dark:bg-amber-950/40 shadow-sm'
+                        : 'border-app-border bg-app-surface'
+                    }`}
+                  >
+                    {renamingPlanId === p.id ? (
+                      <div className="flex items-center gap-1.5 flex-1">
+                        <input
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          autoFocus
+                          onKeyDown={(e) => e.key === 'Enter' && handleRenamePlan(p)}
+                          className="flex-1 px-2.5 py-1 text-xs font-bold border border-amber-400 rounded-lg bg-app-bg text-content-primary"
+                        />
+                        <Button size="sm" variant="primary" onClick={() => handleRenamePlan(p)}>
+                          Lưu
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleSaveBfConfig({ active_plan_id: p.id })}
+                          className="flex items-center gap-2 text-left flex-1 min-w-0"
+                        >
+                          <span className="w-5 h-5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 text-[10px] font-black flex items-center justify-center shrink-0">
+                            {idx + 1}
+                          </span>
+                          <span className="text-xs font-extrabold text-content-primary truncate">
+                            {p.name}
+                          </span>
+                          {isActive && (
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-amber-500 text-white shrink-0">
+                              Đang dùng
+                            </span>
+                          )}
+                        </button>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRenamingPlanId(p.id);
+                              setRenameValue(p.name);
+                            }}
+                            className="p-1.5 rounded-lg hover:bg-amber-100 text-content-muted hover:text-amber-700"
+                            title="Đổi tên thực đơn"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeletePlan(p.id)}
+                            className="p-1.5 rounded-lg hover:bg-red-100 text-content-muted hover:text-red-500"
+                            title="Xoá thực đơn"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <form onSubmit={handleCreatePlan} className="flex gap-2 pt-1">
+              <input
+                value={newPlanName}
+                onChange={(e) => setNewPlanName(e.target.value)}
+                placeholder="Tên thực đơn mới (VD: Thực đơn Tuần 3)..."
+                className="flex-1 px-3 py-1.5 text-xs border border-app-border rounded-xl bg-app-surface text-content-primary"
+              />
+              <Button type="submit" size="sm" variant="primary" icon={<Plus className="w-3.5 h-3.5" />}>
+                Thêm
+              </Button>
+            </form>
+          </div>
+
+          {/* Right: Manage Suggested Dish Dictionary */}
+          <div className="p-4 rounded-2xl border border-app-border bg-app-bg/50 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-black text-content-primary uppercase tracking-wider">
+                🥐 Kho món ăn gợi ý nhanh ({dishes.length} món)
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-1.5 max-h-56 overflow-y-auto p-1">
+              {dishes.map((d) => (
+                <span
+                  key={d}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-app-surface border border-app-border text-content-primary"
+                >
+                  <span>{d}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveDish(d)}
+                    className="text-content-muted hover:text-red-500 transition-colors"
+                    title="Xoá khỏi gợi ý"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+
+            <form onSubmit={handleAddDish} className="flex gap-2 pt-1">
+              <input
+                value={newDishName}
+                onChange={(e) => setNewDishName(e.target.value)}
+                placeholder="Thêm món vào kho (VD: 🧇 Bánh quế mật ong)..."
+                className="flex-1 px-3 py-1.5 text-xs border border-app-border rounded-xl bg-app-surface text-content-primary"
+              />
+              <Button type="submit" size="sm" variant="primary" icon={<Plus className="w-3.5 h-3.5" />}>
+                Thêm món
+              </Button>
+            </form>
+          </div>
+        </div>
+      </Card>
 
       {/* Light / Dark Mode */}
       <Card className="p-6 space-y-4">
@@ -215,7 +904,7 @@ export const SettingsPage: React.FC = () => {
             { icon: <Link2 className="w-4 h-4 text-blue-500" />,       label: 'Project URL',        value: SUPABASE_URL,                               mono: true, small: true },
             { icon: <Server className="w-4 h-4 text-violet-500" />,    label: 'Project Ref',        value: PROJECT_REF,                                mono: true },
             { icon: <Shield className="w-4 h-4 text-amber-500" />,     label: 'Auth Mode',          value: 'Anon Key (Publishable)' },
-            { icon: <Activity className="w-4 h-4 text-emerald-500" />, label: 'Chiến lược sync',   value: 'Hybrid Cache: Local → Cloud (fire-and-forget)' },
+            { icon: <Activity className="w-4 h-4 text-emerald-500" />, label: 'Chiến lược sync',   value: 'Hybrid Cache: Local + Cloud (Tự động đồng bộ cả Thực đơn & Cài đặt)' },
           ].map((item) => (
             <div key={item.label} className="flex items-start gap-3 p-3 bg-app-bg rounded-theme-md border border-app-subtle">
               <div className="w-8 h-8 rounded-theme-md bg-app-card border border-app-border flex items-center justify-center shrink-0">{item.icon}</div>
@@ -273,7 +962,7 @@ export const SettingsPage: React.FC = () => {
       <Card className="p-4">
         <div className="flex items-center justify-between text-xs text-content-muted">
           <div className="flex items-center gap-3">
-            <span>⭐ <b className="text-content-secondary">Kids Timetable</b> v1.0.0</span>
+            <span>⭐ <b className="text-content-secondary">Kids &amp; Family Timetable</b> v1.2.0</span>
             <span>·</span>
             <span>React + Vite + Supabase</span>
           </div>

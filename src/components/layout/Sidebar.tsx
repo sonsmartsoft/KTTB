@@ -12,6 +12,8 @@ import {
   UserCheck,
   Flag,
   TrendingUp,
+  Heart,
+  Smile,
 } from 'lucide-react';
 import { useChild } from '@/context/ChildContext';
 import { useKidMode } from '@/context/KidModeContext';
@@ -25,6 +27,8 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Tổng quan', icon: <LayoutDashboard className="w-5 h-5" /> },
   { to: '/timetable', label: 'Thời khóa biểu', icon: <TableProperties className="w-5 h-5" /> },
+  { to: '/kid-corner', label: 'Góc của Bé', icon: <Smile className="w-5 h-5 text-amber-500" /> },
+  { to: '/mother', label: 'Góc của Mẹ (Ăn & Tập)', icon: <Heart className="w-5 h-5 text-rose-500" /> },
   { to: '/calendar', label: 'Lịch học & Sự kiện', icon: <CalendarDays className="w-5 h-5" /> },
   { to: '/extra-classes', label: 'Lịch học thêm', icon: <BookOpen className="w-5 h-5" /> },
   { to: '/performance', label: 'Điểm & Học bạ', icon: <Sparkles className="w-5 h-5" /> },

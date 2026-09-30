@@ -379,3 +379,80 @@ export interface BreakfastSettings {
   /** Ngày bắt đầu cycle hiện tại (YYYY-MM-DD) — để tính tuần mấy */
   cycle_start?: string;
 }
+
+// ================== CÀI ĐẶT CỠ CHỮ & FONT CHỮ (Typography & Display Scaling) ==================
+
+export type FontFamilyKey =
+  | 'Quicksand'
+  | 'Be Vietnam Pro'
+  | 'Lexend'
+  | 'Nunito'
+  | 'Inter'
+  | 'Comfortaa';
+
+export type FontSizeScale = 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+
+export type DisplayScaleMode = 'auto' | 'standard' | 'large' | 'tv';
+
+export type TypographySectionKey =
+  | 'general'
+  | 'timetable'
+  | 'breakfast'
+  | 'extra'
+  | 'kidCorner'
+  | 'mother';
+
+export interface SectionTypographyConfig {
+  fontFamily: FontFamilyKey;
+  fontSize: FontSizeScale;
+}
+
+export interface TypographySettings {
+  displayMode: DisplayScaleMode;
+  fullWidthOnLargeScreen: boolean;
+  sections: Record<TypographySectionKey, SectionTypographyConfig>;
+}
+
+// ================== GÓC CỦA MẸ (Thực đơn 30 ngày & Lịch tập) ==================
+
+export interface MotherMealDay {
+  day: number; // 1 -> 30
+  breakfast: string;
+  lunch: string;
+  snack: string;
+  dinner: string;
+  note?: string;
+}
+
+export type WorkoutCategory = 'cardio' | 'strength' | 'yoga' | 'pilates' | 'hiit' | 'rest';
+
+export interface MotherWorkoutItem {
+  id: string;
+  weekday: WeekdayNumber; // 2=T2 ... 8=CN
+  title: string;
+  category: WorkoutCategory;
+  time_slot: string; // e.g. "05:30 – 06:15" or "17:30 – 18:15"
+  duration_min: number;
+  calories_est: number;
+  exercises: string; // Chi tiết các bài tập
+  note?: string;
+}
+
+export interface MotherDailyCheckIn {
+  date: string; // YYYY-MM-DD
+  completedMeals: ('breakfast' | 'lunch' | 'snack' | 'dinner')[];
+  waterGlasses: number; // 0 -> 10 (8 cốc = 2 lít)
+  workoutCompleted: boolean;
+  weightKg?: number;
+  note?: string;
+}
+
+export interface MotherSettings {
+  startDate: string; // YYYY-MM-DD ngày bắt đầu lộ trình 30 ngày
+  targetCalories: number; // 1300
+  targetWaterLiters: number; // 2.0
+  targetWeightKg?: number;
+  currentWeightKg?: number;
+  authorName: string; // "Đinh Thị Mơ"
+}
+

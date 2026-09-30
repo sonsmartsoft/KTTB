@@ -14,6 +14,8 @@ import {
   Settings,
   Flag,
   TrendingUp,
+  Heart,
+  Smile,
 } from 'lucide-react';
 import { useKidMode } from '@/context/KidModeContext';
 
@@ -31,8 +33,8 @@ export const MobileNav: React.FC = () => {
     : [
         { to: '/', label: 'Hôm nay', icon: <LayoutDashboard className="w-5 h-5" /> },
         { to: '/timetable', label: 'TKB', icon: <TableProperties className="w-5 h-5" /> },
-        { to: '/calendar', label: 'Lịch', icon: <CalendarDays className="w-5 h-5" /> },
-        { to: '/performance', label: 'Điểm số', icon: <Sparkles className="w-5 h-5" /> },
+        { to: '/kid-corner', label: 'Góc Bé', icon: <Smile className="w-5 h-5 text-amber-500" /> },
+        { to: '/mother', label: 'Góc Mẹ', icon: <Heart className="w-5 h-5 text-rose-500" /> },
       ];
 
   const extraNavItems = isKidMode
@@ -40,13 +42,17 @@ export const MobileNav: React.FC = () => {
         { to: '/milestone-progress', label: 'Kết quả học tập', desc: 'Lịch sử điểm số & tiến trình', icon: <TrendingUp className="w-5 h-5 text-emerald-500" /> },
       ]
     : [
+        { to: '/mother', label: 'Góc của Mẹ (Ăn & Tập)', desc: 'Thực đơn 30 ngày 1300 Calo & Lịch tập luyện', icon: <Heart className="w-5 h-5 text-rose-500" /> },
+        { to: '/kid-corner', label: 'Góc của Bé', desc: 'Góc học tập, thực đơn bữa sáng & mục tiêu của con', icon: <Smile className="w-5 h-5 text-amber-500" /> },
+        { to: '/calendar', label: 'Lịch học & Sự kiện', desc: 'Xem lịch theo tháng & ngày lễ', icon: <CalendarDays className="w-5 h-5 text-sky-500" /> },
+        { to: '/performance', label: 'Điểm & Học bạ', desc: 'Theo dõi điểm số các môn học', icon: <Sparkles className="w-5 h-5 text-amber-500" /> },
         { to: '/milestones', label: 'Cột mốc & Lộ trình', desc: 'Gantt chart kỳ thi & Ôn tập nước rút', icon: <Flag className="w-5 h-5 text-indigo-500" /> },
         { to: '/milestone-progress', label: 'Kết quả & Tiến trình', desc: 'Biểu đồ điểm số & lịch sử học tập', icon: <TrendingUp className="w-5 h-5 text-emerald-500" /> },
         { to: '/teachers', label: 'Sổ liên lạc thầy cô', desc: 'Danh bạ GVCN & bộ môn, gọi điện, Zalo', icon: <UserCheck className="w-5 h-5 text-emerald-500" /> },
         { to: '/extra-classes', label: 'Lịch học thêm', desc: 'Lớp bồi dưỡng văn hóa, ngoại ngữ, ca tối', icon: <BookOpen className="w-5 h-5 text-blue-500" /> },
         { to: '/achievements', label: 'Thành tích & Khen thưởng', desc: 'Huy chương, cúp vàng, giấy khen', icon: <Award className="w-5 h-5 text-amber-500" /> },
         { to: '/children', label: 'Hồ sơ các bé', desc: 'Bé Trung Quân & Bé Hạ Băng', icon: <Users className="w-5 h-5 text-purple-500" /> },
-        { to: '/settings', label: 'Giao diện & Cài đặt', desc: 'Đổi theme Cute/Modern/Pastel/Colorful', icon: <Settings className="w-5 h-5 text-slate-500" /> },
+        { to: '/settings', label: 'Giao diện & Cài đặt', desc: 'Cỡ chữ, Font chữ, Chế độ TV & Setup Thực đơn', icon: <Settings className="w-5 h-5 text-slate-500" /> },
       ];
 
   return (

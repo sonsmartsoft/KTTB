@@ -1,4 +1,38 @@
-import { AppTheme } from '@/domain/types';
+import { AppTheme, TypographySettings, FontFamilyKey, FontSizeScale } from '@/domain/types';
+
+export const FONT_FAMILY_CSS: Record<FontFamilyKey, string> = {
+  'Quicksand': "'Quicksand', 'Nunito', sans-serif",
+  'Be Vietnam Pro': "'Be Vietnam Pro', 'Inter', sans-serif",
+  'Lexend': "'Lexend', 'Be Vietnam Pro', sans-serif",
+  'Nunito': "'Nunito', 'Quicksand', sans-serif",
+  'Inter': "'Inter', system-ui, sans-serif",
+  'Comfortaa': "'Comfortaa', 'Quicksand', cursive",
+};
+
+export const FONT_SIZE_MULTIPLIER: Record<FontSizeScale, number> = {
+  sm: 0.9,
+  md: 1.0,
+  lg: 1.14,
+  xl: 1.28,
+  '2xl': 1.45,
+};
+
+export function applyTypography(typography: TypographySettings): void {
+  const root = document.documentElement;
+  root.setAttribute('data-display-mode', typography.displayMode || 'auto');
+  root.setAttribute('data-full-width', typography.fullWidthOnLargeScreen ? 'true' : 'false');
+
+  const sections = typography.sections;
+  (Object.keys(sections) as Array<keyof typeof sections>).forEach((secKey) => {
+    const cfg = sections[secKey];
+    if (!cfg) return;
+    const fontCss = FONT_FAMILY_CSS[cfg.fontFamily] || FONT_FAMILY_CSS['Quicksand'];
+    const scaleNum = FONT_SIZE_MULTIPLIER[cfg.fontSize] || 1.14;
+    root.style.setProperty(`--font-${secKey}`, fontCss);
+    root.style.setProperty(`--scale-${secKey}`, String(scaleNum));
+  });
+}
+
 
 export interface ThemeConfig {
   id: AppTheme;
