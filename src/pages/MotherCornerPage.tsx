@@ -38,6 +38,7 @@ import {
 } from 'lucide-react';
 import { format, differenceInCalendarDays, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { Link } from 'react-router-dom';
 
 const WEEKDAY_LABELS: { day: WeekdayNumber; label: string; short: string }[] = [
   { day: 2, label: 'Thứ 2', short: 'T2' },
@@ -105,7 +106,7 @@ export const MotherCornerPage: React.FC = () => {
     storage.getMotherCheckInByDate(todayStr)
   );
 
-  // Sync when cloud finishes loading
+  // Sync when cloud finishes loading or mother profile updates
   useEffect(() => {
     const handleSynced = () => {
       setMeals(storage.getMotherMeals());
@@ -114,7 +115,11 @@ export const MotherCornerPage: React.FC = () => {
       setTodayCheckIn(storage.getMotherCheckInByDate(todayStr));
     };
     window.addEventListener('ktt-cloud-synced', handleSynced);
-    return () => window.removeEventListener('ktt-cloud-synced', handleSynced);
+    window.addEventListener('ktt-mother-updated', handleSynced);
+    return () => {
+      window.removeEventListener('ktt-cloud-synced', handleSynced);
+      window.removeEventListener('ktt-mother-updated', handleSynced);
+    };
   }, [todayStr]);
 
   // Calculate which day (1..30) corresponds to today based on startDate
@@ -180,7 +185,7 @@ export const MotherCornerPage: React.FC = () => {
   };
 
   const handleResetMeals = () => {
-    if (window.confirm('Khôi phục lại Thực đơn 30 ngày (1300 Calo) mặc định của Mẹ Đinh Thị Mơ?')) {
+    if (window.confirm(`Khôi phục lại Thực đơn 30 ngày (${settings.targetCalories} Calo) mặc định của ${settings.authorName}?`)) {
       storage.resetMotherMeals();
       setMeals(storage.getMotherMeals());
     }
@@ -244,6 +249,8 @@ export const MotherCornerPage: React.FC = () => {
   }, [meals, weekFilter, searchQuery]);
 
   const completedMealsCount = todayCheckIn.completedMeals.length;
+  const isMotherPhoto =
+    settings.avatarUrl?.startsWith('data:') || settings.avatarUrl?.startsWith('http');
 
   return (
     <div data-section="mother" className="space-y-6 animate-in fade-in duration-200 pb-10">
@@ -254,16 +261,41 @@ export const MotherCornerPage: React.FC = () => {
 
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
           <div className="flex items-start sm:items-center gap-4">
-            <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-white/20 backdrop-blur-md border-2 border-white/40 flex items-center justify-center text-4xl shadow-lg shrink-0">
-              🧘‍♀️
+            <div
+              className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-white/20 backdrop-blur-md border-2 border-white/40 flex items-center justify-center text-4xl shadow-lg shrink-0 overflow-hidden"
+              style={{ backgroundColor: settings.color || '#F43F5E' }}
+            >
+              {isMotherPhoto ? (
+                <img
+                  src={settings.avatarUrl}
+                  alt={settings.authorName}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span>{settings.avatarUrl || '🧘‍♀️'}</span>
+              )}
             </div>
             <div className="space-y-1">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-sm text-xs font-extrabold">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Chuyên mục Sức khoẻ &amp; Vóc dáng của Mẹ</span>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-sm text-xs font-extrabold">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Chuyên mục Sức khoẻ &amp; Vóc dáng của Mẹ</span>
+                </div>
+                <Link
+                  to="/children"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/25 hover:bg-white/35 backdrop-blur-sm text-[11px] font-bold transition-colors"
+                  title="Cấu hình họ tên, ảnh đại diện, sinh nhật & mục tiêu của Mẹ"
+                >
+                  <Edit2 className="w-3 h-3" />
+                  <span>Cấu hình Hồ sơ Mẹ</span>
+                </Link>
               </div>
               <h1 className="text-xl md:text-2xl font-black tracking-tight">
-                Góc của Mẹ: {settings.authorName} 💖
+                Góc của Mẹ: {settings.authorName}
+                {settings.nickname && settings.nickname !== settings.authorName
+                  ? ` (${settings.nickname})`
+                  : ''}{' '}
+                💖
               </h1>
               <p className="text-xs md:text-sm text-white/90 font-medium">
                 Thực đơn chuẩn <strong className="font-black">{settings.targetCalories} Calo/ngày</strong> (30 ngày) &amp; Lịch tập luyện giữ dáng • {format(new Date(), 'EEEE, dd/MM/yyyy', { locale: vi })}

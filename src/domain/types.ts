@@ -453,6 +453,13 @@ export interface MotherSettings {
   targetWaterLiters: number; // 2.0
   targetWeightKg?: number;
   currentWeightKg?: number;
-  authorName: string; // "Đinh Thị Mơ"
+  heightCm?: number;
+  birthYear?: number;
+  date_of_birth?: string; // YYYY-MM-DD ngày tháng năm sinh nhật của Mẹ
+  authorName: string; // Họ và tên của Mẹ (cấu hình trong Hồ sơ / Cài đặt)
+  nickname?: string; // Tên gọi thân mật (VD: Mẹ Yêu, Mẹ Quân Băng)
+  avatarUrl?: string; // Emoji hoặc ảnh tải lên (data:image/... hoặc URL)
+  color?: string; // Màu chủ đạo đại diện cho Mẹ
+  goalNote?: string; // Mục tiêu sức khỏe / vóc dáng
 }
 

@@ -51,7 +51,7 @@ export const MobileNav: React.FC = () => {
         { to: '/teachers', label: 'Sổ liên lạc thầy cô', desc: 'Danh bạ GVCN & bộ môn, gọi điện, Zalo', icon: <UserCheck className="w-5 h-5 text-emerald-500" /> },
         { to: '/extra-classes', label: 'Lịch học thêm', desc: 'Lớp bồi dưỡng văn hóa, ngoại ngữ, ca tối', icon: <BookOpen className="w-5 h-5 text-blue-500" /> },
         { to: '/achievements', label: 'Thành tích & Khen thưởng', desc: 'Huy chương, cúp vàng, giấy khen', icon: <Award className="w-5 h-5 text-amber-500" /> },
-        { to: '/children', label: 'Hồ sơ các bé', desc: 'Bé Trung Quân & Bé Hạ Băng', icon: <Users className="w-5 h-5 text-purple-500" /> },
+        { to: '/children', label: 'Hồ sơ Mẹ & Các bé', desc: 'Cấu hình thông tin, ảnh & sinh nhật Mẹ và các con', icon: <Users className="w-5 h-5 text-purple-500" /> },
         { to: '/settings', label: 'Giao diện & Cài đặt', desc: 'Cỡ chữ, Font chữ, Chế độ TV & Setup Thực đơn', icon: <Settings className="w-5 h-5 text-slate-500" /> },
       ];
 

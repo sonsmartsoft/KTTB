@@ -898,10 +898,22 @@ export const storage = {
     setItem(KEYS.MOTHER_CHECKINS, all);
   },
   getMotherSettings(): MotherSettings {
-    return getItem<MotherSettings>(KEYS.MOTHER_SETTINGS, DEFAULT_MOTHER_SETTINGS);
+    const raw = getItem<MotherSettings>(KEYS.MOTHER_SETTINGS, DEFAULT_MOTHER_SETTINGS);
+    const merged: MotherSettings = {
+      ...DEFAULT_MOTHER_SETTINGS,
+      ...raw,
+      authorName:
+        !raw.authorName || raw.authorName === 'Đinh Thị Mơ'
+          ? DEFAULT_MOTHER_SETTINGS.authorName
+          : raw.authorName,
+    };
+    return merged;
   },
   saveMotherSettings(settings: MotherSettings): void {
     setItem(KEYS.MOTHER_SETTINGS, settings);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ktt-mother-updated'));
+    }
   },
 };
 

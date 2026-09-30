@@ -392,7 +392,14 @@ export const DEFAULT_MOTHER_SETTINGS: MotherSettings = {
   targetWaterLiters: 2.0,
   targetWeightKg: 52,
   currentWeightKg: 56,
-  authorName: 'Đinh Thị Mơ',
+  heightCm: 160,
+  birthYear: 1990,
+  date_of_birth: '1990-10-20',
+  authorName: 'Mẹ Yêu',
+  nickname: 'Mẹ Quân & Băng',
+  avatarUrl: '🧘‍♀️',
+  color: '#F43F5E',
+  goalNote: 'Giữ dáng thon gọn, khỏe mạnh & tràn đầy năng lượng mỗi ngày',
 };
 
 // ================== DEFAULT TYPOGRAPHY SETTINGS ==================
