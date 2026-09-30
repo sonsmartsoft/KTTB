@@ -3,12 +3,30 @@ import { useNavigate } from 'react-router-dom';
 import { useChild } from '@/context/ChildContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useKidMode } from '@/context/KidModeContext';
-import { ChevronDown, Palette, Check, Sun, Moon, ShieldAlert, AlertCircle } from 'lucide-react';
+import {
+  ChevronDown,
+  Palette,
+  Check,
+  Sun,
+  Moon,
+  ShieldAlert,
+  AlertCircle,
+  PanelLeftClose,
+  PanelLeftOpen,
+} from 'lucide-react';
 import { Button } from '@/design-system/components/Button';
 import { AppTheme } from '@/domain/types';
 import { formatChildDisplayName } from '@/lib/childNameHelper';
 
-export const Header: React.FC = () => {
+interface HeaderProps {
+  isSidebarCollapsed?: boolean;
+  onToggleSidebar?: () => void;
+}
+
+export const Header: React.FC<HeaderProps> = ({
+  isSidebarCollapsed = false,
+  onToggleSidebar,
+}) => {
   const navigate = useNavigate();
   const { childrenList, activeChild, setActiveChildId } = useChild();
   const { theme, setTheme, availableThemes, colorMode, setColorMode } = useTheme();
@@ -35,15 +53,45 @@ export const Header: React.FC = () => {
 
   return (
     <header className="sticky top-0 z-30 bg-app-surface/90 backdrop-blur-md border-b border-app-border px-4 py-2.5 flex items-center justify-between no-print">
-      {/* Child Switcher Dropdown */}
-      <div className="relative">
-        <button
-          onClick={() => {
-            setIsChildMenuOpen(!isChildMenuOpen);
-            setIsThemeMenuOpen(false);
-          }}
-          className="flex items-center gap-2.5 px-3 py-1.5 rounded-theme-md bg-app-card border border-app-border hover:bg-black/5 dark:hover:bg-white/5 transition-all shadow-theme-sm text-left"
-        >
+      {/* Left: Sidebar Toggle (TV / Large Screen) + Child Switcher Dropdown */}
+      <div className="flex items-center gap-2">
+        {onToggleSidebar && (
+          <button
+            type="button"
+            onClick={onToggleSidebar}
+            className={`hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-theme-md border text-xs font-bold transition-all shadow-theme-sm ${
+              isSidebarCollapsed
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-app-card text-content-secondary border-app-border hover:text-content-primary hover:bg-black/5 dark:hover:bg-white/5'
+            }`}
+            title={
+              isSidebarCollapsed
+                ? 'Hiện lại thanh menu bên trái'
+                : 'Ẩn thanh menu bên trái để mở rộng toàn màn hình (TV / Màn hình lớn)'
+            }
+          >
+            {isSidebarCollapsed ? (
+              <>
+                <PanelLeftOpen className="w-4 h-4" />
+                <span>Hiện Menu</span>
+              </>
+            ) : (
+              <>
+                <PanelLeftClose className="w-4 h-4" />
+                <span className="hidden lg:inline">Ẩn Menu</span>
+              </>
+            )}
+          </button>
+        )}
+
+        <div className="relative">
+          <button
+            onClick={() => {
+              setIsChildMenuOpen(!isChildMenuOpen);
+              setIsThemeMenuOpen(false);
+            }}
+            className="flex items-center gap-2.5 px-3 py-1.5 rounded-theme-md bg-app-card border border-app-border hover:bg-black/5 dark:hover:bg-white/5 transition-all shadow-theme-sm text-left"
+          >
           <div
             className="w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-xs shrink-0 overflow-hidden"
             style={{ backgroundColor: activeChild.color || '#2563EB' }}
@@ -114,6 +162,7 @@ export const Header: React.FC = () => {
             </div>
           </>
         )}
+        </div>
       </div>
 
       {/* Right Controls: Theme Quick Switcher */}

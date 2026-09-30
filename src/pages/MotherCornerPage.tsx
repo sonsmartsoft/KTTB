@@ -35,6 +35,7 @@ import {
   Award,
   Scale,
   Info,
+  TrendingUp,
 } from 'lucide-react';
 import { format, differenceInCalendarDays, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -105,6 +106,18 @@ export const MotherCornerPage: React.FC = () => {
   const [todayCheckIn, setTodayCheckIn] = useState<MotherDailyCheckIn>(() =>
     storage.getMotherCheckInByDate(todayStr)
   );
+  const [allCheckIns, setAllCheckIns] = useState<MotherDailyCheckIn[]>(() =>
+    storage.getMotherCheckIns()
+  );
+
+  // Manual History Entry / Edit state
+  const [logDate, setLogDate] = useState<string>(todayStr);
+  const [logWeight, setLogWeight] = useState<string>(() =>
+    todayCheckIn.weightKg ? String(todayCheckIn.weightKg) : ''
+  );
+  const [logWater, setLogWater] = useState<number>(todayCheckIn.waterGlasses || 8);
+  const [logWorkout, setLogWorkout] = useState<boolean>(todayCheckIn.workoutCompleted || false);
+  const [logNote, setLogNote] = useState<string>(todayCheckIn.note || '');
 
   // Sync when cloud finishes loading or mother profile updates
   useEffect(() => {
@@ -113,6 +126,7 @@ export const MotherCornerPage: React.FC = () => {
       setWorkouts(storage.getMotherWorkouts());
       setSettings(storage.getMotherSettings());
       setTodayCheckIn(storage.getMotherCheckInByDate(todayStr));
+      setAllCheckIns(storage.getMotherCheckIns());
     };
     window.addEventListener('ktt-cloud-synced', handleSynced);
     window.addEventListener('ktt-mother-updated', handleSynced);
@@ -160,6 +174,52 @@ export const MotherCornerPage: React.FC = () => {
     };
     setTodayCheckIn(next);
     storage.saveMotherCheckIn(next);
+    setAllCheckIns(storage.getMotherCheckIns());
+    setSettings(storage.getMotherSettings());
+    if (logDate === todayStr && patch.weightKg !== undefined) {
+      setLogWeight(patch.weightKg ? String(patch.weightKg) : '');
+    }
+  };
+
+  const handleSaveHistoryLog = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!logDate) return;
+    const existing = storage.getMotherCheckInByDate(logDate);
+    const weightNum = logWeight.trim() ? parseFloat(logWeight) : undefined;
+    const entry: MotherDailyCheckIn = {
+      ...existing,
+      date: logDate,
+      weightKg: weightNum && !isNaN(weightNum) ? weightNum : undefined,
+      waterGlasses: logWater,
+      workoutCompleted: logWorkout,
+      note: logNote.trim() || undefined,
+    };
+    storage.saveMotherCheckIn(entry);
+    setAllCheckIns(storage.getMotherCheckIns());
+    setSettings(storage.getMotherSettings());
+    if (logDate === todayStr) {
+      setTodayCheckIn(storage.getMotherCheckInByDate(todayStr));
+    }
+  };
+
+  const handleSelectLogToEdit = (item: MotherDailyCheckIn) => {
+    setLogDate(item.date);
+    setLogWeight(item.weightKg !== undefined ? String(item.weightKg) : '');
+    setLogWater(item.waterGlasses ?? 8);
+    setLogWorkout(Boolean(item.workoutCompleted));
+    setLogNote(item.note || '');
+    const el = document.getElementById('mother-weight-history');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const handleDeleteHistoryLog = (date: string) => {
+    if (window.confirm(`Xoá bản ghi nhật ký ngày ${date.split('-').reverse().join('/')}?`)) {
+      storage.deleteMotherCheckIn(date);
+      setAllCheckIns(storage.getMotherCheckIns());
+      if (date === todayStr) {
+        setTodayCheckIn(storage.getMotherCheckInByDate(todayStr));
+      }
+    }
   };
 
   const toggleMealDone = (mealType: 'breakfast' | 'lunch' | 'snack' | 'dinner') => {
@@ -441,37 +501,56 @@ export const MotherCornerPage: React.FC = () => {
           </div>
 
           {/* Weight & Cycle Start Date */}
-          <div className="grid grid-cols-2 gap-2.5 pt-2 border-t border-app-border">
-            <div>
-              <label className="text-[10px] font-bold text-content-secondary flex items-center gap-1 mb-1">
-                <Scale className="w-3 h-3 text-rose-500" /> Cân nặng hôm nay (kg)
-              </label>
-              <input
-                type="number"
-                step="0.1"
-                placeholder="VD: 54.5"
-                value={todayCheckIn.weightKg ?? ''}
-                onChange={(e) =>
-                  updateCheckIn({
-                    weightKg: e.target.value ? parseFloat(e.target.value) : undefined,
-                  })
-                }
-                className="w-full px-2.5 py-1.5 text-xs font-bold border border-app-border rounded-xl bg-app-bg text-content-primary focus:outline-none focus:ring-2 focus:ring-rose-400"
-              />
+          <div className="space-y-2.5 pt-2 border-t border-app-border">
+            <div className="grid grid-cols-2 gap-2.5">
+              <div>
+                <label className="text-[10px] font-bold text-content-secondary flex items-center gap-1 mb-1">
+                  <Scale className="w-3 h-3 text-rose-500" /> Cân nặng hôm nay (kg)
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  placeholder="VD: 54.5"
+                  value={todayCheckIn.weightKg ?? ''}
+                  onChange={(e) =>
+                    updateCheckIn({
+                      weightKg: e.target.value ? parseFloat(e.target.value) : undefined,
+                    })
+                  }
+                  className="w-full px-2.5 py-1.5 text-xs font-bold border border-app-border rounded-xl bg-app-bg text-content-primary focus:outline-none focus:ring-2 focus:ring-rose-400"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-content-secondary flex items-center gap-1 mb-1">
+                  <Calendar className="w-3 h-3 text-rose-500" /> Ngày bắt đầu Ngày 1
+                </label>
+                <input
+                  type="date"
+                  value={settings.startDate}
+                  onChange={(e) => {
+                    handleSaveSettings({ startDate: e.target.value });
+                  }}
+                  className="w-full px-2.5 py-1.5 text-xs font-bold border border-app-border rounded-xl bg-app-bg text-content-primary focus:outline-none focus:ring-2 focus:ring-rose-400"
+                />
+              </div>
             </div>
-            <div>
-              <label className="text-[10px] font-bold text-content-secondary flex items-center gap-1 mb-1">
-                <Calendar className="w-3 h-3 text-rose-500" /> Ngày bắt đầu Ngày 1
-              </label>
-              <input
-                type="date"
-                value={settings.startDate}
-                onChange={(e) => {
-                  handleSaveSettings({ startDate: e.target.value });
-                }}
-                className="w-full px-2.5 py-1.5 text-xs font-bold border border-app-border rounded-xl bg-app-bg text-content-primary focus:outline-none focus:ring-2 focus:ring-rose-400"
-              />
-            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                const el = document.getElementById('mother-weight-history');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
+              className="w-full py-2 px-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/40 border border-rose-200/70 dark:border-rose-800/50 text-rose-700 dark:text-rose-300 text-xs font-extrabold flex items-center justify-between transition-colors"
+            >
+              <span className="flex items-center gap-1.5">
+                <TrendingUp className="w-3.5 h-3.5 text-rose-500" />
+                <span>Xem lịch sử cân nặng &amp; nhật ký hàng ngày</span>
+              </span>
+              <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black">
+                {allCheckIns.length} ngày đã lưu
+              </span>
+            </button>
           </div>
         </Card>
       </div>
@@ -902,6 +981,386 @@ export const MotherCornerPage: React.FC = () => {
                   </tr>
                 );
               })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {/* ── WEIGHT & DAILY CHECK-IN HISTORY LOG (#mother-weight-history) ── */}
+      <Card
+        id="mother-weight-history"
+        className="p-5 md:p-6 border-2 border-emerald-200/80 dark:border-emerald-800/50 space-y-5 scroll-mt-20"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-app-border">
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-sm">
+              <Scale className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base md:text-lg font-black text-content-primary">
+                📊 Nhật Ký Cân Nặng &amp; Toàn Bộ Lịch Sử Theo Dõi Hàng Ngày
+              </h2>
+              <p className="text-xs text-content-secondary">
+                Tự động lưu trữ theo từng ngày trên thiết bị &amp; đồng bộ đám mây Supabase (<code className="font-mono text-[11px]">ktt_mother_checkins</code>)
+              </p>
+            </div>
+          </div>
+
+          <Badge variant="primary" size="sm">
+            Đã lưu {allCheckIns.length} ngày
+          </Badge>
+        </div>
+
+        {/* KPI Summary Cards */}
+        {(() => {
+          const sortedAsc = [...allCheckIns]
+            .filter((c) => typeof c.weightKg === 'number' && c.weightKg > 0)
+            .sort((a, b) => a.date.localeCompare(b.date));
+          const firstWeight =
+            sortedAsc.length > 0
+              ? sortedAsc[0].weightKg!
+              : settings.currentWeightKg || 56;
+          const latestWeight =
+            sortedAsc.length > 0
+              ? sortedAsc[sortedAsc.length - 1].weightKg!
+              : settings.currentWeightKg || 56;
+          const targetWeight = settings.targetWeightKg || 52;
+          const heightM = (settings.heightCm || 160) / 100;
+          const bmi = latestWeight / (heightM * heightM);
+          const totalDiff = Number((latestWeight - firstWeight).toFixed(1));
+          const toTargetDiff = Number((latestWeight - targetWeight).toFixed(1));
+
+          return (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/25 border border-emerald-200/70 dark:border-emerald-800/50">
+                  <div className="text-[11px] font-bold text-content-secondary">Cân nặng mới nhất</div>
+                  <div className="text-xl font-black text-emerald-700 dark:text-emerald-300 mt-0.5">
+                    {latestWeight} kg
+                  </div>
+                  <div className="text-[10px] text-content-muted mt-0.5">
+                    Khởi điểm: <strong>{firstWeight} kg</strong>
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-rose-50/70 dark:bg-rose-950/25 border border-rose-200/70 dark:border-rose-800/50">
+                  <div className="text-[11px] font-bold text-content-secondary">Mục tiêu cân nặng</div>
+                  <div className="text-xl font-black text-rose-600 dark:text-rose-300 mt-0.5">
+                    {targetWeight} kg
+                  </div>
+                  <div className="text-[10px] text-content-muted mt-0.5">
+                    {toTargetDiff > 0
+                      ? `Cần giảm thêm ${toTargetDiff} kg`
+                      : toTargetDiff === 0
+                      ? '🎉 Đã đạt mục tiêu!'
+                      : `Thấp hơn mục tiêu ${Math.abs(toTargetDiff)} kg`}
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-amber-50/70 dark:bg-amber-950/25 border border-amber-200/70 dark:border-amber-800/50">
+                  <div className="text-[11px] font-bold text-content-secondary">Thay đổi tổng cộng</div>
+                  <div
+                    className={`text-xl font-black mt-0.5 ${
+                      totalDiff <= 0
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-amber-600 dark:text-amber-400'
+                    }`}
+                  >
+                    {totalDiff > 0 ? `+${totalDiff}` : totalDiff} kg
+                  </div>
+                  <div className="text-[10px] text-content-muted mt-0.5">
+                     Qua {sortedAsc.length} lần ghi cân nặng
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-sky-50/70 dark:bg-sky-950/25 border border-sky-200/70 dark:border-sky-800/50">
+                  <div className="text-[11px] font-bold text-content-secondary">
+                    Chỉ số BMI ({settings.heightCm || 160}cm)
+                  </div>
+                  <div className="text-xl font-black text-sky-700 dark:text-sky-300 mt-0.5">
+                    {bmi.toFixed(1)}
+                  </div>
+                  <div className="text-[10px] text-content-muted mt-0.5">
+                    {bmi < 18.5
+                      ? 'Hơi gầy'
+                      : bmi < 23
+                      ? '✅ Vóc dáng Chuẩn'
+                      : 'Cần giảm mỡ nhẹ'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Visual Weight Trend Bars */}
+              {sortedAsc.length > 0 && (
+                <div className="p-4 rounded-2xl bg-app-bg border border-app-border space-y-2.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-black text-content-primary flex items-center gap-1.5">
+                      <TrendingUp className="w-4 h-4 text-emerald-500" />
+                      Biểu đồ xu hướng cân nặng theo ngày
+                    </span>
+                    <span className="text-[11px] text-content-muted">
+                      Mục tiêu: <strong className="text-rose-500">{targetWeight} kg</strong>
+                    </span>
+                  </div>
+                  <div className="flex items-end gap-2 overflow-x-auto pb-2 pt-4 min-h-[130px]">
+                    {sortedAsc.slice(-14).map((item, idx) => {
+                      const w = item.weightKg!;
+                      const minW = Math.min(targetWeight - 2, ...sortedAsc.map((x) => x.weightKg!)) - 1;
+                      const maxW = Math.max(targetWeight + 4, ...sortedAsc.map((x) => x.weightKg!)) + 1;
+                      const pct = Math.max(
+                        18,
+                        Math.min(100, Math.round(((w - minW) / Math.max(1, maxW - minW)) * 85))
+                      );
+                      const prevW = idx > 0 ? sortedAsc.slice(-14)[idx - 1].weightKg! : w;
+                      const isDown = w <= prevW;
+                      return (
+                        <button
+                          key={item.date}
+                          type="button"
+                          onClick={() => handleSelectLogToEdit(item)}
+                          className="flex flex-col items-center gap-1 min-w-[52px] group cursor-pointer"
+                          title={`Ngày ${item.date.split('-').reverse().join('/')}: ${w} kg (Bấm để sửa)`}
+                        >
+                          <span
+                            className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${
+                              isDown
+                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
+                                : 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'
+                            }`}
+                          >
+                            {w}kg
+                          </span>
+                          <div className="w-8 h-20 bg-black/5 dark:bg-white/5 rounded-xl flex items-end p-1">
+                            <div
+                              className={`w-full rounded-lg transition-all group-hover:brightness-110 ${
+                                isDown
+                                  ? 'bg-gradient-to-t from-emerald-600 to-teal-400'
+                                  : 'bg-gradient-to-t from-rose-500 to-amber-400'
+                              }`}
+                              style={{ height: `${pct}%` }}
+                            />
+                          </div>
+                          <span className="text-[10px] font-bold text-content-secondary">
+                            {item.date.slice(8, 10)}/{item.date.slice(5, 7)}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Form to Add / Edit Weight & Check-In for Any Date */}
+        <form
+          onSubmit={handleSaveHistoryLog}
+          className="p-4 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/15 border border-emerald-200/70 dark:border-emerald-800/40 space-y-3"
+        >
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-black text-content-primary flex items-center gap-1.5">
+              <Plus className="w-4 h-4 text-emerald-600" />
+              <span>Ghi nhận hoặc Cập nhật Cân nặng &amp; Nhật ký theo ngày</span>
+            </h3>
+            <span className="text-[11px] text-content-muted">
+              Chọn ngày bất kỳ để thêm mới hoặc sửa lại lịch sử
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
+            <div>
+              <label className="font-bold text-content-secondary block mb-1">Ngày ghi nhận</label>
+              <input
+                type="date"
+                required
+                value={logDate}
+                onChange={(e) => {
+                  const d = e.target.value;
+                  setLogDate(d);
+                  const existing = storage.getMotherCheckInByDate(d);
+                  setLogWeight(existing.weightKg !== undefined ? String(existing.weightKg) : '');
+                  setLogWater(existing.waterGlasses ?? 8);
+                  setLogWorkout(Boolean(existing.workoutCompleted));
+                  setLogNote(existing.note || '');
+                }}
+                className="w-full px-3 py-2 rounded-xl border border-app-border bg-app-surface text-content-primary font-bold"
+              />
+            </div>
+
+            <div>
+              <label className="font-bold text-content-secondary block mb-1">Cân nặng (kg)</label>
+              <input
+                type="number"
+                step="0.1"
+                placeholder="VD: 54.5"
+                value={logWeight}
+                onChange={(e) => setLogWeight(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-app-border bg-app-surface text-content-primary font-bold"
+              />
+            </div>
+
+            <div>
+              <label className="font-bold text-content-secondary block mb-1">
+                Số cốc nước ({logWater * 250}ml)
+              </label>
+              <select
+                value={logWater}
+                onChange={(e) => setLogWater(Number(e.target.value))}
+                className="w-full px-3 py-2 rounded-xl border border-app-border bg-app-surface text-content-primary font-bold"
+              >
+                {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((g) => (
+                  <option key={g} value={g}>
+                    💧 {g} cốc ({g * 250} ml)
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="font-bold text-content-secondary block mb-1">Tập luyện</label>
+              <button
+                type="button"
+                onClick={() => setLogWorkout((v) => !v)}
+                className={`w-full px-3 py-2 rounded-xl border font-bold flex items-center justify-center gap-1.5 transition-colors ${
+                  logWorkout
+                    ? 'bg-emerald-500 text-white border-emerald-500'
+                    : 'bg-app-surface text-content-secondary border-app-border'
+                }`}
+              >
+                <Dumbbell className="w-3.5 h-3.5" />
+                <span>{logWorkout ? '✅ Đã tập' : 'Chưa tập'}</span>
+              </button>
+            </div>
+
+            <div>
+              <label className="font-bold text-content-secondary block mb-1">Ghi chú ngày</label>
+              <div className="flex gap-1.5">
+                <input
+                  type="text"
+                  placeholder="VD: Ăn chuẩn, người nhẹ..."
+                  value={logNote}
+                  onChange={(e) => setLogNote(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-app-border bg-app-surface text-content-primary"
+                />
+                <Button type="submit" variant="primary" size="sm" className="shrink-0">
+                  Lưu
+                </Button>
+              </div>
+            </div>
+          </div>
+        </form>
+
+        {/* Full History Table */}
+        <div className="overflow-x-auto rounded-2xl border border-app-border">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-app-bg border-b border-app-border text-[11px] font-black uppercase text-content-secondary">
+                <th className="py-3 px-3">Ngày</th>
+                <th className="py-3 px-3 text-center">Cân nặng (kg)</th>
+                <th className="py-3 px-3 text-center">So với lần trước</th>
+                <th className="py-3 px-3 text-center">Nước uống</th>
+                <th className="py-3 px-3 text-center">Bữa ăn</th>
+                <th className="py-3 px-3 text-center">Tập luyện</th>
+                <th className="py-3 px-3">Ghi chú</th>
+                <th className="py-3 px-3 text-center w-24">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-app-border text-xs">
+              {allCheckIns.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-8 text-center text-content-muted">
+                    Chưa có bản ghi lịch sử nào. Hãy nhập cân nặng hôm nay hoặc dùng khung bên trên để lưu nhật ký!
+                  </td>
+                </tr>
+              ) : (
+                [...allCheckIns]
+                  .sort((a, b) => b.date.localeCompare(a.date))
+                  .map((item, idx, arr) => {
+                    // Find previous chronological weight entry (which is at a higher index in desc array)
+                    const prevWithWeight = arr
+                      .slice(idx + 1)
+                      .find((x) => typeof x.weightKg === 'number' && x.weightKg > 0);
+                    const diff =
+                      item.weightKg && prevWithWeight?.weightKg
+                        ? Number((item.weightKg - prevWithWeight.weightKg).toFixed(1))
+                        : null;
+
+                    return (
+                      <tr
+                        key={item.date}
+                        className={`hover:bg-app-bg/70 transition-colors ${
+                          item.date === todayStr ? 'bg-emerald-50/40 dark:bg-emerald-950/20' : ''
+                        }`}
+                      >
+                        <td className="py-3 px-3 font-bold text-content-primary whitespace-nowrap">
+                          {item.date.split('-').reverse().join('/')}
+                          {item.date === todayStr && (
+                            <span className="ml-1.5 px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black">
+                              Hôm nay
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 text-center font-black text-sm text-content-primary">
+                          {item.weightKg ? `${item.weightKg} kg` : '—'}
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          {diff === null ? (
+                            <span className="text-content-muted">—</span>
+                          ) : diff < 0 ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 font-black text-[11px]">
+                              ▼ {diff} kg
+                            </span>
+                          ) : diff > 0 ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 font-black text-[11px]">
+                              ▲ +{diff} kg
+                            </span>
+                          ) : (
+                            <span className="text-[11px] font-bold text-content-muted">Giữ nguyên</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 text-center font-semibold text-sky-600 dark:text-sky-400">
+                          💧 {item.waterGlasses}/8 cốc ({item.waterGlasses * 250}ml)
+                        </td>
+                        <td className="py-3 px-3 text-center font-semibold text-content-primary">
+                          🍽️ {item.completedMeals?.length || 0}/4 bữa
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          {item.workoutCompleted ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-bold text-[11px]">
+                              ✅ Đã tập
+                            </span>
+                          ) : (
+                            <span className="text-content-muted">—</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 text-content-secondary italic">
+                          {item.note || '—'}
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleSelectLogToEdit(item)}
+                              className="p-1.5 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-emerald-600 transition-colors"
+                              title="Sửa nhật ký ngày này"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteHistoryLog(item.date)}
+                              className="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 text-red-500 transition-colors"
+                              title="Xoá bản ghi ngày này"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+              )}
             </tbody>
           </table>
         </div>

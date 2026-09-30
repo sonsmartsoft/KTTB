@@ -14,6 +14,7 @@ import {
   TrendingUp,
   Heart,
   Smile,
+  PanelLeftClose,
 } from 'lucide-react';
 import { useChild } from '@/context/ChildContext';
 import { useKidMode } from '@/context/KidModeContext';
@@ -48,34 +49,61 @@ const KID_NAV_ITEMS: NavItem[] = [
   { to: '/achievements', label: 'Góc khen thưởng', icon: <Award className="w-5 h-5" /> },
 ];
 
-export const Sidebar: React.FC = () => {
+interface SidebarProps {
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggleCollapse }) => {
   const { activeChild } = useChild();
   const { isKidMode } = useKidMode();
 
   const currentNavItems = isKidMode ? KID_NAV_ITEMS : NAV_ITEMS;
 
+  if (isCollapsed) {
+    return null;
+  }
+
   return (
-    <aside className="hidden md:flex flex-col w-64 bg-app-card border-r border-app-border h-screen sticky top-0 shrink-0 z-20">
+    <aside className="hidden md:flex flex-col w-64 bg-app-card border-r border-app-border h-screen sticky top-0 shrink-0 z-20 transition-all duration-200">
       {/* Brand Logo & Title */}
-      <div className="p-5 border-b border-app-subtle flex items-center gap-3">
-        <div className="w-10 h-10 rounded-theme-md bg-gradient-to-tr from-primary to-amber-400 flex items-center justify-center text-white shadow-theme-sm font-bold text-xl">
-          ⭐
+      <div className="p-4 border-b border-app-subtle flex items-center justify-between gap-2">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 rounded-theme-md bg-gradient-to-tr from-primary to-amber-400 flex items-center justify-center text-white shadow-theme-sm font-bold text-xl shrink-0">
+            ⭐
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-sm font-bold text-content-primary leading-tight font-display truncate">
+              Kids Timetable
+            </h1>
+            <p className="text-[11px] text-content-muted truncate">Lịch học &amp; Gia đình</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-sm font-bold text-content-primary leading-tight font-display">
-            Kids Timetable
-          </h1>
-          <p className="text-[11px] text-content-muted">Lịch học & Gia đình</p>
-        </div>
+        {onToggleCollapse && (
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            className="p-1.5 rounded-lg text-content-muted hover:text-primary hover:bg-black/5 dark:hover:bg-white/5 transition-colors shrink-0"
+            title="Ẩn thanh menu bên trái (Chế độ toàn màn hình / TV)"
+          >
+            <PanelLeftClose className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* Active Child Mini Card */}
       <div className="p-3 mx-3 my-3 bg-app-bg border border-app-subtle rounded-theme-md flex items-center gap-2.5">
         <div
-          className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-sm"
+          className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-sm overflow-hidden"
           style={{ backgroundColor: activeChild.color || '#2563EB' }}
         >
-          {activeChild.avatar_url === 'boy' ? '👦' : '👧'}
+          {activeChild.avatar_url?.startsWith('data:') || activeChild.avatar_url?.startsWith('http') ? (
+            <img src={activeChild.avatar_url} alt={activeChild.name} className="w-full h-full object-cover" />
+          ) : activeChild.avatar_url === 'boy' ? (
+            '👦'
+          ) : (
+            '👧'
+          )}
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-xs font-bold text-content-primary truncate">

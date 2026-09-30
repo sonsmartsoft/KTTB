@@ -895,7 +895,30 @@ export const storage = {
     const idx = all.findIndex((c) => c.date === checkIn.date);
     if (idx >= 0) all[idx] = checkIn;
     else all.push(checkIn);
+    all.sort((a, b) => b.date.localeCompare(a.date));
     setItem(KEYS.MOTHER_CHECKINS, all);
+
+    // Tự động cập nhật cân nặng hiện tại mới nhất vào Hồ sơ Mẹ
+    const latestWithWeight = all.find((c) => typeof c.weightKg === 'number' && c.weightKg > 0);
+    if (latestWithWeight && latestWithWeight.weightKg) {
+      const currentSettings = this.getMotherSettings();
+      if (currentSettings.currentWeightKg !== latestWithWeight.weightKg) {
+        this.saveMotherSettings({
+          ...currentSettings,
+          currentWeightKg: latestWithWeight.weightKg,
+        });
+      }
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ktt-mother-updated'));
+    }
+  },
+  deleteMotherCheckIn(date: string): void {
+    const all = this.getMotherCheckIns().filter((c) => c.date !== date);
+    setItem(KEYS.MOTHER_CHECKINS, all);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ktt-mother-updated'));
+    }
   },
   getMotherSettings(): MotherSettings {
     const raw = getItem<MotherSettings>(KEYS.MOTHER_SETTINGS, DEFAULT_MOTHER_SETTINGS);
