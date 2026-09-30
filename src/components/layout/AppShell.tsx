@@ -1,24 +1,47 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { MobileNav } from './MobileNav';
 import { FamilyBirthdayBanner } from '../family/FamilyBirthdayBanner';
+import { storage } from '@/services/storage';
 
 export const AppShell: React.FC = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
     try {
+      const typo = storage.getTypographySettings();
+      if (typo.sidebarCollapsed !== undefined) return typo.sidebarCollapsed;
       return localStorage.getItem('ktt_sidebar_collapsed') === 'true';
     } catch {
       return false;
     }
   });
 
+  useEffect(() => {
+    const handleSynced = () => {
+      try {
+        const typo = storage.getTypographySettings();
+        if (typo.sidebarCollapsed !== undefined) {
+          setIsSidebarCollapsed(typo.sidebarCollapsed);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    window.addEventListener('ktt-cloud-synced', handleSynced);
+    return () => window.removeEventListener('ktt-cloud-synced', handleSynced);
+  }, []);
+
   const handleToggleSidebar = () => {
     setIsSidebarCollapsed((prev) => {
       const next = !prev;
       try {
         localStorage.setItem('ktt_sidebar_collapsed', String(next));
+        const currentTypo = storage.getTypographySettings();
+        storage.saveTypographySettings({
+          ...currentTypo,
+          sidebarCollapsed: next,
+        });
       } catch {
         // ignore
       }

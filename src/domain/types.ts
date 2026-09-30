@@ -410,6 +410,7 @@ export interface SectionTypographyConfig {
 export interface TypographySettings {
   displayMode: DisplayScaleMode;
   fullWidthOnLargeScreen: boolean;
+  sidebarCollapsed?: boolean;
   sections: Record<TypographySectionKey, SectionTypographyConfig>;
 }
 
@@ -463,5 +464,12 @@ export interface MotherSettings {
   avatarUrl?: string; // Emoji hoặc ảnh tải lên (data:image/... hoặc URL)
   color?: string; // Màu chủ đạo đại diện cho Mẹ
   goalNote?: string; // Mục tiêu sức khỏe / vóc dáng
+  // Lưu cấu hình chế độ xem (View Setup) của người dùng
+  chartShowLabels?: boolean; // Ẩn / hiện số liệu trên biểu đồ
+  chartPeriodFilter?: 'week' | 'month' | 'year' | 'all'; // Bộ lọc kỳ biểu đồ
+  chartSelectedMonth?: string; // Tháng đang chọn (YYYY-MM)
+  chartSelectedYear?: string; // Năm đang chọn (YYYY)
+  showGoldenRules?: boolean; // Ẩn / hiện bảng nguyên tắc vàng
+  mealWeekFilter?: 'all' | 'w1' | 'w2' | 'w3' | 'w4'; // Bộ lọc tuần thực đơn 30 ngày
 }
 

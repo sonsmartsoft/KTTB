@@ -11,6 +11,7 @@ import {
   Legend,
   ReferenceLine,
   Cell,
+  LabelList,
 } from 'recharts';
 import { MotherDailyCheckIn, MotherSettings } from '@/domain/types';
 import { Card } from '@/design-system/components/Card';
@@ -23,15 +24,15 @@ import {
   Dumbbell,
   Utensils,
   Target,
-  CheckCircle2,
   Plus,
   Edit2,
   Trash2,
   Filter,
   Settings2,
-  Award,
   Check,
   X,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { parseISO, differenceInCalendarDays } from 'date-fns';
 
@@ -151,10 +152,27 @@ export const MotherAnalyticsAndGoalsSection: React.FC<MotherAnalyticsAndGoalsSec
   onSaveSettings,
   getCheckInByDate,
 }) => {
-  // ── Filter State (Tuần / Tháng / Năm / Tất cả) ──
-  const [periodFilter, setPeriodFilter] = useState<PeriodFilterType>('week');
-  const [selectedMonth, setSelectedMonth] = useState<string>(() => todayStr.slice(0, 7)); // YYYY-MM
-  const [selectedYear, setSelectedYear] = useState<string>(() => todayStr.slice(0, 4)); // YYYY
+  // ── Persisted View & Filter Setup (Tuần / Tháng / Năm / Tất cả + Ẩn/Hiện Label) ──
+  const periodFilter: PeriodFilterType = settings.chartPeriodFilter || 'week';
+  const selectedMonth: string = settings.chartSelectedMonth || todayStr.slice(0, 7);
+  const selectedYear: string = settings.chartSelectedYear || todayStr.slice(0, 4);
+  const showLabels: boolean = settings.chartShowLabels !== false;
+
+  const handleChangePeriodFilter = (nextPeriod: PeriodFilterType) => {
+    onSaveSettings({ chartPeriodFilter: nextPeriod });
+  };
+
+  const handleChangeSelectedMonth = (nextMonth: string) => {
+    onSaveSettings({ chartSelectedMonth: nextMonth });
+  };
+
+  const handleChangeSelectedYear = (nextYear: string) => {
+    onSaveSettings({ chartSelectedYear: nextYear });
+  };
+
+  const handleToggleChartLabels = () => {
+    onSaveSettings({ chartShowLabels: !showLabels });
+  };
 
   // ── Goal Configuration Inline Modal/Drawer ──
   const [isEditingGoals, setIsEditingGoals] = useState(false);
@@ -246,8 +264,8 @@ export const MotherAnalyticsAndGoalsSection: React.FC<MotherAnalyticsAndGoalsSec
         fullDateDisplay: `${dd}/${mm}/${yyyy}`,
         weightKg: item.weightKg ?? null,
         waterGlasses: item.waterGlasses ?? 0,
-        // Biểu diễn Luyện tập trên trục cột trái (qui đổi = 8 khi hoàn thành bài tập để ngang chuẩn 8 cốc nước, 0.5 khi nghỉ để vẫn thấy chân cột)
-        workoutScore: item.workoutCompleted ? 8 : 0,
+        // Biểu diễn Luyện tập ở nửa dưới biểu đồ (qui đổi = 7 để hài hoà cạnh cốc nước)
+        workoutScore: item.workoutCompleted ? 7 : 0,
         workoutCompleted: Boolean(item.workoutCompleted),
         mealsCount: item.completedMeals?.length || 0,
         note: item.note || '',
@@ -349,16 +367,27 @@ export const MotherAnalyticsAndGoalsSection: React.FC<MotherAnalyticsAndGoalsSec
     };
   }, [allCheckIns, filteredAsc, periodFilter, settings]);
 
-  // Calculate Y-Axis domain for Weight Line so the line looks dynamic and clear
-  const weightDomain = useMemo<[number, number]>(() => {
+  // Tách trục Y phải (Cân nặng) nằm ở NỬA TRÊN biểu đồ và trục Y trái (Nước & Tập) nằm ở NỬA DƯỚI biểu đồ để số liệu (label) không bao giờ đè lên nhau
+  const weightAxisConfig = useMemo<{ domain: [number, number]; ticks: number[] }>(() => {
     const weights = chartData
       .map((d) => d.weightKg)
       .filter((w): w is number => typeof w === 'number' && w > 0);
     const target = settings.targetWeightKg || 52;
-    if (weights.length === 0) return [target - 2, target + 6];
-    const minW = Math.floor(Math.min(target, ...weights) - 1.5);
-    const maxW = Math.ceil(Math.max(target, ...weights) + 1.5);
-    return [minW, maxW];
+    const minVal = weights.length > 0 ? Math.min(target, ...weights) : target - 1;
+    const maxVal = weights.length > 0 ? Math.max(target, ...weights) : target + 4;
+    const spread = Math.max(3, maxVal - minVal);
+    // Đẩy đường cân nặng lên nửa trên của biểu đồ bằng cách mở rộng khoảng đệm phía dưới (bottom)
+    const domainBottom = Math.floor(minVal - spread * 1.45);
+    const domainTop = Math.ceil(maxVal + spread * 0.45);
+
+    const tickStart = Math.floor(minVal - 0.5);
+    const tickEnd = Math.ceil(maxVal + 0.5);
+    const step = tickEnd - tickStart > 6 ? 2 : 1;
+    const ticks: number[] = [];
+    for (let v = tickStart; v <= tickEnd; v += step) {
+      ticks.push(v);
+    }
+    return { domain: [domainBottom, domainTop], ticks };
   }, [chartData, settings.targetWeightKg]);
 
   const filterLabelText = useMemo(() => {
@@ -392,7 +421,7 @@ export const MotherAnalyticsAndGoalsSection: React.FC<MotherAnalyticsAndGoalsSec
               </Badge>
             </div>
             <p className="text-xs text-content-secondary mt-0.5">
-              Kết hợp theo dõi Cân nặng (đường), Số cốc nước &amp; Buổi tập (cột) theo Tuần / Tháng / Năm
+              Theo dõi Cân nặng, Nước uống &amp; Luyện tập theo Tuần / Tháng / Năm (Tự động lưu chế độ xem)
             </p>
           </div>
         </div>
@@ -414,7 +443,7 @@ export const MotherAnalyticsAndGoalsSection: React.FC<MotherAnalyticsAndGoalsSec
               <button
                 key={tab.id}
                 type="button"
-                onClick={() => setPeriodFilter(tab.id)}
+                onClick={() => handleChangePeriodFilter(tab.id)}
                 className={`px-2.5 py-1.5 rounded-lg text-xs font-extrabold transition-all ${
                   periodFilter === tab.id
                     ? 'bg-emerald-600 text-white shadow-sm'
@@ -429,7 +458,7 @@ export const MotherAnalyticsAndGoalsSection: React.FC<MotherAnalyticsAndGoalsSec
           {periodFilter === 'month' && (
             <select
               value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
+              onChange={(e) => handleChangeSelectedMonth(e.target.value)}
               className="px-3 py-1.5 rounded-xl border border-emerald-300 dark:border-emerald-700 bg-app-surface text-xs font-black text-content-primary"
             >
               {availableMonths.map((m) => {
@@ -446,7 +475,7 @@ export const MotherAnalyticsAndGoalsSection: React.FC<MotherAnalyticsAndGoalsSec
           {periodFilter === 'year' && (
             <select
               value={selectedYear}
-              onChange={(e) => setSelectedYear(e.target.value)}
+              onChange={(e) => handleChangeSelectedYear(e.target.value)}
               className="px-3 py-1.5 rounded-xl border border-emerald-300 dark:border-emerald-700 bg-app-surface text-xs font-black text-content-primary"
             >
               {availableYears.map((y) => (
@@ -456,6 +485,20 @@ export const MotherAnalyticsAndGoalsSection: React.FC<MotherAnalyticsAndGoalsSec
               ))}
             </select>
           )}
+
+          <button
+            type="button"
+            onClick={handleToggleChartLabels}
+            className={`px-3 py-1.5 rounded-xl border text-xs font-extrabold flex items-center gap-1.5 transition-all ${
+              showLabels
+                ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300'
+                : 'bg-app-surface border-app-border text-content-secondary hover:text-content-primary'
+            }`}
+            title="Bật / Tắt hiển thị số liệu trên biểu đồ (tự động lưu)"
+          >
+            {showLabels ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+            <span>{showLabels ? 'Hiện label số liệu' : 'Ẩn label số liệu'}</span>
+          </button>
 
           <Button
             type="button"
@@ -749,22 +792,30 @@ export const MotherAnalyticsAndGoalsSection: React.FC<MotherAnalyticsAndGoalsSec
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h3 className="text-sm font-black text-content-primary flex items-center gap-2">
-              <span>📈 Biểu Đồ Kết Hợp Đường &amp; Cột: Cân Nặng (kg) • Nước Uống (cốc) • Luyện Tập</span>
+              <span>📈 Biểu Đồ Cân Nặng (kg) • Nước Uống (cốc) • Luyện Tập</span>
             </h3>
             <p className="text-[11px] text-content-secondary">
-              Trục trái (Cột): Số cốc nước uống (0–10 cốc) &amp; Ngày đã tập luyện • Trục phải (Đường hồng): Cân nặng (kg) &amp; Đường mục tiêu ({settings.targetWeightKg || 52}kg)
+              Nửa trên: Cân nặng (kg) &amp; Đích ({settings.targetWeightKg || 52}kg) • Nửa dưới: Nước uống (0–10 cốc) &amp; Luyện tập
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3 text-[11px] font-bold">
+            <span className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400">
+              <span className="w-3 h-1 bg-rose-500 rounded-full inline-block" /> ⚖️ Cân nặng (kg)
+            </span>
             <span className="flex items-center gap-1.5 text-sky-600 dark:text-sky-400">
-              <span className="w-3 h-3 rounded-xs bg-sky-500 inline-block" /> Cột Nước uống (cốc)
+              <span className="w-3 h-3 rounded-xs bg-sky-500 inline-block" /> 💧 Nước uống (cốc)
             </span>
             <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
-              <span className="w-3 h-3 rounded-xs bg-emerald-500 inline-block" /> Cột Đã Luyện tập
+              <span className="w-3 h-3 rounded-xs bg-emerald-500 inline-block" /> 🏋️‍♀️ Luyện tập
             </span>
-            <span className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400">
-              <span className="w-3 h-1 bg-rose-500 rounded-full inline-block" /> Đường Cân nặng (kg)
-            </span>
+            <button
+              type="button"
+              onClick={handleToggleChartLabels}
+              className="ml-1 px-2.5 py-1 rounded-lg border border-app-border bg-app-surface hover:border-emerald-400 text-content-primary flex items-center gap-1 transition-colors"
+            >
+              {showLabels ? <EyeOff className="w-3 h-3 text-emerald-600" /> : <Eye className="w-3 h-3 text-emerald-600" />}
+              <span>{showLabels ? 'Ẩn số liệu' : 'Hiện số liệu'}</span>
+            </button>
           </div>
         </div>
 
@@ -773,11 +824,11 @@ export const MotherAnalyticsAndGoalsSection: React.FC<MotherAnalyticsAndGoalsSec
             Không có dữ liệu nhật ký trong khoảng thời gian ({filterLabelText}). Hãy chọn bộ lọc khác hoặc thêm bản ghi bên dưới!
           </div>
         ) : (
-          <div className="w-full h-[310px] sm:h-[340px] pt-2">
+          <div className="w-full h-[350px] sm:h-[380px] pt-2">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart
                 data={chartData}
-                margin={{ top: 12, right: 16, left: 0, bottom: 8 }}
+                margin={{ top: 24, right: 20, left: 0, bottom: 8 }}
                 onClick={(state: any) => {
                   if (state?.activePayload?.[0]?.payload?.raw) {
                     onSelectLogToEdit(state.activePayload[0].payload.raw);
@@ -790,24 +841,20 @@ export const MotherAnalyticsAndGoalsSection: React.FC<MotherAnalyticsAndGoalsSec
                   tick={{ fontSize: 11, fontWeight: 700 }}
                   tickMargin={6}
                 />
-                {/* Left Y-Axis: Water glasses (0..10) & Workout completion bar */}
+                {/* Left Y-Axis: Water glasses (0..10) & Workout completion in LOWER HALF (domain 0..20) */}
                 <YAxis
                   yAxisId="left"
-                  domain={[0, 10]}
-                  tickCount={6}
+                  domain={[0, 20]}
+                  ticks={[0, 2, 4, 6, 8, 10]}
                   tick={{ fontSize: 11, fontWeight: 700, fill: '#0284C7' }}
-                  label={{
-                    value: 'Cốc nước / Tập',
-                    angle: -90,
-                    position: 'insideLeft',
-                    style: { fontSize: 10, fill: '#0284C7', fontWeight: 700 },
-                  }}
+                  unit=" cốc"
                 />
-                {/* Right Y-Axis: Weight (kg) */}
+                {/* Right Y-Axis: Weight (kg) elevated in UPPER HALF */}
                 <YAxis
                   yAxisId="right"
                   orientation="right"
-                  domain={weightDomain}
+                  domain={weightAxisConfig.domain}
+                  ticks={weightAxisConfig.ticks}
                   tick={{ fontSize: 11, fontWeight: 700, fill: '#E11D48' }}
                   unit="kg"
                 />
@@ -822,7 +869,7 @@ export const MotherAnalyticsAndGoalsSection: React.FC<MotherAnalyticsAndGoalsSec
                   y={8}
                   stroke="#0EA5E9"
                   strokeDasharray="4 4"
-                  strokeOpacity={0.6}
+                  strokeOpacity={0.5}
                 />
 
                 {/* Target Weight Line on Right Axis */}
@@ -843,11 +890,11 @@ export const MotherAnalyticsAndGoalsSection: React.FC<MotherAnalyticsAndGoalsSec
                   />
                 )}
 
-                {/* Bar 1: Water Glasses */}
+                {/* Bar 1: Water Glasses (Lower zone) */}
                 <Bar
                   yAxisId="left"
                   dataKey="waterGlasses"
-                  name="💧 Số cốc nước (250ml)"
+                  name="💧 Nước uống (cốc)"
                   fill="#0EA5E9"
                   radius={[6, 6, 0, 0]}
                   maxBarSize={26}
@@ -858,13 +905,22 @@ export const MotherAnalyticsAndGoalsSection: React.FC<MotherAnalyticsAndGoalsSec
                       fill={entry.waterGlasses >= 8 ? '#0284C7' : '#38BDF8'}
                     />
                   ))}
+                  {showLabels && (
+                    <LabelList
+                      dataKey="waterGlasses"
+                      position="top"
+                      offset={4}
+                      formatter={(v: any) => (Number(v) > 0 ? `${v}c` : '')}
+                      style={{ fontSize: 10, fontWeight: 800, fill: '#0284C7' }}
+                    />
+                  )}
                 </Bar>
 
-                {/* Bar 2: Workout Completed */}
+                {/* Bar 2: Workout Completed (Lower zone) */}
                 <Bar
                   yAxisId="left"
                   dataKey="workoutScore"
-                  name="🏋️‍♀️ Hoàn thành Luyện tập"
+                  name="🏋️‍♀️ Luyện tập"
                   fill="#10B981"
                   radius={[6, 6, 0, 0]}
                   maxBarSize={22}
@@ -875,9 +931,18 @@ export const MotherAnalyticsAndGoalsSection: React.FC<MotherAnalyticsAndGoalsSec
                       fill={entry.workoutCompleted ? '#10B981' : '#E2E8F0'}
                     />
                   ))}
+                  {showLabels && (
+                    <LabelList
+                      dataKey="workoutCompleted"
+                      position="top"
+                      offset={4}
+                      formatter={(v: any) => (v ? 'Tập' : '')}
+                      style={{ fontSize: 9.5, fontWeight: 800, fill: '#059669' }}
+                    />
+                  )}
                 </Bar>
 
-                {/* Line: Weight (kg) */}
+                {/* Line: Weight (kg) (Elevated in Upper zone) */}
                 <Line
                   yAxisId="right"
                   type="monotone"
@@ -888,7 +953,17 @@ export const MotherAnalyticsAndGoalsSection: React.FC<MotherAnalyticsAndGoalsSec
                   connectNulls
                   dot={{ r: 5, fill: '#F43F5E', stroke: '#ffffff', strokeWidth: 2 }}
                   activeDot={{ r: 7, fill: '#E11D48', stroke: '#ffffff', strokeWidth: 2 }}
-                />
+                >
+                  {showLabels && (
+                    <LabelList
+                      dataKey="weightKg"
+                      position="top"
+                      offset={10}
+                      formatter={(v: any) => (v ? `${v}kg` : '')}
+                      style={{ fontSize: 11, fontWeight: 900, fill: '#E11D48' }}
+                    />
+                  )}
+                </Line>
               </ComposedChart>
             </ResponsiveContainer>
           </div>

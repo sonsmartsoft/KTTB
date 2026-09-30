@@ -828,6 +828,10 @@ export const storage = {
         stored.fullWidthOnLargeScreen !== undefined
           ? stored.fullWidthOnLargeScreen
           : DEFAULT_TYPOGRAPHY_SETTINGS.fullWidthOnLargeScreen,
+      sidebarCollapsed:
+        stored.sidebarCollapsed !== undefined
+          ? stored.sidebarCollapsed
+          : DEFAULT_TYPOGRAPHY_SETTINGS.sidebarCollapsed,
       sections: {
         ...DEFAULT_TYPOGRAPHY_SETTINGS.sections,
         ...(stored.sections || {}),

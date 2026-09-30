@@ -403,6 +403,10 @@ export const DEFAULT_MOTHER_SETTINGS: MotherSettings = {
   avatarUrl: '🧘‍♀️',
   color: '#F43F5E',
   goalNote: 'Giữ dáng thon gọn, khỏe mạnh & tràn đầy năng lượng mỗi ngày',
+  chartShowLabels: true,
+  chartPeriodFilter: 'week',
+  showGoldenRules: true,
+  mealWeekFilter: 'all',
 };
 
 export const SEED_MOTHER_CHECKINS: MotherDailyCheckIn[] = [
@@ -469,6 +473,7 @@ export const SEED_MOTHER_CHECKINS: MotherDailyCheckIn[] = [
 export const DEFAULT_TYPOGRAPHY_SETTINGS: TypographySettings = {
   displayMode: 'auto',
   fullWidthOnLargeScreen: true,
+  sidebarCollapsed: false,
   sections: {
     general: { fontFamily: 'Quicksand', fontSize: 'lg' },
     timetable: { fontFamily: 'Be Vietnam Pro', fontSize: 'lg' },

@@ -151,9 +151,9 @@ export const MotherCornerPage: React.FC = () => {
   }, [settings.startDate, todayStr]);
 
   const [selectedDayNum, setSelectedDayNum] = useState<number>(autoCycleDay);
-  const [weekFilter, setWeekFilter] = useState<'all' | 'w1' | 'w2' | 'w3' | 'w4'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [showRules, setShowRules] = useState(true);
+  const weekFilter = settings.mealWeekFilter || 'all';
+  const showRules = settings.showGoldenRules !== false;
 
   // Edit Meal Modal state
   const [editingMealDay, setEditingMealDay] = useState<MotherMealDay | null>(null);
@@ -431,7 +431,7 @@ export const MotherCornerPage: React.FC = () => {
             </div>
             <button
               type="button"
-              onClick={() => setShowRules((v) => !v)}
+              onClick={() => handleSaveSettings({ showGoldenRules: !showRules })}
               className="text-xs font-bold text-rose-600 dark:text-rose-300 hover:underline shrink-0"
             >
               {showRules ? 'Thu gọn' : 'Xem nguyên tắc'}
@@ -909,7 +909,7 @@ export const MotherCornerPage: React.FC = () => {
             <button
               key={tab.id}
               type="button"
-              onClick={() => setWeekFilter(tab.id as typeof weekFilter)}
+              onClick={() => handleSaveSettings({ mealWeekFilter: tab.id as typeof weekFilter })}
               className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all ${
                 weekFilter === tab.id
                   ? 'bg-rose-500 text-white shadow-sm'

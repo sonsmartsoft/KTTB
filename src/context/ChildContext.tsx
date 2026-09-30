@@ -29,8 +29,12 @@ export const ChildProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     let cancelled = false;
     storage.syncFromCloud().then(() => {
       if (cancelled) return;
-      // Refresh lists from localStorage (now populated with cloud data)
+      // Refresh lists & active child view setup from localStorage (now populated with cloud data)
       setChildrenList(storage.getChildren());
+      const syncedSettings = storage.getSettings();
+      if (syncedSettings.activeChildId) {
+        setActiveChildIdState(syncedSettings.activeChildId);
+      }
       setIsSyncing(false);
     }).catch(() => {
       if (!cancelled) setIsSyncing(false);
