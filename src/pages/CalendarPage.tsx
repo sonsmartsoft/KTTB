@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useChild } from '@/context/ChildContext';
+import { useAdminConfirm } from '@/context/AdminConfirmContext';
 import { useScheduleDate } from '@/context/DateContext';
 import { Card } from '@/design-system/components/Card';
 import { Badge } from '@/design-system/components/Badge';
@@ -28,6 +29,7 @@ import { getHolidayInfo, getDayTextClass, getWeekdayHeaderClass } from '@/utils/
 
 export const CalendarPage: React.FC = () => {
   const { activeChild } = useChild();
+  const { confirmDelete } = useAdminConfirm();
   const { selectedDate, setSelectedDate } = useScheduleDate();
 
   const [exceptions, setExceptions] = useState<ScheduleException[]>(() => storage.getExceptions());
@@ -83,8 +85,16 @@ export const CalendarPage: React.FC = () => {
   };
 
   const handleDeleteException = (id: string) => {
-    storage.deleteException(id);
-    setExceptions(storage.getExceptions());
+    const exc = exceptions.find((e) => e.id === id);
+    confirmDelete({
+      title: 'Xoá điều chỉnh lịch',
+      message: 'Bạn có chắc chắn muốn xoá điều chỉnh lịch này?',
+      itemName: exc ? `${exc.type === 'cancel' ? 'Báo nghỉ' : 'Đổi lịch'}: ${exc.note || exc.subject || exc.date}` : undefined,
+      onConfirm: () => {
+        storage.deleteException(id);
+        setExceptions(storage.getExceptions());
+      },
+    });
   };
 
   const handleQuickCancelDay = () => {

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useChild } from '@/context/ChildContext';
+import { useAdminConfirm } from '@/context/AdminConfirmContext';
 import { storage } from '@/services/storage';
 import { Card } from '@/design-system/components/Card';
 import { KpiGradientCard } from '@/design-system/components/KpiGradientCard';
@@ -34,6 +35,7 @@ const CATEGORIES = [
 
 export const AchievementsPage: React.FC = () => {
   const { activeChild } = useChild();
+  const { confirmDelete } = useAdminConfirm();
   const [achievements, setAchievements] = useState<AchievementRecord[]>(() => storage.getAchievements());
   const [activeCategory, setActiveCategory] = useState('all');
 
@@ -98,10 +100,16 @@ export const AchievementsPage: React.FC = () => {
   };
 
   const handleDeleteAchievement = (id: string) => {
-    if (window.confirm('Bạn có chắc chắn muốn xoá thành tích này?')) {
-      storage.deleteAchievement(id);
-      setAchievements(storage.getAchievements());
-    }
+    const ach = achievements.find((a) => a.id === id);
+    confirmDelete({
+      title: 'Xoá bằng khen / thành tích',
+      message: 'Bạn có chắc chắn muốn xoá chứng nhận thành tích này khỏi hồ sơ?',
+      itemName: ach ? `${ach.title} (${ach.result})` : undefined,
+      onConfirm: () => {
+        storage.deleteAchievement(id);
+        setAchievements(storage.getAchievements());
+      },
+    });
   };
 
   const getCategoryIcon = (cat: string) => {

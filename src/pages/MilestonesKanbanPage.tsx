@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useChild } from '@/context/ChildContext';
+import { useAdminConfirm } from '@/context/AdminConfirmContext';
 import { storage } from '@/services/storage';
 import { Card } from '@/design-system/components/Card';
 import { Badge } from '@/design-system/components/Badge';
@@ -175,6 +176,7 @@ function datePct(d: Date, cfg: GanttConfig): number {
 // ─── Component ────────────────────────────────────────────────────────────────
 export const MilestonesKanbanPage: React.FC = () => {
   const { activeChild } = useChild();
+  const { confirmDelete } = useAdminConfirm();
   const [milestones, setMilestones] = useState<AcademicMilestone[]>(() => storage.getMilestones());
   const [prepTasks, setPrepTasks] = useState<ExamPrepTask[]>(() => storage.getExamPrepTasks());
   const [prepModalMilestone, setPrepModalMilestone] = useState<AcademicMilestone | null>(null);
@@ -297,9 +299,16 @@ export const MilestonesKanbanPage: React.FC = () => {
   };
 
   const handleDeleteMilestone = (id: string) => {
-    if (window.confirm('Xoá cột mốc này?')) {
-      storage.deleteMilestone(id); setMilestones(storage.getMilestones());
-    }
+    const m = milestones.find((item) => item.id === id);
+    confirmDelete({
+      title: 'Xoá cột mốc học tập / kỳ thi',
+      message: 'Bạn có chắc chắn muốn xoá cột mốc này? Thao tác sẽ xoá các nhiệm vụ ôn tập liên quan.',
+      itemName: m ? `${m.title} (${m.date})` : undefined,
+      onConfirm: () => {
+        storage.deleteMilestone(id);
+        setMilestones(storage.getMilestones());
+      },
+    });
   };
 
   const handleMoveStatus = (id: string, s: MilestoneStatus) => {

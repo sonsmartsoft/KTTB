@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTheme, ColorMode } from '@/context/ThemeContext';
 import { useChild } from '@/context/ChildContext';
+import { useAdminConfirm } from '@/context/AdminConfirmContext';
 import {
   AppTheme,
   FontFamilyKey,
@@ -134,7 +135,39 @@ export const SettingsPage: React.FC = () => {
     setTypography,
   } = useTheme();
   const { childrenList, activeChild } = useChild();
+  const { confirmDelete, confirmAdminAction, adminPin, setAdminPin, verifyAdminPin } = useAdminConfirm();
   const handleColorMode = (mode: ColorMode) => { setColorMode(mode); };
+
+  // Admin PIN Management state
+  const [currentPinInput, setCurrentPinInput] = useState('');
+  const [newPinInput, setNewPinInput] = useState('');
+  const [confirmPinInput, setConfirmPinInput] = useState('');
+  const [pinChangeMsg, setPinChangeMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [isChangingPin, setIsChangingPin] = useState(false);
+  const [showPinChars, setShowPinChars] = useState(false);
+
+  const handleUpdatePin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!verifyAdminPin(currentPinInput)) {
+      setPinChangeMsg({ text: 'Mã PIN hiện tại không chính xác!', type: 'error' });
+      return;
+    }
+    if (newPinInput.length < 4) {
+      setPinChangeMsg({ text: 'Mã PIN mới phải có ít nhất 4 ký tự.', type: 'error' });
+      return;
+    }
+    if (newPinInput !== confirmPinInput) {
+      setPinChangeMsg({ text: 'Xác nhận mã PIN mới không khớp!', type: 'error' });
+      return;
+    }
+    setAdminPin(newPinInput);
+    setCurrentPinInput('');
+    setNewPinInput('');
+    setConfirmPinInput('');
+    setIsChangingPin(false);
+    setPinChangeMsg({ text: '✓ Đổi mã PIN Admin thành công! Mã PIN mới đã được áp dụng toàn hệ thống.', type: 'success' });
+    setTimeout(() => setPinChangeMsg(null), 5000);
+  };
 
   // Helper to update a single section's typography
   const updateSectionTypography = (
@@ -229,21 +262,34 @@ export const SettingsPage: React.FC = () => {
       window.alert('Mỗi bé cần giữ lại ít nhất 1 thực đơn bữa sáng!');
       return;
     }
-    if (!window.confirm('Bạn có chắc muốn xoá thực đơn bữa sáng này?')) return;
-    storage.deleteBreakfastPlan(planId);
-    const remaining = storage.getBreakfastPlans(selectedChildId);
-    setChildPlans(remaining);
-    if (childBfConfig.active_plan_id === planId && remaining[0]) {
-      handleSaveBfConfig({ active_plan_id: remaining[0].id });
-    }
+    const plan = childPlans.find((p) => p.id === planId);
+    confirmDelete({
+      title: 'Xoá thực đơn bữa sáng',
+      message: 'Bạn có chắc muốn xoá thực đơn bữa sáng này khỏi danh sách?',
+      itemName: plan?.name,
+      onConfirm: () => {
+        storage.deleteBreakfastPlan(planId);
+        const remaining = storage.getBreakfastPlans(selectedChildId);
+        setChildPlans(remaining);
+        if (childBfConfig.active_plan_id === planId && remaining[0]) {
+          handleSaveBfConfig({ active_plan_id: remaining[0].id });
+        }
+      },
+    });
   };
 
   const handleResetChildBreakfast = () => {
-    if (window.confirm('Khôi phục bộ Thực đơn bữa sáng mẫu cho bé này?')) {
-      storage.resetBreakfastPlansForChild(selectedChildId);
-      setChildPlans(storage.getBreakfastPlans(selectedChildId));
-      setChildBfConfig(storage.getBreakfastSettings(selectedChildId));
-    }
+    confirmAdminAction({
+      title: 'Khôi phục thực đơn bữa sáng',
+      message: 'Khôi phục lại toàn bộ thực đơn bữa sáng mẫu mặc định cho bé này?',
+      confirmText: 'Khôi phục thực đơn mẫu',
+      isDanger: true,
+      onConfirm: () => {
+        storage.resetBreakfastPlansForChild(selectedChildId);
+        setChildPlans(storage.getBreakfastPlans(selectedChildId));
+        setChildBfConfig(storage.getBreakfastSettings(selectedChildId));
+      },
+    });
   };
 
   const handleAddDish = (e: React.FormEvent) => {
@@ -255,8 +301,15 @@ export const SettingsPage: React.FC = () => {
   };
 
   const handleRemoveDish = (dish: string) => {
-    storage.deleteBreakfastDish(dish);
-    setDishes(storage.getBreakfastDishes());
+    confirmDelete({
+      title: 'Xoá món ăn gợi ý',
+      message: 'Bạn có chắc muốn xoá món này khỏi danh sách món gợi ý?',
+      itemName: dish,
+      onConfirm: () => {
+        storage.deleteBreakfastDish(dish);
+        setDishes(storage.getBreakfastDishes());
+      },
+    });
   };
 
   // Apply font family or size to ALL sections quickly
@@ -875,6 +928,156 @@ end $$;`;
               </Button>
             </form>
           </div>
+        </div>
+      </Card>
+
+      {/* ═══════════════════════════════════════════════════════════════════════
+          BẢO MẬT & MÃ PIN QUẢN TRỊ / PHỤ HUYNH (ADMIN SECURITY PIN)
+         ═══════════════════════════════════════════════════════════════════════ */}
+      <Card className="p-6 space-y-5 border-2 border-rose-400/40 dark:border-rose-700/50 shadow-theme-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-app-border">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-theme-md bg-rose-500/15 flex items-center justify-center text-rose-600 dark:text-rose-400">
+              <ShieldAlert className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-black text-content-primary flex items-center gap-2">
+                <span>Bảo Mật &amp; Mã PIN Quản Trị / Phụ Huynh</span>
+                <span className="text-[10px] font-extrabold uppercase tracking-wide px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                  An Toàn Dữ Liệu
+                </span>
+              </h3>
+              <p className="text-xs text-content-muted">
+                Bảo vệ toàn bộ các thao tác xoá dữ liệu và chuyển đổi chế độ Góc của bé
+              </p>
+            </div>
+          </div>
+          <Badge variant="primary">PIN Mặc định: 0075</Badge>
+        </div>
+
+        <div className="bg-app-bg p-4 rounded-xl border border-app-subtle space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5">
+              <CheckCircle2 className="w-4 h-4" />
+            </div>
+            <div className="text-xs space-y-1">
+              <p className="font-bold text-content-primary">
+                Chế độ xác nhận PIN Admin đang <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">BẬT (Bảo vệ tối đa)</span>
+              </p>
+              <p className="text-content-secondary leading-relaxed">
+                Mọi hành động xoá dữ liệu (học sinh, lịch học, lớp học thêm, bằng khen, thực đơn, nhật ký cân nặng) hoặc thoát khỏi Góc của con đều bắt buộc nhập đúng mã PIN quản trị.
+              </p>
+            </div>
+          </div>
+
+          {pinChangeMsg && (
+            <div
+              className={`p-3 rounded-lg text-xs font-semibold flex items-center gap-2 animate-in fade-in ${
+                pinChangeMsg.type === 'success'
+                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
+                  : 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30'
+              }`}
+            >
+              {pinChangeMsg.type === 'success' ? (
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 shrink-0" />
+              )}
+              <span>{pinChangeMsg.text}</span>
+            </div>
+          )}
+
+          {!isChangingPin ? (
+            <div className="pt-2 flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                icon={<Edit2 className="w-3.5 h-3.5" />}
+                onClick={() => {
+                  setIsChangingPin(true);
+                  setPinChangeMsg(null);
+                }}
+              >
+                Đổi mã PIN Admin
+              </Button>
+              <span className="text-[11px] text-content-muted">
+                (Mã PIN hiện tại đang bảo vệ hệ thống: <strong className="font-mono text-content-secondary">••••</strong>)
+              </span>
+            </div>
+          ) : (
+            <form onSubmit={handleUpdatePin} className="pt-2 border-t border-app-border space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-content-primary">Thay đổi mã PIN Quản trị:</span>
+                <button
+                  type="button"
+                  onClick={() => setShowPinChars(!showPinChars)}
+                  className="text-[11px] text-content-secondary flex items-center gap-1 hover:text-primary"
+                >
+                  {showPinChars ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                  <span>{showPinChars ? 'Ẩn ký tự' : 'Hiện ký tự'}</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-content-secondary">Mã PIN cũ (mặc định: 0075) *</label>
+                  <input
+                    type={showPinChars ? 'text' : 'password'}
+                    required
+                    maxLength={10}
+                    placeholder="••••"
+                    value={currentPinInput}
+                    onChange={(e) => setCurrentPinInput(e.target.value)}
+                    className="w-full px-3 py-1.5 text-xs rounded-lg border border-app-border bg-app-surface text-content-primary font-mono tracking-widest"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-content-secondary">Mã PIN mới (tối thiểu 4 số) *</label>
+                  <input
+                    type={showPinChars ? 'text' : 'password'}
+                    required
+                    maxLength={10}
+                    placeholder="••••"
+                    value={newPinInput}
+                    onChange={(e) => setNewPinInput(e.target.value)}
+                    className="w-full px-3 py-1.5 text-xs rounded-lg border border-app-border bg-app-surface text-content-primary font-mono tracking-widest"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-content-secondary">Xác nhận mã PIN mới *</label>
+                  <input
+                    type={showPinChars ? 'text' : 'password'}
+                    required
+                    maxLength={10}
+                    placeholder="••••"
+                    value={confirmPinInput}
+                    onChange={(e) => setConfirmPinInput(e.target.value)}
+                    className="w-full px-3 py-1.5 text-xs rounded-lg border border-app-border bg-app-surface text-content-primary font-mono tracking-widest"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setIsChangingPin(false);
+                    setCurrentPinInput('');
+                    setNewPinInput('');
+                    setConfirmPinInput('');
+                    setPinChangeMsg(null);
+                  }}
+                >
+                  Huỷ bỏ
+                </Button>
+                <Button type="submit" variant="primary" size="sm" icon={<Check className="w-3.5 h-3.5" />}>
+                  Lưu mã PIN mới
+                </Button>
+              </div>
+            </form>
+          )}
         </div>
       </Card>
 

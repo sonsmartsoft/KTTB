@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useChild } from '@/context/ChildContext';
+import { useAdminConfirm } from '@/context/AdminConfirmContext';
 import { storage } from '@/services/storage';
 import { Card } from '@/design-system/components/Card';
 import { Badge } from '@/design-system/components/Badge';
@@ -23,6 +24,7 @@ import { TeacherContact } from '@/domain/types';
 
 export const TeachersPage: React.FC = () => {
   const { activeChild } = useChild();
+  const { confirmDelete } = useAdminConfirm();
   const [teachers, setTeachers] = useState<TeacherContact[]>(() => storage.getTeachers());
 
   const childTeachers = teachers.filter((t) => t.child_id === activeChild.id);
@@ -105,10 +107,16 @@ export const TeachersPage: React.FC = () => {
   };
 
   const handleDelete = (id: string) => {
-    if (window.confirm('Bạn có chắc muốn xoá liên hệ thầy cô này?')) {
-      storage.deleteTeacher(id);
-      setTeachers(storage.getTeachers());
-    }
+    const t = teachers.find((tc) => tc.id === id);
+    confirmDelete({
+      title: 'Xoá liên hệ giáo viên',
+      message: 'Bạn có chắc chắn muốn xoá thông tin liên hệ giáo viên này khỏi danh bạ?',
+      itemName: t ? `${t.name} (${t.subject || 'Bộ môn'})` : undefined,
+      onConfirm: () => {
+        storage.deleteTeacher(id);
+        setTeachers(storage.getTeachers());
+      },
+    });
   };
 
   return (

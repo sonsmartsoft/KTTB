@@ -9,6 +9,7 @@ interface ChildContextType {
   refreshChildren: () => void;
   addChild: (child: Omit<Child, 'id'>) => Promise<boolean>;
   updateChild: (child: Child) => Promise<boolean>;
+  deleteChild: (id: string) => Promise<boolean>;
   isSyncing: boolean;
 }
 
@@ -82,6 +83,22 @@ export const ChildProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return storage.saveChildren(updated);
   };
 
+  const deleteChild = async (id: string): Promise<boolean> => {
+    if (childrenList.length <= 1) {
+      return false;
+    }
+    const updated = childrenList.filter((c) => c.id !== id);
+    setChildrenList(updated);
+    if (activeChildId === id) {
+      const nextId = updated[0].id;
+      setActiveChildIdState(nextId);
+      const settings = storage.getSettings();
+      storage.saveSettings({ ...settings, activeChildId: nextId });
+    }
+    storage.deleteChild(id);
+    return true;
+  };
+
   const activeChild =
     childrenList.find((c) => c.id === activeChildId) ||
     childrenList[0] || {
@@ -106,6 +123,7 @@ export const ChildProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         refreshChildren,
         addChild,
         updateChild,
+        deleteChild,
         isSyncing,
       }}
     >

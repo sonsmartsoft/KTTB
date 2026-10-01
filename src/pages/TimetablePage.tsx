@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useChild } from '@/context/ChildContext';
+import { useAdminConfirm } from '@/context/AdminConfirmContext';
 import { storage } from '@/services/storage';
 import { Card } from '@/design-system/components/Card';
 import { KpiGradientCard } from '@/design-system/components/KpiGradientCard';
@@ -37,6 +38,7 @@ const AFTERNOON_TIMES = ['13:30 – 14:15', '14:35 – 15:20', '15:40 – 16:25'
 
 export const TimetablePage: React.FC = () => {
   const { activeChild } = useChild();
+  const { confirmDelete } = useAdminConfirm();
 
   const isGirl = activeChild.avatar_url?.includes('girl') || activeChild.nickname === 'Bé Băng';
 
@@ -220,12 +222,18 @@ export const TimetablePage: React.FC = () => {
   };
 
   const handleDeleteExtra = (extraId: string) => {
-    if (window.confirm('Bạn có chắc chắn muốn xoá lớp học thêm này?')) {
-      storage.deleteExtraSchedule(extraId);
-      setExtraList(storage.getExtraSchedules().filter((e) => e.child_id === activeChild.id && e.active));
-      setEditingExtra(null);
-      setIsNewExtraModalOpen(false);
-    }
+    const extra = extraList.find((e) => e.id === extraId);
+    confirmDelete({
+      title: 'Xoá lớp học thêm',
+      message: 'Bạn có chắc chắn muốn xoá lớp học thêm này khỏi thời khoá biểu?',
+      itemName: extra ? `${extra.name} (${extra.teacher_name || 'Chưa rõ GV'})` : undefined,
+      onConfirm: () => {
+        storage.deleteExtraSchedule(extraId);
+        setExtraList(storage.getExtraSchedules().filter((e) => e.child_id === activeChild.id && e.active));
+        setEditingExtra(null);
+        setIsNewExtraModalOpen(false);
+      },
+    });
   };
 
   const handlePrint = () => {
@@ -347,13 +355,18 @@ export const TimetablePage: React.FC = () => {
   };
 
   const handleDeleteSubject = (subj: SubjectItem) => {
-    if (window.confirm(`Bạn có chắc chắn muốn xoá môn "${subj.name}" khỏi danh mục?`)) {
-      storage.deleteSubject(subj.id);
-      setSubjectList(storage.getSubjects());
-      if (editingSubjId === subj.id) {
-        handleCancelEditSubject();
-      }
-    }
+    confirmDelete({
+      title: 'Xoá môn học',
+      message: `Bạn có chắc chắn muốn xoá môn "${subj.name}" khỏi danh mục môn học?`,
+      itemName: `${subj.name} (${subj.code || 'Môn học'})`,
+      onConfirm: () => {
+        storage.deleteSubject(subj.id);
+        setSubjectList(storage.getSubjects());
+        if (editingSubjId === subj.id) {
+          handleCancelEditSubject();
+        }
+      },
+    });
   };
 
   // Legend Handlers
@@ -393,11 +406,19 @@ export const TimetablePage: React.FC = () => {
   };
 
   const handleDeleteLegendItem = (id: string) => {
-    storage.deleteTimetableLegendItem(id);
-    setLegendList(storage.getTimetableLegend());
-    if (editingLegendId === id) {
-      handleCancelEditLegend();
-    }
+    const leg = legendList.find((l) => l.id === id);
+    confirmDelete({
+      title: 'Xoá mục viết tắt / ký hiệu',
+      message: 'Bạn có chắc chắn muốn xoá ghi chú viết tắt này khỏi thời khoá biểu?',
+      itemName: leg ? `${leg.code} - ${leg.note}` : undefined,
+      onConfirm: () => {
+        storage.deleteTimetableLegendItem(id);
+        setLegendList(storage.getTimetableLegend());
+        if (editingLegendId === id) {
+          handleCancelEditLegend();
+        }
+      },
+    });
   };
 
   const handleSyncLegendFromSubjects = () => {

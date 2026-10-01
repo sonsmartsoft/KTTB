@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useAdminConfirm } from '@/context/AdminConfirmContext';
 import { storage } from '@/services/storage';
 import { MOTHER_GOLDEN_RULES } from '@/services/motherAndBreakfastSeed';
 import {
@@ -95,6 +96,7 @@ const WORKOUT_CATEGORY_META: Record<
 };
 
 export const MotherCornerPage: React.FC = () => {
+  const { confirmDelete, confirmAdminAction } = useAdminConfirm();
   const [todayStr] = useState<string>(() => format(new Date(), 'yyyy-MM-dd'));
   const todayWeekday = useMemo<WeekdayNumber>(() => {
     const jsDay = new Date().getDay();
@@ -214,13 +216,18 @@ export const MotherCornerPage: React.FC = () => {
   };
 
   const handleDeleteHistoryLog = (date: string) => {
-    if (window.confirm(`Xoá bản ghi nhật ký ngày ${date.split('-').reverse().join('/')}?`)) {
-      storage.deleteMotherCheckIn(date);
-      setAllCheckIns(storage.getMotherCheckIns());
-      if (date === todayStr) {
-        setTodayCheckIn(storage.getMotherCheckInByDate(todayStr));
-      }
-    }
+    confirmDelete({
+      title: 'Xoá nhật ký sức khoẻ của Mẹ',
+      message: `Bạn có chắc chắn muốn xoá bản ghi nhật ký ngày ${date.split('-').reverse().join('/')}? Thao tác này sẽ xoá số cân nặng và lịch sử luyện tập ngày này.`,
+      itemName: `Ngày ${date.split('-').reverse().join('/')}`,
+      onConfirm: () => {
+        storage.deleteMotherCheckIn(date);
+        setAllCheckIns(storage.getMotherCheckIns());
+        if (date === todayStr) {
+          setTodayCheckIn(storage.getMotherCheckInByDate(todayStr));
+        }
+      },
+    });
   };
 
   const toggleMealDone = (mealType: 'breakfast' | 'lunch' | 'snack' | 'dinner') => {
@@ -246,10 +253,16 @@ export const MotherCornerPage: React.FC = () => {
   };
 
   const handleResetMeals = () => {
-    if (window.confirm(`Khôi phục lại Thực đơn 30 ngày (${settings.targetCalories} Calo) mặc định của ${settings.authorName}?`)) {
-      storage.resetMotherMeals();
-      setMeals(storage.getMotherMeals());
-    }
+    confirmAdminAction({
+      title: 'Khôi phục thực đơn 30 ngày',
+      message: `Bạn có chắc chắn muốn khôi phục lại Thực đơn 30 ngày (${settings.targetCalories} Calo) mặc định của ${settings.authorName}? Các thực đơn đã sửa sẽ được khôi phục về thực đơn mẫu.`,
+      confirmText: 'Xác nhận khôi phục',
+      isDanger: true,
+      onConfirm: () => {
+        storage.resetMotherMeals();
+        setMeals(storage.getMotherMeals());
+      },
+    });
   };
 
   const handleOpenEditWorkout = (item: MotherWorkoutItem) => {
@@ -281,11 +294,17 @@ export const MotherCornerPage: React.FC = () => {
   };
 
   const handleDeleteWorkout = (id: string) => {
-    if (window.confirm('Xoá lịch tập này?')) {
-      storage.deleteMotherWorkout(id);
-      setWorkouts(storage.getMotherWorkouts());
-      setEditingWorkout(null);
-    }
+    const w = workouts.find((item) => item.id === id);
+    confirmDelete({
+      title: 'Xoá bài tập khỏi lịch',
+      message: 'Bạn có chắc chắn muốn xoá bài tập này khỏi lịch tập của Mẹ?',
+      itemName: w?.title,
+      onConfirm: () => {
+        storage.deleteMotherWorkout(id);
+        setWorkouts(storage.getMotherWorkouts());
+        setEditingWorkout(null);
+      },
+    });
   };
 
   const filteredMeals = useMemo(() => {
@@ -755,10 +774,16 @@ export const MotherCornerPage: React.FC = () => {
               variant="outline"
               icon={<RotateCcw className="w-3.5 h-3.5" />}
               onClick={() => {
-                if (window.confirm('Khôi phục lịch tập mặc định cả tuần?')) {
-                  storage.resetMotherWorkouts();
-                  setWorkouts(storage.getMotherWorkouts());
-                }
+                confirmAdminAction({
+                  title: 'Khôi phục lịch tập cả tuần',
+                  message: 'Khôi phục lại toàn bộ lịch tập mẫu của Mẹ về mặc định?',
+                  confirmText: 'Khôi phục mặc định',
+                  isDanger: true,
+                  onConfirm: () => {
+                    storage.resetMotherWorkouts();
+                    setWorkouts(storage.getMotherWorkouts());
+                  },
+                });
               }}
             >
               Mặc định

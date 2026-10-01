@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { AcademicMilestone, ExamPrepTask } from '@/domain/types';
 import { storage } from '@/services/storage';
+import { useAdminConfirm } from '@/context/AdminConfirmContext';
 import { Button } from '@/design-system/components/Button';
 import {
   X,
@@ -30,6 +31,7 @@ export const ExamPrepModal: React.FC<ExamPrepModalProps> = ({
   onClose,
   onUpdate,
 }) => {
+  const { confirmDelete } = useAdminConfirm();
   const [tasks, setTasks] = useState<ExamPrepTask[]>(() =>
     storage.getExamPrepTasks().filter((t) => t.milestone_id === milestone.id)
   );
@@ -54,10 +56,18 @@ export const ExamPrepModal: React.FC<ExamPrepModalProps> = ({
   };
 
   const handleDelete = (taskId: string) => {
-    storage.deleteExamPrepTask(taskId);
-    const updated = storage.getExamPrepTasks().filter((t) => t.milestone_id === milestone.id);
-    setTasks(updated);
-    onUpdate();
+    const task = tasks.find((t) => t.id === taskId);
+    confirmDelete({
+      title: 'Xoá việc cần làm ôn thi',
+      message: 'Bạn có chắc chắn muốn xoá nhiệm vụ ôn thi này?',
+      itemName: task?.title,
+      onConfirm: () => {
+        storage.deleteExamPrepTask(taskId);
+        const updated = storage.getExamPrepTasks().filter((t) => t.milestone_id === milestone.id);
+        setTasks(updated);
+        onUpdate();
+      },
+    });
   };
 
   const handleAddTask = (e: React.FormEvent) => {

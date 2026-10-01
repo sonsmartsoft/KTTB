@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useChild } from '@/context/ChildContext';
+import { useAdminConfirm } from '@/context/AdminConfirmContext';
 import { useScheduleDate } from '@/context/DateContext';
 import { storage } from '@/services/storage';
 import { resolveSchedule } from '@/domain/schedule-resolution/resolveSchedule';
@@ -36,6 +37,7 @@ const WEEKDAY_LABELS: Record<number, string> = {
 
 export const DashboardPage: React.FC = () => {
   const { activeChild } = useChild();
+  const { confirmDelete } = useAdminConfirm();
   const { selectedDate, goToNextDay, goToPrevDay, goToToday } = useScheduleDate();
 
   // Homework tasks state
@@ -121,8 +123,16 @@ export const DashboardPage: React.FC = () => {
   };
 
   const handleDeleteHW = (id: string) => {
-    storage.deleteHomeworkTask(id);
-    setHomeworkTasks(storage.getHomeworkTasks());
+    const hw = homeworkTasks.find((t) => t.id === id);
+    confirmDelete({
+      title: 'Xoá bài tập về nhà',
+      message: 'Bạn có chắc chắn muốn xoá bài tập này khỏi danh sách?',
+      itemName: hw ? `${hw.subject}: ${hw.description}` : undefined,
+      onConfirm: () => {
+        storage.deleteHomeworkTask(id);
+        setHomeworkTasks(storage.getHomeworkTasks());
+      },
+    });
   };
 
   const handleAddHW = (e: React.FormEvent) => {
@@ -182,10 +192,16 @@ export const DashboardPage: React.FC = () => {
   };
 
   const handleDeleteComment = (id: string) => {
-    if (window.confirm('Bạn có chắc muốn xoá lời nhắn này?')) {
-      storage.deleteDailyComment(id);
-      setDailyComments(storage.getDailyComments());
-    }
+    const c = dailyComments.find((item) => item.id === id);
+    confirmDelete({
+      title: 'Xoá nhận xét / lời nhắn',
+      message: 'Bạn có chắc chắn muốn xoá lời nhắn này?',
+      itemName: c ? `${c.teacher_name}: ${c.content}` : undefined,
+      onConfirm: () => {
+        storage.deleteDailyComment(id);
+        setDailyComments(storage.getDailyComments());
+      },
+    });
   };
 
   // Filter comments for active child on selected date
@@ -858,7 +874,7 @@ export const DashboardPage: React.FC = () => {
                     {comments.map((c) => (
                       <CommentCard key={c.id} comment={c}
                         onAck={() => { storage.toggleDailyCommentAcknowledged(c.id); setDailyComments(storage.getDailyComments()); }}
-                        onDelete={() => { if(window.confirm('Xoá nhận xét này?')) { storage.deleteDailyComment(c.id); setDailyComments(storage.getDailyComments()); }}} />
+                        onDelete={() => handleDeleteComment(c.id)} />
                     ))}
                   </div>
                 ));

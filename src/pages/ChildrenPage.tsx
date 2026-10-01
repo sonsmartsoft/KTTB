@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useChild } from '@/context/ChildContext';
+import { useAdminConfirm } from '@/context/AdminConfirmContext';
 import { storage } from '@/services/storage';
 import { Card } from '@/design-system/components/Card';
 import { Badge } from '@/design-system/components/Badge';
@@ -31,7 +32,8 @@ import { calculateBirthdayStatus } from '@/lib/birthdayHelper';
 import { Link } from 'react-router-dom';
 
 export const ChildrenPage: React.FC = () => {
-  const { childrenList, activeChild, setActiveChildId, updateChild, addChild } = useChild();
+  const { childrenList, activeChild, setActiveChildId, updateChild, addChild, deleteChild } = useChild();
+  const { confirmDelete } = useAdminConfirm();
 
   // Child Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -255,6 +257,24 @@ export const ChildrenPage: React.FC = () => {
     } finally {
       setIsSavingChild(false);
     }
+  };
+
+  const handleDeleteChild = (child: Child) => {
+    if (childrenList.length <= 1) {
+      alert('Không thể xoá hồ sơ bé duy nhất trong hệ thống.');
+      return;
+    }
+    confirmDelete({
+      title: 'Xoá hồ sơ của bé',
+      message: `Bạn có chắc chắn muốn xoá hồ sơ "${child.name}"? Thao tác này sẽ xoá dữ liệu lịch học, thành tích của bé trên thiết bị và đồng bộ Supabase Cloud.`,
+      itemName: `${child.name} (${child.class_name})`,
+      onConfirm: async () => {
+        const ok = await deleteChild(child.id);
+        if (ok) {
+          showSyncToast(`✓ Đã xoá thành công hồ sơ của ${child.nickname}.`, 'success');
+        }
+      },
+    });
   };
 
   const isMotherPhoto =
@@ -511,8 +531,20 @@ export const ChildrenPage: React.FC = () => {
                   icon={<Edit2 className="w-3.5 h-3.5" />}
                   onClick={() => openEditModal(c)}
                 >
-                  Sửa thông tin
+                  Sửa
                 </Button>
+                {childrenList.length > 1 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 border-rose-200 dark:border-rose-900/30"
+                    icon={<Trash2 className="w-3.5 h-3.5" />}
+                    onClick={() => handleDeleteChild(c)}
+                    title="Xoá hồ sơ bé (Cần mã PIN Admin)"
+                  >
+                    Xoá
+                  </Button>
+                )}
                 <Button
                   variant={isSelected ? 'primary' : 'outline'}
                   size="sm"

@@ -45,8 +45,8 @@ export const KidModeProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const exitKidMode = (pin?: string): boolean => {
-    // If PIN is provided and matches, or if no PIN is set / verified
-    if (!pin || pin === parentPin) {
+    // Strictly require PIN matching parentPin
+    if (pin && pin.trim() === parentPin.trim()) {
       setIsKidMode(false);
       return true;
     }

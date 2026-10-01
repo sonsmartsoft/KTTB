@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useChild } from '@/context/ChildContext';
 import { useKidMode } from '@/context/KidModeContext';
+import { useAdminConfirm } from '@/context/AdminConfirmContext';
 import { storage } from '@/services/storage';
 import { Card } from '@/design-system/components/Card';
 import { Badge } from '@/design-system/components/Badge';
@@ -73,6 +74,7 @@ function getSessionsCountInMonth(yearMonth: string, weekdays: WeekdayNumber[]): 
 export const ExtraClassesPage: React.FC = () => {
   const { activeChild } = useChild();
   const { isKidMode } = useKidMode();
+  const { confirmDelete } = useAdminConfirm();
   const [extraSchedules, setExtraSchedules] = useState<ExtraSchedule[]>(() => storage.getExtraSchedules());
   const [sessionLogs, setSessionLogs] = useState<ExtraClassSessionLog[]>(() => storage.getSessionLogs());
 
@@ -264,10 +266,16 @@ export const ExtraClassesPage: React.FC = () => {
   };
 
   const handleDeleteClass = (id: string) => {
-    if (window.confirm('Bạn có chắc chắn muốn xoá lớp học thêm này?')) {
-      storage.deleteExtraSchedule(id);
-      setExtraSchedules(storage.getExtraSchedules());
-    }
+    const cls = extraSchedules.find((s) => s.id === id);
+    confirmDelete({
+      title: 'Xoá lớp học thêm',
+      message: 'Bạn có chắc chắn muốn xoá lớp học thêm này? Toàn bộ lịch học và thông tin học phí sẽ bị xoá trên thiết bị và đồng bộ Supabase Cloud.',
+      itemName: cls ? `${cls.name} (${cls.teacher_name || 'Chưa rõ giáo viên'})` : undefined,
+      onConfirm: () => {
+        storage.deleteExtraSchedule(id);
+        setExtraSchedules(storage.getExtraSchedules());
+      },
+    });
   };
 
   const handleToggleActive = (item: ExtraSchedule) => {
@@ -328,10 +336,16 @@ export const ExtraClassesPage: React.FC = () => {
   };
 
   const handleDeleteLog = (id: string) => {
-    if (window.confirm('Bạn có chắc chắn muốn xoá nhật ký buổi học này?')) {
-      storage.deleteSessionLog(id);
-      setSessionLogs(storage.getSessionLogs());
-    }
+    const log = sessionLogs.find((l) => l.id === id);
+    confirmDelete({
+      title: 'Xoá nhật ký buổi học',
+      message: 'Bạn có chắc chắn muốn xoá nhật ký buổi học này? Dữ liệu điểm danh và nhận xét sẽ bị xoá.',
+      itemName: log ? `Buổi học ngày ${log.date}` : undefined,
+      onConfirm: () => {
+        storage.deleteSessionLog(id);
+        setSessionLogs(storage.getSessionLogs());
+      },
+    });
   };
 
   // Filtered session logs for active child

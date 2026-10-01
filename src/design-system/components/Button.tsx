@@ -3,7 +3,7 @@ import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'accent' | 'outline' | 'ghost' | 'soft';
+  variant?: 'primary' | 'secondary' | 'accent' | 'outline' | 'ghost' | 'soft' | 'danger';
   size?: 'sm' | 'md' | 'lg';
   icon?: React.ReactNode;
   children: React.ReactNode;
@@ -32,6 +32,7 @@ export const Button: React.FC<ButtonProps> = ({
     outline: 'border border-app-border bg-app-surface text-content-primary hover:bg-app-bg focus:ring-primary',
     ghost: 'text-content-primary hover:bg-black/5 dark:hover:bg-white/5 focus:ring-primary',
     soft: 'bg-primary-light text-primary hover:bg-primary/20 focus:ring-primary',
+    danger: 'bg-rose-600 text-white hover:bg-rose-700 shadow-theme-sm hover:shadow-theme-md focus:ring-rose-500',
   };
 
   return (
