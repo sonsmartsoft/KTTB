@@ -952,7 +952,7 @@ end $$;`;
               </p>
             </div>
           </div>
-          <Badge variant="primary">PIN Mặc định: 0075</Badge>
+          <Badge variant="primary">Đang kích hoạt</Badge>
         </div>
 
         <div className="bg-app-bg p-4 rounded-xl border border-app-subtle space-y-3">
@@ -1020,7 +1020,7 @@ end $$;`;
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[11px] font-bold text-content-secondary">Mã PIN cũ (mặc định: 0075) *</label>
+                  <label className="text-[11px] font-bold text-content-secondary">Mã PIN hiện tại *</label>
                   <input
                     type={showPinChars ? 'text' : 'password'}
                     required

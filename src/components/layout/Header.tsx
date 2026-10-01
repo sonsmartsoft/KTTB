@@ -279,12 +279,12 @@ export const Header: React.FC<HeaderProps> = ({
 
             <div className="space-y-2">
               <label className="text-xs font-bold text-content-secondary">
-                Nhập mã PIN ba mẹ (Mặc định: 0075):
+                Nhập mã PIN ba mẹ:
               </label>
               <input
                 type="password"
                 maxLength={8}
-                placeholder="0075"
+                placeholder="••••"
                 value={pinInput}
                 onChange={(e) => {
                   setPinInput(e.target.value);

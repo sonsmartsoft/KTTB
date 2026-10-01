@@ -197,11 +197,8 @@ export const AdminConfirmProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
             <form onSubmit={handleVerifyAndSubmit} className="space-y-3.5 pt-1">
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-content-primary flex items-center justify-between">
-                  <span>Mã PIN Admin / Phụ Huynh:</span>
-                  <span className="text-[11px] font-normal text-content-muted">
-                    (Mặc định: <strong className="font-mono text-content-secondary">0075</strong>)
-                  </span>
+                <label className="text-xs font-bold text-content-primary">
+                  Mã PIN Admin / Phụ Huynh:
                 </label>
                 <div className="relative">
                   <input
