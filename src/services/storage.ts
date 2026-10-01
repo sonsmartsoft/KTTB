@@ -108,25 +108,57 @@ function getItem<T>(key: string, defaultValue: T): T {
   }
 }
 
+function setLocalItemOnly<T>(key: string, value: T): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (err) {
+    console.error(`Failed to save to localStorage [${key}]:`, err);
+  }
+}
+
+export async function syncSingleKeyToCloud(key: string, value: unknown): Promise<boolean> {
+  let ok = true;
+  const tableName = STORAGE_TO_TABLE[key];
+  if (tableName && Array.isArray(value)) {
+    try {
+      await upsertToTable(tableName, value as unknown[]);
+    } catch {
+      ok = false;
+    }
+  }
+  if (SYS_KV_STORAGE_KEYS.has(key)) {
+    try {
+      await upsertKvToCloud(key, value);
+    } catch {
+      ok = false;
+    }
+  }
+  return ok;
+}
+
 function setItem<T>(key: string, value: T): void {
   try {
     localStorage.setItem(key, JSON.stringify(value));
-    // Auto-sync to Supabase (fire-and-forget) for standard tables
-    const tableName = STORAGE_TO_TABLE[key];
-    if (tableName && Array.isArray(value)) {
-      upsertToTable(tableName, value as unknown[]);
-    }
-    // Auto-sync to Supabase KV store for extended settings/data (Breakfast, Typography, Mother...)
-    if (SYS_KV_STORAGE_KEYS.has(key)) {
-      upsertKvToCloud(key, value);
-    }
+    // Đánh dấu thời điểm chỉnh sửa mới nhất ở client
+    localStorage.setItem(`__ktt_mod_${key}`, new Date().toISOString());
+
+    // Tự động đồng bộ lên Supabase Cloud
+    syncSingleKeyToCloud(key, value).then((success) => {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('ktt-cloud-item-synced', {
+            detail: { key, success, timestamp: new Date().toISOString() },
+          })
+        );
+      }
+    });
   } catch (err) {
     console.error(`Failed to save to localStorage [${key}]:`, err);
   }
 }
 
 export const storage = {
-  // Initialize with seed data if first time
+  // Initialize with seed data if first time (CHỈ ghi vào localStorage, KHÔNG ghi đè lên Cloud)
   init() {
     if (!localStorage.getItem(KEYS.CHILDREN)) {
       this.resetToSeed();
@@ -144,25 +176,26 @@ export const storage = {
   },
 
   resetToSeed() {
-    setItem(KEYS.CHILDREN, SEED_CHILDREN);
-    setItem(KEYS.TEMPLATES, SEED_TIMETABLE_TEMPLATES);
-    setItem(KEYS.ENTRIES, SEED_TIMETABLE_ENTRIES);
-    setItem(KEYS.EXTRA_SCHEDULES, SEED_EXTRA_SCHEDULES);
-    setItem(KEYS.EXCEPTIONS, SEED_SCHEDULE_EXCEPTIONS);
-    setItem(KEYS.ASSESSMENT_PLANS, SEED_ASSESSMENT_PLANS);
-    setItem(KEYS.ASSESSMENTS, SEED_ASSESSMENTS);
-    setItem(KEYS.TARGETS, SEED_PERFORMANCE_TARGETS);
-    setItem(KEYS.ACHIEVEMENTS, SEED_ACHIEVEMENT_RECORDS);
-    setItem(KEYS.SCHOOL_YEARS, SEED_SCHOOL_YEARS);
-    setItem(KEYS.TEACHERS, SEED_TEACHERS);
-    setItem(KEYS.SUBJECTS, SEED_SUBJECTS);
-    setItem(KEYS.TIMETABLE_LEGEND, SEED_TIMETABLE_LEGEND);
-    setItem(KEYS.SESSION_LOGS, SEED_SESSION_LOGS);
-    setItem(KEYS.HOMEWORK, SEED_HOMEWORK_TASKS);
-    setItem(KEYS.DAILY_COMMENTS, SEED_DAILY_TEACHER_COMMENTS);
+    // Chỉ khởi tạo bộ nhớ đệm máy con, KHÔNG đẩy ghi đè lên Supabase Cloud
+    setLocalItemOnly(KEYS.CHILDREN, SEED_CHILDREN);
+    setLocalItemOnly(KEYS.TEMPLATES, SEED_TIMETABLE_TEMPLATES);
+    setLocalItemOnly(KEYS.ENTRIES, SEED_TIMETABLE_ENTRIES);
+    setLocalItemOnly(KEYS.EXTRA_SCHEDULES, SEED_EXTRA_SCHEDULES);
+    setLocalItemOnly(KEYS.EXCEPTIONS, SEED_SCHEDULE_EXCEPTIONS);
+    setLocalItemOnly(KEYS.ASSESSMENT_PLANS, SEED_ASSESSMENT_PLANS);
+    setLocalItemOnly(KEYS.ASSESSMENTS, SEED_ASSESSMENTS);
+    setLocalItemOnly(KEYS.TARGETS, SEED_PERFORMANCE_TARGETS);
+    setLocalItemOnly(KEYS.ACHIEVEMENTS, SEED_ACHIEVEMENT_RECORDS);
+    setLocalItemOnly(KEYS.SCHOOL_YEARS, SEED_SCHOOL_YEARS);
+    setLocalItemOnly(KEYS.TEACHERS, SEED_TEACHERS);
+    setLocalItemOnly(KEYS.SUBJECTS, SEED_SUBJECTS);
+    setLocalItemOnly(KEYS.TIMETABLE_LEGEND, SEED_TIMETABLE_LEGEND);
+    setLocalItemOnly(KEYS.SESSION_LOGS, SEED_SESSION_LOGS);
+    setLocalItemOnly(KEYS.HOMEWORK, SEED_HOMEWORK_TASKS);
+    setLocalItemOnly(KEYS.DAILY_COMMENTS, SEED_DAILY_TEACHER_COMMENTS);
     const existingTheme = (localStorage.getItem('ktt_theme') as any) || 'cute';
     const existingChild = localStorage.getItem('ktt_active_child_id') || 'child-trung-quan';
-    setItem(KEYS.SETTINGS, {
+    setLocalItemOnly(KEYS.SETTINGS, {
       theme: existingTheme,
       density: 'comfortable',
       activeChildId: existingChild,
@@ -173,11 +206,12 @@ export const storage = {
   getChildren(): Child[] {
     return getItem(KEYS.CHILDREN, SEED_CHILDREN);
   },
-  saveChildren(children: Child[]): void {
+  async saveChildren(children: Child[]): Promise<boolean> {
     setItem(KEYS.CHILDREN, children);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('ktt-children-updated'));
     }
+    return syncSingleKeyToCloud(KEYS.CHILDREN, children);
   },
   getChildById(id: string): Child | undefined {
     return this.getChildren().find((c) => c.id === id);
@@ -947,11 +981,12 @@ export const storage = {
     };
     return merged;
   },
-  saveMotherSettings(settings: MotherSettings): void {
+  async saveMotherSettings(settings: MotherSettings): Promise<boolean> {
     setItem(KEYS.MOTHER_SETTINGS, settings);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('ktt-mother-updated'));
     }
+    return syncSingleKeyToCloud(KEYS.MOTHER_SETTINGS, settings);
   },
 };
 

@@ -7,8 +7,8 @@ interface ChildContextType {
   activeChild: Child;
   setActiveChildId: (id: string) => void;
   refreshChildren: () => void;
-  addChild: (child: Omit<Child, 'id'>) => void;
-  updateChild: (child: Child) => void;
+  addChild: (child: Omit<Child, 'id'>) => Promise<boolean>;
+  updateChild: (child: Child) => Promise<boolean>;
   isSyncing: boolean;
 }
 
@@ -67,19 +67,19 @@ export const ChildProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     storage.saveSettings({ ...settings, activeChildId: id });
   };
 
-  const addChild = (newChildData: Omit<Child, 'id'>) => {
+  const addChild = async (newChildData: Omit<Child, 'id'>): Promise<boolean> => {
     const id = `child-${Date.now()}`;
     const newChild: Child = { ...newChildData, id };
     const updated = [...childrenList, newChild];
-    storage.saveChildren(updated);
     setChildrenList(updated);
     setActiveChildId(id);
+    return storage.saveChildren(updated);
   };
 
-  const updateChild = (updatedChild: Child) => {
+  const updateChild = async (updatedChild: Child): Promise<boolean> => {
     const updated = childrenList.map((c) => (c.id === updatedChild.id ? updatedChild : c));
-    storage.saveChildren(updated);
     setChildrenList(updated);
+    return storage.saveChildren(updated);
   };
 
   const activeChild =

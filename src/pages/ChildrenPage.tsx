@@ -21,6 +21,9 @@ import {
   Scale,
   ArrowRight,
   Cake,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
 } from 'lucide-react';
 import { Child, MotherSettings } from '@/domain/types';
 import { formatChildDisplayName } from '@/lib/childNameHelper';
@@ -62,6 +65,16 @@ export const ChildrenPage: React.FC = () => {
   const [mAvatarUrl, setMAvatarUrl] = useState('🧘‍♀️');
   const [mColor, setMColor] = useState('#F43F5E');
   const [mGoalNote, setMGoalNote] = useState('');
+
+  // Saving & Cloud Sync Feedback State
+  const [isSavingMother, setIsSavingMother] = useState(false);
+  const [isSavingChild, setIsSavingChild] = useState(false);
+  const [syncToast, setSyncToast] = useState<{ message: string; type: 'success' | 'warning' } | null>(null);
+
+  const showSyncToast = (message: string, type: 'success' | 'warning' = 'success') => {
+    setSyncToast({ message, type });
+    setTimeout(() => setSyncToast(null), 4000);
+  };
 
   useEffect(() => {
     const refreshMother = () => setMotherProfile(storage.getMotherSettings());
@@ -110,30 +123,42 @@ export const ChildrenPage: React.FC = () => {
     }
   };
 
-  const handleSaveMother = (e: React.FormEvent) => {
+  const handleSaveMother = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!mName.trim()) return;
-    const derivedYear = mDateOfBirth
-      ? parseInt(mDateOfBirth.split('-')[0], 10) || mBirthYear
-      : mBirthYear;
-    const updated: MotherSettings = {
-      ...motherProfile,
-      authorName: mName.trim(),
-      nickname: mNickname.trim() || mName.trim(),
-      birthYear: derivedYear,
-      date_of_birth: mDateOfBirth || undefined,
-      heightCm: mHeightCm,
-      currentWeightKg: mCurrentWeight,
-      targetWeightKg: mTargetWeight,
-      targetCalories: mTargetCalories,
-      startDate: mStartDate,
-      avatarUrl: mAvatarUrl,
-      color: mColor,
-      goalNote: mGoalNote.trim(),
-    };
-    storage.saveMotherSettings(updated);
-    setMotherProfile(updated);
-    setIsMotherModalOpen(false);
+    setIsSavingMother(true);
+    try {
+      const derivedYear = mDateOfBirth
+        ? parseInt(mDateOfBirth.split('-')[0], 10) || mBirthYear
+        : mBirthYear;
+      const updated: MotherSettings = {
+        ...motherProfile,
+        authorName: mName.trim(),
+        nickname: mNickname.trim() || mName.trim(),
+        birthYear: derivedYear,
+        date_of_birth: mDateOfBirth || undefined,
+        heightCm: mHeightCm,
+        currentWeightKg: mCurrentWeight,
+        targetWeightKg: mTargetWeight,
+        targetCalories: mTargetCalories,
+        startDate: mStartDate,
+        avatarUrl: mAvatarUrl,
+        color: mColor,
+        goalNote: mGoalNote.trim(),
+      };
+      setMotherProfile(updated);
+      const cloudSuccess = await storage.saveMotherSettings(updated);
+      setIsMotherModalOpen(false);
+      if (cloudSuccess) {
+        showSyncToast('✓ Đã lưu và đồng bộ thành công hồ sơ của Mẹ lên Supabase Cloud!', 'success');
+      } else {
+        showSyncToast('Đã lưu vào bộ nhớ máy (Đang kết nối lại Cloud)...', 'warning');
+      }
+    } catch (err: any) {
+      showSyncToast(`Lỗi khi lưu: ${err?.message || err}`, 'warning');
+    } finally {
+      setIsSavingMother(false);
+    }
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -181,42 +206,55 @@ export const ChildrenPage: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleSaveChild = (e: React.FormEvent) => {
+  const handleSaveChild = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !className.trim()) return;
+    setIsSavingChild(true);
 
-    const derivedBirthYear = dateOfBirth
-      ? parseInt(dateOfBirth.split('-')[0], 10) || birthYear
-      : birthYear;
+    try {
+      const derivedBirthYear = dateOfBirth
+        ? parseInt(dateOfBirth.split('-')[0], 10) || birthYear
+        : birthYear;
 
-    if (editingChild) {
-      updateChild({
-        ...editingChild,
-        name: name.trim(),
-        nickname: nickname.trim() || name.trim(),
-        birthYear: derivedBirthYear,
-        date_of_birth: dateOfBirth || undefined,
-        school_name: schoolName.trim(),
-        class_name: className.trim(),
-        grade: grade.trim(),
-        avatar_url: avatarUrl,
-        color,
-      });
-    } else {
-      addChild({
-        name: name.trim(),
-        nickname: nickname.trim() || name.trim(),
-        birthYear: derivedBirthYear,
-        date_of_birth: dateOfBirth || undefined,
-        school_name: schoolName.trim(),
-        class_name: className.trim(),
-        grade: grade.trim(),
-        avatar_url: avatarUrl,
-        color,
-        active: true,
-      });
+      let cloudSuccess = false;
+      if (editingChild) {
+        cloudSuccess = await updateChild({
+          ...editingChild,
+          name: name.trim(),
+          nickname: nickname.trim() || name.trim(),
+          birthYear: derivedBirthYear,
+          date_of_birth: dateOfBirth || undefined,
+          school_name: schoolName.trim(),
+          class_name: className.trim(),
+          grade: grade.trim(),
+          avatar_url: avatarUrl,
+          color,
+        });
+      } else {
+        cloudSuccess = await addChild({
+          name: name.trim(),
+          nickname: nickname.trim() || name.trim(),
+          birthYear: derivedBirthYear,
+          date_of_birth: dateOfBirth || undefined,
+          school_name: schoolName.trim(),
+          class_name: className.trim(),
+          grade: grade.trim(),
+          avatar_url: avatarUrl,
+          color,
+          active: true,
+        });
+      }
+      setIsModalOpen(false);
+      if (cloudSuccess) {
+        showSyncToast('✓ Đã lưu và đồng bộ thành công hồ sơ của bé lên Supabase Cloud!', 'success');
+      } else {
+        showSyncToast('Đã lưu vào bộ nhớ máy (Đang kết nối lại Cloud)...', 'warning');
+      }
+    } catch (err: any) {
+      showSyncToast(`Lỗi khi lưu: ${err?.message || err}`, 'warning');
+    } finally {
+      setIsSavingChild(false);
     }
-    setIsModalOpen(false);
   };
 
   const isMotherPhoto =
@@ -230,6 +268,24 @@ export const ChildrenPage: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200 max-w-5xl mx-auto pb-8">
+      {/* Toast thông báo lưu & đồng bộ Cloud */}
+      {syncToast && (
+        <div
+          className={`flex items-center gap-2.5 p-3 rounded-theme-md text-xs font-semibold shadow-theme-md transition-all animate-in slide-in-from-top-2 ${
+            syncToast.type === 'success'
+              ? 'bg-emerald-500 text-white dark:bg-emerald-600'
+              : 'bg-amber-500 text-white dark:bg-amber-600'
+          }`}
+        >
+          {syncToast.type === 'success' ? (
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+          ) : (
+            <AlertCircle className="w-4 h-4 shrink-0" />
+          )}
+          <span>{syncToast.message}</span>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold font-display text-content-primary flex items-center gap-2">
@@ -685,8 +741,14 @@ export const ChildrenPage: React.FC = () => {
                 <Button type="button" variant="outline" size="sm" onClick={() => setIsMotherModalOpen(false)}>
                   Huỷ
                 </Button>
-                <Button type="submit" variant="primary" size="sm">
-                  Lưu hồ sơ của Mẹ
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="sm"
+                  disabled={isSavingMother}
+                  icon={isSavingMother ? <Loader2 className="w-4 h-4 animate-spin" /> : undefined}
+                >
+                  {isSavingMother ? 'Đang lưu & đẩy lên Cloud...' : 'Lưu hồ sơ của Mẹ'}
                 </Button>
               </div>
             </form>
@@ -871,8 +933,14 @@ export const ChildrenPage: React.FC = () => {
                 <Button type="button" variant="outline" size="sm" onClick={() => setIsModalOpen(false)}>
                   Huỷ
                 </Button>
-                <Button type="submit" variant="primary" size="sm">
-                  {editingChild ? 'Cập nhật' : 'Thêm bé'}
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="sm"
+                  disabled={isSavingChild}
+                  icon={isSavingChild ? <Loader2 className="w-4 h-4 animate-spin" /> : undefined}
+                >
+                  {isSavingChild ? 'Đang lưu & đẩy lên Cloud...' : editingChild ? 'Cập nhật' : 'Thêm bé'}
                 </Button>
               </div>
             </form>

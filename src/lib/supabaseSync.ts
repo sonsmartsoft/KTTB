@@ -134,7 +134,7 @@ async function loadFromCloud(): Promise<void> {
 
   const results = await Promise.allSettled(
     ALL_TABLES.map(async ({ table, storageKey }) => {
-      const { data, error } = await supabase.from(table).select('id, data');
+      const { data, error } = await supabase.from(table).select('id, data, synced_at');
       if (error) {
         console.warn(`[SupabaseSync] Load failed for ${table}:`, error.message);
         return;
@@ -149,7 +149,20 @@ async function loadFromCloud(): Promise<void> {
             const k = item?.key || rowId.replace(KV_PREFIX, '');
             if (k && item?.value !== undefined) {
               foundKvKeys.add(k);
-              localStorage.setItem(k, JSON.stringify(item.value));
+              const localMod = localStorage.getItem(`__ktt_mod_${k}`);
+              const cloudTime = new Date((row as any).synced_at || item?.updated_at || 0).getTime();
+              
+              // Nếu máy người dùng vừa sửa gần đây hơn bản trên Cloud -> Ưu tiên giữ máy người dùng và đẩy lên Cloud
+              if (localMod && new Date(localMod).getTime() > cloudTime) {
+                const rawLocal = localStorage.getItem(k);
+                if (rawLocal) {
+                  try {
+                    await upsertKvToCloud(k, JSON.parse(rawLocal));
+                  } catch {}
+                }
+              } else {
+                localStorage.setItem(k, JSON.stringify(item.value));
+              }
             }
           } else if (item) {
             normalLegendRecords.push(item);
@@ -157,6 +170,27 @@ async function loadFromCloud(): Promise<void> {
         }
         if (normalLegendRecords.length > 0) {
           localStorage.setItem(storageKey, JSON.stringify(normalLegendRecords));
+        }
+        return;
+      }
+
+      // Đối với bảng thông thường: Kiểm tra xung đột thời gian
+      const localMod = localStorage.getItem(`__ktt_mod_${storageKey}`);
+      let latestCloudTime = 0;
+      for (const row of (data as any[]) ?? []) {
+        if (row.synced_at) {
+          const t = new Date(row.synced_at).getTime();
+          if (t > latestCloudTime) latestCloudTime = t;
+        }
+      }
+
+      // Nếu local vừa cập nhật mới hơn trên Cloud: Giữ nguyên local và đồng bộ lên Cloud
+      if (localMod && new Date(localMod).getTime() > latestCloudTime) {
+        const rawLocal = localStorage.getItem(storageKey);
+        if (rawLocal) {
+          try {
+            await upsertToTable(table, JSON.parse(rawLocal));
+          } catch {}
         }
         return;
       }
