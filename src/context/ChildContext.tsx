@@ -39,7 +39,22 @@ export const ChildProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }).catch(() => {
       if (!cancelled) setIsSyncing(false);
     });
-    return () => { cancelled = true; };
+
+    const handleUpdated = () => {
+      setChildrenList(storage.getChildren());
+      const s = storage.getSettings();
+      if (s.activeChildId) {
+        setActiveChildIdState(s.activeChildId);
+      }
+    };
+    window.addEventListener('ktt-children-updated', handleUpdated);
+    window.addEventListener('ktt-cloud-synced', handleUpdated);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener('ktt-children-updated', handleUpdated);
+      window.removeEventListener('ktt-cloud-synced', handleUpdated);
+    };
   }, []);
 
   const refreshChildren = () => {

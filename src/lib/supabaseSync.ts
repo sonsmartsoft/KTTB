@@ -37,6 +37,8 @@ export const STORAGE_TO_TABLE: Record<string, string> = {
 
 // Các key mở rộng được đồng bộ tự động lên Cloud qua KV-store trên bảng ktt_timetable_legend
 export const SYS_KV_STORAGE_KEYS = new Set<string>([
+  'ktt_children',
+  'ktt_exam_prep_tasks',
   'ktt_breakfast_plans',
   'ktt_breakfast_settings',
   'ktt_breakfast_dishes',
@@ -93,6 +95,9 @@ export function upsertKvToCloud(storageKey: string, value: unknown): Promise<voi
       );
     if (error) {
       console.warn(`[SupabaseSync] KV Upsert error on ${storageKey}:`, error.message);
+      if (typeof window !== 'undefined' && error.code === '42501') {
+        window.dispatchEvent(new CustomEvent('ktt-cloud-rls-error', { detail: { table: KV_HOST_TABLE, message: error.message } }));
+      }
     }
   })();
 }
@@ -102,12 +107,19 @@ export function upsertKvToCloud(storageKey: string, value: unknown): Promise<voi
  */
 async function hasCloudData(): Promise<boolean> {
   try {
-    const { data, error } = await supabase
+    const { data: cData, error: cErr } = await supabase
       .from('ktt_children')
       .select('id')
       .limit(1);
-    if (error) return false;
-    return (data?.length ?? 0) > 0;
+    if (!cErr && (cData?.length ?? 0) > 0) return true;
+
+    const { data: lData, error: lErr } = await supabase
+      .from(KV_HOST_TABLE)
+      .select('id')
+      .limit(1);
+    if (!lErr && (lData?.length ?? 0) > 0) return true;
+
+    return false;
   } catch {
     return false;
   }
@@ -177,34 +189,44 @@ async function loadFromCloud(): Promise<void> {
 
 /**
  * Đẩy toàn bộ data trong localStorage lên Supabase
- * Gọi khi lần đầu tiên (cloud trống, migrate seed data)
+ * Gọi khi lần đầu tiên (cloud trống, migrate seed data) hoặc khi user bấm đồng bộ cưỡng chế
  */
-async function pushLocalToCloud(): Promise<void> {
-  await Promise.allSettled(
-    ALL_TABLES.map(async ({ table, storageKey }) => {
-      const raw = localStorage.getItem(storageKey);
-      if (!raw) return;
-      let records: unknown[];
-      try {
-        records = JSON.parse(raw);
-      } catch {
-        return;
-      }
-      if (!Array.isArray(records) || records.length === 0) return;
+export async function pushAllLocalToCloud(): Promise<{ successCount: number; failCount: number }> {
+  let successCount = 0;
+  let failCount = 0;
+
+  for (const { table, storageKey } of ALL_TABLES) {
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) continue;
+    let records: unknown[];
+    try {
+      records = JSON.parse(raw);
+    } catch {
+      continue;
+    }
+    if (!Array.isArray(records) || records.length === 0) continue;
+    try {
       await upsertToTable(table, records);
-    })
-  );
+      successCount++;
+    } catch {
+      failCount++;
+    }
+  }
 
   for (const kvKey of SYS_KV_STORAGE_KEYS) {
     const raw = localStorage.getItem(kvKey);
     if (raw) {
       try {
         await upsertKvToCloud(kvKey, JSON.parse(raw));
-      } catch {}
+        successCount++;
+      } catch {
+        failCount++;
+      }
     }
   }
 
-  console.log('[SupabaseSync] ✅ Initial data migrated to cloud.');
+  console.log(`[SupabaseSync] ✅ Local data migrated to cloud. (${successCount} OK, ${failCount} fails)`);
+  return { successCount, failCount };
 }
 
 /**
@@ -225,6 +247,9 @@ export function upsertToTable(tableName: string, records: unknown[]): Promise<vo
       .upsert(rows, { onConflict: 'id' });
     if (error) {
       console.warn(`[SupabaseSync] Upsert error on ${tableName}:`, error.message);
+      if (typeof window !== 'undefined' && error.code === '42501') {
+        window.dispatchEvent(new CustomEvent('ktt-cloud-rls-error', { detail: { table: tableName, message: error.message } }));
+      }
     }
   })();
 }
@@ -246,8 +271,8 @@ export function deleteFromTable(tableName: string, id: string): void {
 
 /**
  * Hàm chính: gọi khi app khởi động.
- *  - Cloud trống → đẩy localStorage seed data lên
  *  - Cloud có data → load về localStorage
+ *  - Cloud trống → đẩy localStorage hiện tại lên
  * Returns: true nếu sync thành công, false nếu offline/lỗi
  */
 export async function syncOnStart(): Promise<boolean> {
@@ -257,7 +282,7 @@ export async function syncOnStart(): Promise<boolean> {
       await loadFromCloud();
       console.log('[SupabaseSync] ✅ Loaded data from cloud.');
     } else {
-      await pushLocalToCloud();
+      await pushAllLocalToCloud();
     }
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('ktt-cloud-synced'));

@@ -114,46 +114,38 @@ create table if not exists ktt_academic_milestones (
   synced_at timestamptz default now()
 );
 
--- ============================================================
--- Tắt RLS (Row Level Security) - app gia đình, không cần auth
--- ============================================================
-alter table ktt_children disable row level security;
-alter table ktt_timetable_templates disable row level security;
-alter table ktt_timetable_entries disable row level security;
-alter table ktt_extra_schedules disable row level security;
-alter table ktt_schedule_exceptions disable row level security;
-alter table ktt_assessment_plans disable row level security;
-alter table ktt_assessments disable row level security;
-alter table ktt_performance_targets disable row level security;
-alter table ktt_achievement_records disable row level security;
-alter table ktt_school_years disable row level security;
-alter table ktt_teachers disable row level security;
-alter table ktt_subjects disable row level security;
-alter table ktt_timetable_legend disable row level security;
-alter table ktt_session_logs disable row level security;
-alter table ktt_homework disable row level security;
-alter table ktt_daily_teacher_comments disable row level security;
-alter table ktt_tuition_payments disable row level security;
-alter table ktt_academic_milestones disable row level security;
+create table if not exists ktt_exam_prep_tasks (
+  id text primary key,
+  data jsonb not null,
+  synced_at timestamptz default now()
+);
 
 -- ============================================================
--- Cấp quyền cho anon key (publishable key)
+-- MỞ TOÀN BỘ QUYỀN ĐỌC & GHI CHO APP GIA ĐÌNH (ANON KEY)
+-- Khắc phục lỗi: "new row violates row-level security policy"
 -- ============================================================
-grant all on ktt_children to anon, authenticated;
-grant all on ktt_timetable_templates to anon, authenticated;
-grant all on ktt_timetable_entries to anon, authenticated;
-grant all on ktt_extra_schedules to anon, authenticated;
-grant all on ktt_schedule_exceptions to anon, authenticated;
-grant all on ktt_assessment_plans to anon, authenticated;
-grant all on ktt_assessments to anon, authenticated;
-grant all on ktt_performance_targets to anon, authenticated;
-grant all on ktt_achievement_records to anon, authenticated;
-grant all on ktt_school_years to anon, authenticated;
-grant all on ktt_teachers to anon, authenticated;
-grant all on ktt_subjects to anon, authenticated;
-grant all on ktt_timetable_legend to anon, authenticated;
-grant all on ktt_session_logs to anon, authenticated;
-grant all on ktt_homework to anon, authenticated;
-grant all on ktt_daily_teacher_comments to anon, authenticated;
-grant all on ktt_tuition_payments to anon, authenticated;
-grant all on ktt_academic_milestones to anon, authenticated;
+
+-- 1. Cấp quyền ALL trên schema public
+grant usage on schema public to anon, authenticated;
+grant all on all tables in schema public to anon, authenticated;
+alter default privileges in schema public grant all on tables to anon, authenticated;
+
+-- 2. Tắt RLS và tạo Policy mở hoàn toàn cho tất cả các bảng ktt_*
+do $$
+declare
+  t text;
+begin
+  for t in
+    select table_name from information_schema.tables 
+    where table_schema = 'public' and table_name like 'ktt_%'
+  loop
+    -- Tắt RLS
+    execute format('alter table %I disable row level security;', t);
+    -- Cấp quyền
+    execute format('grant all on table %I to anon, authenticated;', t);
+    -- Tạo policy mở phòng hờ Supabase ép bật RLS
+    execute format('drop policy if exists "allow_anon_all" on %I;', t);
+    execute format('create policy "allow_anon_all" on %I for all to anon using (true) with check (true);', t);
+  end loop;
+end $$;
+

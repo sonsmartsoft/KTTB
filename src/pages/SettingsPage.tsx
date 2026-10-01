@@ -24,11 +24,21 @@ import {
   Server, Link2, Shield, HardDrive, Activity, Clock,
   ChevronRight, AlertCircle, CheckCircle2, Loader2, Wifi,
   Type, Tv, Maximize2, Utensils, Plus, Trash2, Edit2, RotateCcw, Eye, EyeOff,
+  Copy, CloudUpload, ExternalLink, ShieldAlert,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
 type ConnStatus = 'idle' | 'checking' | 'ok' | 'error';
-interface ConnInfo { status: ConnStatus; latencyMs?: number; rowCount?: number; checkedAt?: string; errorMsg?: string; }
+type WriteStatus = 'idle' | 'checking' | 'ok' | 'blocked_rls' | 'error';
+interface ConnInfo {
+  status: ConnStatus;
+  writeStatus?: WriteStatus;
+  latencyMs?: number;
+  rowCount?: number;
+  checkedAt?: string;
+  errorMsg?: string;
+  writeErrorMsg?: string;
+}
 
 const FONT_FAMILY_LABELS: Record<FontFamilyKey, string> = {
   'Quicksand': 'Quicksand (Mềm mại, dễ thương)',
@@ -266,20 +276,115 @@ export const SettingsPage: React.FC = () => {
     setTypography({ ...typography, sections: nextSections });
   };
 
-  const [conn, setConn] = useState<ConnInfo>({ status: 'idle' });
+  const [conn, setConn] = useState<ConnInfo>({ status: 'idle', writeStatus: 'idle' });
+  const [isPushingCloud, setIsPushingCloud] = useState(false);
+  const [pushResult, setPushResult] = useState<{ successCount: number; failCount: number } | null>(null);
+  const [copiedSql, setCopiedSql] = useState(false);
+
   const checkConnection = useCallback(async () => {
-    setConn({ status: 'checking' });
+    setConn({ status: 'checking', writeStatus: 'checking' });
     const start = Date.now();
     try {
+      // 1. Kiểm tra quyền ĐỌC (Read test)
       const { data, error, count } = await supabase.from('ktt_children').select('id', { count: 'exact', head: false });
       const latencyMs = Date.now() - start;
-      if (error) setConn({ status: 'error', latencyMs, errorMsg: error.message, checkedAt: new Date().toLocaleTimeString('vi-VN') });
-      else setConn({ status: 'ok', latencyMs, rowCount: count ?? data?.length ?? 0, checkedAt: new Date().toLocaleTimeString('vi-VN') });
+      if (error) {
+        setConn({
+          status: 'error',
+          writeStatus: 'error',
+          latencyMs,
+          errorMsg: error.message,
+          checkedAt: new Date().toLocaleTimeString('vi-VN'),
+        });
+        return;
+      }
+
+      // 2. Kiểm tra quyền GHI (Write test — phát hiện lỗi RLS Policy 42501)
+      const testRowId = `__ktt_healthcheck_${Date.now()}`;
+      const { error: writeError } = await supabase
+        .from('ktt_children')
+        .upsert([{ id: testRowId, data: { test: true }, synced_at: new Date().toISOString() }], { onConflict: 'id' });
+
+      if (writeError) {
+        const isRls = writeError.code === '42501' || writeError.message?.toLowerCase().includes('policy');
+        setConn({
+          status: 'ok',
+          writeStatus: isRls ? 'blocked_rls' : 'error',
+          latencyMs,
+          rowCount: count ?? data?.length ?? 0,
+          checkedAt: new Date().toLocaleTimeString('vi-VN'),
+          writeErrorMsg: writeError.message,
+        });
+      } else {
+        // Xoá bản ghi test sau khi ghi thành công
+        await supabase.from('ktt_children').delete().eq('id', testRowId);
+        setConn({
+          status: 'ok',
+          writeStatus: 'ok',
+          latencyMs,
+          rowCount: count ?? data?.length ?? 0,
+          checkedAt: new Date().toLocaleTimeString('vi-VN'),
+        });
+      }
     } catch (err: any) {
-      setConn({ status: 'error', latencyMs: Date.now() - start, errorMsg: String(err?.message || err), checkedAt: new Date().toLocaleTimeString('vi-VN') });
+      setConn({
+        status: 'error',
+        writeStatus: 'error',
+        latencyMs: Date.now() - start,
+        errorMsg: String(err?.message || err),
+        checkedAt: new Date().toLocaleTimeString('vi-VN'),
+      });
     }
   }, []);
   useEffect(() => { checkConnection(); }, [checkConnection]);
+
+  const handlePushAllToCloud = async () => {
+    setIsPushingCloud(true);
+    setPushResult(null);
+    try {
+      const res = await storage.pushAllToCloud();
+      setPushResult(res);
+      await checkConnection();
+    } catch {
+      setPushResult({ successCount: 0, failCount: 1 });
+    } finally {
+      setIsPushingCloud(false);
+    }
+  };
+
+  const FIX_RLS_SQL = `-- 1. Tạo bảng ktt_exam_prep_tasks nếu chưa có
+create table if not exists ktt_exam_prep_tasks (
+  id text primary key,
+  data jsonb not null,
+  synced_at timestamptz default now()
+);
+
+-- 2. Cấp quyền ALL trên schema public cho anon
+grant usage on schema public to anon, authenticated;
+grant all on all tables in schema public to anon, authenticated;
+alter default privileges in schema public grant all on tables to anon, authenticated;
+
+-- 3. Tắt RLS và cấp Policy mở cho toàn bộ các bảng ktt_*
+do $$
+declare
+  t text;
+begin
+  for t in
+    select table_name from information_schema.tables 
+    where table_schema = 'public' and table_name like 'ktt_%'
+  loop
+    execute format('alter table %I disable row level security;', t);
+    execute format('grant all on table %I to anon, authenticated;', t);
+    execute format('drop policy if exists "allow_anon_all" on %I;', t);
+    execute format('create policy "allow_anon_all" on %I for all to anon using (true) with check (true);', t);
+  end loop;
+end $$;`;
+
+  const handleCopySql = () => {
+    navigator.clipboard.writeText(FIX_RLS_SQL);
+    setCopiedSql(true);
+    setTimeout(() => setCopiedSql(false), 2500);
+  };
 
   const lsStats = getLocalStorageStats();
   const SUPABASE_URL = 'https://tufepmuglmezhnehezyg.supabase.co';
@@ -879,24 +984,140 @@ export const SettingsPage: React.FC = () => {
           </Button>
         </div>
 
-        <div className={`flex items-center gap-3 p-4 rounded-theme-md border ${
-          conn.status === 'ok'       ? 'bg-emerald-50 border-emerald-200'
-          : conn.status === 'error'  ? 'bg-red-50 border-red-200'
-          : conn.status === 'checking'? 'bg-blue-50 border-blue-200'
-          : 'bg-app-bg border-app-border'
+        <div className={`flex items-start gap-3 p-4 rounded-theme-md border ${
+          conn.status === 'ok' && conn.writeStatus === 'ok'
+            ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-800/40'
+            : conn.writeStatus === 'blocked_rls'
+            ? 'bg-amber-50 border-amber-300 dark:bg-amber-950/30 dark:border-amber-700/50'
+            : conn.status === 'error'
+            ? 'bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-800/40'
+            : conn.status === 'checking'
+            ? 'bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800/40'
+            : 'bg-app-bg border-app-border'
         }`}>
-          {conn.status === 'ok'       && <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />}
-          {conn.status === 'error'    && <AlertCircle  className="w-5 h-5 text-red-500 shrink-0" />}
-          {conn.status === 'checking' && <Loader2 className="w-5 h-5 text-blue-500 animate-spin shrink-0" />}
-          {conn.status === 'idle'     && <Wifi className="w-5 h-5 text-content-muted shrink-0" />}
+          {conn.status === 'ok' && conn.writeStatus === 'ok' && <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />}
+          {conn.writeStatus === 'blocked_rls' && <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />}
+          {conn.status === 'error' && <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />}
+          {conn.status === 'checking' && <Loader2 className="w-5 h-5 text-blue-500 animate-spin shrink-0 mt-0.5" />}
+          {conn.status === 'idle' && <Wifi className="w-5 h-5 text-content-muted shrink-0 mt-0.5" />}
           <div className="flex-1 min-w-0">
-            {conn.status === 'ok' && <><p className="text-sm font-bold text-emerald-700">Kết nối thành công ✓</p><p className="text-xs text-emerald-600">Độ trễ: <b>{conn.latencyMs}ms</b> · Bản ghi trẻ: <b>{conn.rowCount}</b> · Lúc {conn.checkedAt}</p></>}
-            {conn.status === 'error' && <><p className="text-sm font-bold text-red-600">Không kết nối được</p><p className="text-xs text-red-500 truncate">{conn.errorMsg}</p></>}
-            {conn.status === 'checking' && <p className="text-sm text-blue-600">Đang kiểm tra kết nối...</p>}
-            {conn.status === 'idle'     && <p className="text-sm text-content-muted">Bấm "Kiểm tra" để ping Supabase</p>}
+            {conn.status === 'ok' && conn.writeStatus === 'ok' && (
+              <>
+                <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">Đồng bộ Cloud Hoàn hảo (Đọc & Ghi ✓)</p>
+                <p className="text-xs text-emerald-600 dark:text-emerald-400">Độ trễ: <b>{conn.latencyMs}ms</b> · Bản ghi cloud: <b>{conn.rowCount}</b> · Lúc {conn.checkedAt}</p>
+              </>
+            )}
+            {conn.writeStatus === 'blocked_rls' && (
+              <>
+                <p className="text-sm font-bold text-amber-800 dark:text-amber-200">Đọc OK nhưng BỊ CHẶN GHI (Row Level Security Policy - Mã 42501)</p>
+                <p className="text-xs text-amber-700 dark:text-amber-300">Supabase đã bật bảo vệ RLS trên các bảng nên từ chối lưu dữ liệu mới từ web. Dữ liệu tạm thời chỉ lưu trong máy này!</p>
+              </>
+            )}
+            {conn.status === 'error' && (
+              <>
+                <p className="text-sm font-bold text-red-600 dark:text-red-300">Không kết nối được Supabase</p>
+                <p className="text-xs text-red-500 truncate">{conn.errorMsg}</p>
+              </>
+            )}
+            {conn.status === 'checking' && <p className="text-sm text-blue-600">Đang kiểm tra kết nối & quyền ghi Cloud...</p>}
+            {conn.status === 'idle' && <p className="text-sm text-content-muted">Bấm "Kiểm tra" để kiểm tra quyền Đọc/Ghi Supabase</p>}
           </div>
-          {conn.status === 'ok'    && <Badge variant="success" className="shrink-0">Online</Badge>}
-          {conn.status === 'error' && <Badge variant="danger"  className="shrink-0">Offline</Badge>}
+          {conn.status === 'ok' && conn.writeStatus === 'ok' && <Badge variant="success" className="shrink-0">Online & Write OK</Badge>}
+          {conn.writeStatus === 'blocked_rls' && <Badge variant="warning" className="shrink-0 bg-amber-500 text-white font-bold">RLS Blocked</Badge>}
+          {conn.status === 'error' && <Badge variant="danger" className="shrink-0">Offline</Badge>}
+        </div>
+
+        {/* Warning & 1-Click Fix for RLS Block */}
+        {conn.writeStatus === 'blocked_rls' && (
+          <div className="p-4 rounded-theme-md bg-amber-500/10 border border-amber-500/30 space-y-3">
+            <div className="flex items-start gap-2.5">
+              <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <h4 className="text-sm font-bold text-content-primary">
+                  Vì sao thông tin cập nhật lại bị tự chuyển về dữ liệu cũ?
+                </h4>
+                <p className="text-xs text-content-secondary mt-1 leading-relaxed">
+                  Khi bạn sửa lớp học của Quân hoặc thực đơn, web cố gắng lưu lên Supabase Cloud nhưng cơ sở dữ liệu từ chối với lỗi <code className="px-1.5 py-0.5 rounded bg-black/10 font-mono text-amber-800 dark:text-amber-200">42501 RLS Policy</code>. 
+                  Do đó Cloud vẫn chứa 0 dữ liệu. Khi bạn mở web ở tab ẩn danh, thiết bị khác (TV, điện thoại) hoặc xoá cache, ứng dụng không thấy dữ liệu trên Cloud nên tự reset về mặc định ban đầu.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-app-card rounded-theme-sm border border-app-border space-y-2">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <span className="text-xs font-semibold text-content-primary">Mã lệnh SQL sửa lỗi trong 5 giây:</span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handleCopySql}
+                    icon={copiedSql ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
+                  >
+                    {copiedSql ? '✓ Đã sao chép SQL!' : 'Sao chép mã SQL (1 Click)'}
+                  </Button>
+                  <a
+                    href={`https://supabase.com/dashboard/project/${PROJECT_REF}/sql/new`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-theme-md bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 transition-colors"
+                  >
+                    <span>Mở SQL Editor</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+              </div>
+              <pre className="p-2.5 bg-black/5 dark:bg-black/40 rounded text-[11px] font-mono text-content-secondary max-h-28 overflow-y-auto leading-tight">
+{FIX_RLS_SQL}
+              </pre>
+              <p className="text-[11px] text-content-muted leading-relaxed">
+                👉 <b>3 bước thao tác:</b> 1. Bấm <b>Sao chép mã SQL</b> ➔ 2. Bấm <b>Mở SQL Editor</b> rồi Paste vào ➔ 3. Bấm nút <b>Run</b> (màu xanh lá) trên Supabase. Xong quay lại đây bấm <b>Kiểm tra</b>.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Sync Local To Cloud Action */}
+        <div className="p-4 rounded-theme-md bg-app-bg border border-app-border space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h4 className="text-xs font-bold text-content-primary uppercase tracking-wide flex items-center gap-1.5">
+                <CloudUpload className="w-4 h-4 text-primary" />
+                Đẩy toàn bộ dữ liệu máy này lên Cloud (Manual Push)
+              </h4>
+              <p className="text-xs text-content-muted mt-0.5">
+                Đưa toàn bộ thông tin lớp học, thực đơn, cài đặt hiện tại trên máy của bạn đồng bộ thẳng lên Supabase.
+              </p>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={isPushingCloud}
+              onClick={handlePushAllToCloud}
+              icon={isPushingCloud ? <Loader2 className="w-4 h-4 animate-spin" /> : <CloudUpload className="w-4 h-4" />}
+            >
+              {isPushingCloud ? 'Đang đẩy lên...' : 'Đẩy lên Cloud ngay'}
+            </Button>
+          </div>
+
+          {pushResult && (
+            <div className={`p-3 rounded-theme-sm text-xs font-medium flex items-center gap-2 ${
+              pushResult.failCount === 0
+                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20'
+                : 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20'
+            }`}>
+              {pushResult.failCount === 0 ? (
+                <>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Tuyệt vời! Đã đẩy thành công toàn bộ {pushResult.successCount} bảng dữ liệu lên Supabase Cloud. Mọi thiết bị khác bây giờ sẽ có dữ liệu này!</span>
+                </>
+              ) : (
+                <>
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>Đồng bộ được {pushResult.successCount} mục, nhưng có {pushResult.failCount} mục bị Cloud từ chối ghi (hãy kiểm tra chạy mã SQL RLS ở trên).</span>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

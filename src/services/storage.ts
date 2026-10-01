@@ -33,6 +33,7 @@ import {
   upsertToTable,
   upsertKvToCloud,
   syncOnStart,
+  pushAllLocalToCloud,
   STORAGE_TO_TABLE,
   SYS_KV_STORAGE_KEYS,
 } from '@/lib/supabaseSync';
@@ -137,6 +138,11 @@ export const storage = {
     return syncOnStart();
   },
 
+  // Push all local data to Supabase cloud
+  async pushAllToCloud(): Promise<{ successCount: number; failCount: number }> {
+    return pushAllLocalToCloud();
+  },
+
   resetToSeed() {
     setItem(KEYS.CHILDREN, SEED_CHILDREN);
     setItem(KEYS.TEMPLATES, SEED_TIMETABLE_TEMPLATES);
@@ -169,6 +175,9 @@ export const storage = {
   },
   saveChildren(children: Child[]): void {
     setItem(KEYS.CHILDREN, children);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ktt-children-updated'));
+    }
   },
   getChildById(id: string): Child | undefined {
     return this.getChildren().find((c) => c.id === id);
