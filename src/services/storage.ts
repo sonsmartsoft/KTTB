@@ -32,6 +32,7 @@ import {
 import {
   upsertToTable,
   upsertKvToCloud,
+  deleteFromTable,
   syncOnStart,
   pushAllLocalToCloud,
   STORAGE_TO_TABLE,
@@ -213,6 +214,11 @@ export const storage = {
     }
     return syncSingleKeyToCloud(KEYS.CHILDREN, children);
   },
+  deleteChild(id: string): void {
+    const list = this.getChildren().filter((c) => c.id !== id);
+    this.saveChildren(list);
+    deleteFromTable('ktt_children', id);
+  },
   getChildById(id: string): Child | undefined {
     return this.getChildren().find((c) => c.id === id);
   },
@@ -281,8 +287,13 @@ export const storage = {
   deleteTemplate(id: string): void {
     const templates = this.getTemplates().filter((t) => t.id !== id);
     this.saveTemplates(templates);
-    const entries = this.getEntries().filter((e) => e.timetable_id !== id);
-    this.saveEntries(entries);
+    deleteFromTable('ktt_timetable_templates', id);
+
+    // Xoá toàn bộ các tiết học thuộc timetable này trên cả Local và Cloud
+    const removedEntries = this.getEntries().filter((e) => e.timetable_id === id);
+    removedEntries.forEach((e) => deleteFromTable('ktt_timetable_entries', e.id));
+    const remainingEntries = this.getEntries().filter((e) => e.timetable_id !== id);
+    this.saveEntries(remainingEntries);
   },
 
   // Timetable Entries
@@ -338,6 +349,7 @@ export const storage = {
   deleteExtraSchedule(id: string): void {
     const list = this.getExtraSchedules().filter((e) => e.id !== id);
     this.saveExtraSchedules(list);
+    deleteFromTable('ktt_extra_schedules', id);
   },
 
   // Schedule Exceptions
@@ -359,6 +371,7 @@ export const storage = {
   deleteException(id: string): void {
     const list = this.getExceptions().filter((e) => e.id !== id);
     this.saveExceptions(list);
+    deleteFromTable('ktt_schedule_exceptions', id);
   },
 
   // Assessment Plans
@@ -380,6 +393,11 @@ export const storage = {
     const list = this.getAssessments();
     this.saveAssessments([assessment, ...list]);
   },
+  deleteAssessment(id: string): void {
+    const list = this.getAssessments().filter((a) => a.id !== id);
+    this.saveAssessments(list);
+    deleteFromTable('ktt_assessments', id);
+  },
 
   // Targets
   getTargets(): PerformanceTarget[] {
@@ -391,6 +409,11 @@ export const storage = {
   updateTarget(id: string, updates: Partial<PerformanceTarget>): void {
     const list = this.getTargets().map((t) => (t.id === id ? { ...t, ...updates } : t));
     this.saveTargets(list);
+  },
+  deleteTarget(id: string): void {
+    const list = this.getTargets().filter((t) => t.id !== id);
+    this.saveTargets(list);
+    deleteFromTable('ktt_performance_targets', id);
   },
 
   // Achievements
@@ -412,6 +435,7 @@ export const storage = {
   deleteAchievement(id: string): void {
     const list = this.getAchievements().filter((a) => a.id !== id);
     this.saveAchievements(list);
+    deleteFromTable('ktt_achievement_records', id);
   },
 
   // Settings
@@ -490,6 +514,7 @@ export const storage = {
   deleteTeacher(id: string): void {
     const list = this.getTeachers().filter((t) => t.id !== id);
     this.saveTeachers(list);
+    deleteFromTable('ktt_teachers', id);
   },
 
   // Subjects (Cấu hình danh mục môn học)
@@ -523,6 +548,7 @@ export const storage = {
   deleteSubject(id: string): void {
     const list = this.getSubjects().filter((s) => s.id !== id);
     this.saveSubjects(list);
+    deleteFromTable('ktt_subjects', id);
   },
   renameSubjectAcrossTimetables(oldName: string, newName: string): void {
     if (!oldName || !newName || oldName === newName) return;
@@ -559,6 +585,7 @@ export const storage = {
   deleteTimetableLegendItem(id: string): void {
     const list = this.getTimetableLegend().filter((item) => item.id !== id);
     this.saveTimetableLegend(list);
+    deleteFromTable('ktt_timetable_legend', id);
   },
 
   // Extra Class Session Logs (Nhật ký từng buổi & Đánh giá)
@@ -584,6 +611,7 @@ export const storage = {
   deleteSessionLog(id: string): void {
     const list = this.getSessionLogs().filter((l) => l.id !== id);
     this.saveSessionLogs(list);
+    deleteFromTable('ktt_session_logs', id);
   },
 
   // Homework Tasks (Sổ dặn dò & Bài tập về nhà)
@@ -611,6 +639,7 @@ export const storage = {
   deleteHomeworkTask(id: string): void {
     const list = this.getHomeworkTasks().filter((t) => t.id !== id);
     this.saveHomeworkTasks(list);
+    deleteFromTable('ktt_homework', id);
   },
 
   // Daily Teacher Comments (Sổ liên lạc & Lời nhắn Thầy Cô hàng ngày)
@@ -643,6 +672,7 @@ export const storage = {
   deleteDailyComment(id: string): void {
     const list = this.getDailyComments().filter((c) => c.id !== id);
     this.saveDailyComments(list);
+    deleteFromTable('ktt_daily_teacher_comments', id);
   },
 
   // Monthly Tuition Payments (Theo dõi đóng học phí hàng tháng)
@@ -691,6 +721,7 @@ export const storage = {
   deleteMilestone(id: string): void {
     const list = this.getMilestones().filter((m) => m.id !== id);
     this.saveMilestones(list);
+    deleteFromTable('ktt_academic_milestones', id);
   },
 
   // Exam Prep Checklist (Kế hoạch ôn tập nước rút theo cột mốc kỳ thi)
@@ -731,6 +762,7 @@ export const storage = {
   deleteExamPrepTask(id: string): void {
     const list = this.getExamPrepTasks().filter((t) => t.id !== id);
     this.saveExamPrepTasks(list);
+    deleteFromTable('ktt_exam_prep_tasks', id);
   },
 
   // ================== BỮA SÁNG ==================
